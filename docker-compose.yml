@@ -1,0 +1,15 @@
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: jdg-ksiegowy
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
+      - ./HEARTBEAT.md:/home/node/.openclaw/workspace/HEARTBEAT.md:ro
+      - ./skills:/home/node/.openclaw/workspace/skills:ro
+      - ./src:/home/node/.openclaw/workspace/src:ro
+      - ./data:/home/node/.openclaw/workspace/data
+    ports:
+      - "18789:18789"   # OpenClaw Web UI

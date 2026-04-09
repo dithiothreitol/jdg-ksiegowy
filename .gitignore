@@ -1,0 +1,34 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+*.db
+*.sqlite
+data/*.db
+data/*.csv
+data/faktury/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated invoices
+*.docx
+*.xml
+!schemas/*.xsd
+!templates/*.docx
+
+# Secrets
+credentials.json
+token.json
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db

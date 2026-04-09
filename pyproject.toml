@@ -1,0 +1,38 @@
+[project]
+name = "jdg-ksiegowy"
+version = "0.2.0"
+description = "AI Asystent Ksiegowy JDG — OpenClaw AgentSkills dla faktur, KSeF, JPK, podatkow"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "httpx>=0.28",
+    "ksef2>=0.11",
+    "python-docx>=1.1",
+    "lxml>=5.3",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.15",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jdg_ksiegowy"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
