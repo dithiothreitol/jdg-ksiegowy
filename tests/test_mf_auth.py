@@ -24,18 +24,41 @@ def _el(root, tag: str):
     return root.find(f"{{{SIG_NS}}}{tag}")
 
 
-def test_authorization_xml_structure_pesel_variant():
+def test_authorization_xml_uses_nip_when_both_present():
+    """MF praktyka: NIP ma priorytet gdy podatnik prowadzi dzialalnosc (JDG).
+    PESEL tylko dla osob fizycznych bez dzialalnosci (gdy NIP pusty).
+    Zrodlo: jpk.info.pl/wysylka-jpk/blad-419-status/
+    """
     xml = build_authorization_xml(_auth())
     root = etree.fromstring(xml)
     assert etree.QName(root).localname == "DaneAutoryzujace"
     assert etree.QName(root).namespace == SIG_NS
-    # xs:choice: PESEL gdy podany
-    assert _el(root, "PESEL").text == "44051401458"
-    assert _el(root, "NIP") is None
+    # xs:choice: NIP gdy oba podane (JDG)
+    assert _el(root, "NIP").text == "5260250274"
+    assert _el(root, "PESEL") is None
     assert _el(root, "ImiePierwsze").text == "Jan"
     assert _el(root, "Nazwisko").text == "Kowalski"
     assert _el(root, "DataUrodzenia").text == "1990-01-01"
     assert _el(root, "Kwota").text == "125000.50"
+
+
+def test_authorization_xml_uses_pesel_only_when_nip_empty():
+    """PESEL uzywany tylko gdy NIP jest pusty (osoba fiz. bez dzialalnosci)."""
+    from datetime import date
+    from decimal import Decimal
+    from jdg_ksiegowy.mf_gateway.auth import AuthorizationData
+    auth = AuthorizationData(
+        nip="",
+        pesel="44051401458",
+        first_name="Jan",
+        last_name="Kowalski",
+        birth_date=date(1990, 1, 1),
+        prior_year_income=Decimal("100.00"),
+    )
+    xml = build_authorization_xml(auth)
+    root = etree.fromstring(xml)
+    assert _el(root, "PESEL").text == "44051401458"
+    assert _el(root, "NIP") is None
 
 
 def test_authorization_xml_structure_nip_variant():

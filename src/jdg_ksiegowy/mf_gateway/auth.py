@@ -66,11 +66,16 @@ def build_authorization_xml(auth: AuthorizationData) -> bytes:
         f"{{{SIG_NS}}}DaneAutoryzujace", nsmap={None: SIG_NS},
     )
 
-    # xs:choice: NIP | PESEL (dokladnie jedno)
-    if auth.pesel:
+    # xs:choice: NIP | PESEL — zgodnie z praktyka MF:
+    # NIP dla osob prowadzacych dzialalnosc (JDG), PESEL tylko gdy brak NIP.
+    # Wczesniej kod uzywal PESEL -> status 419.
+    # Zrodlo: https://jpk.info.pl/wysylka-jpk/blad-419-status/
+    if auth.nip:
+        etree.SubElement(root, f"{{{SIG_NS}}}NIP").text = auth.nip
+    elif auth.pesel:
         etree.SubElement(root, f"{{{SIG_NS}}}PESEL").text = auth.pesel
     else:
-        etree.SubElement(root, f"{{{SIG_NS}}}NIP").text = auth.nip
+        raise ValueError("AuthorizationData: wymagany NIP lub PESEL")
 
     etree.SubElement(root, f"{{{SIG_NS}}}ImiePierwsze").text = auth.first_name
     etree.SubElement(root, f"{{{SIG_NS}}}Nazwisko").text = auth.last_name

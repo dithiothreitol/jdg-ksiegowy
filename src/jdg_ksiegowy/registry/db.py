@@ -153,19 +153,28 @@ def save_invoice(record: InvoiceRecord) -> InvoiceRecord:
     return record
 
 
-def get_invoices(month: int | None = None, year: int | None = None) -> list[InvoiceRecord]:
+def get_invoices(
+    month: int | None = None,
+    year: int | None = None,
+    by: str = "sale_date",
+) -> list[InvoiceRecord]:
+    """Pobierz faktury. Filtr 'by' decyduje wg ktorej daty:
+    - 'sale_date' (default, wlasciwe dla JPK_V7M — moment obowiazku VAT wg art. 19a)
+    - 'issue_date' (data wystawienia — wlasciwe dla ewidencji rocznych PIT-28)
+    """
     with get_session() as session:
         q = session.query(InvoiceRecord)
+        date_col = InvoiceRecord.sale_date if by == "sale_date" else InvoiceRecord.issue_date
         if month and year:
             if month < 12:
                 end_date = date(year, month + 1, 1)
             else:
                 end_date = date(year + 1, 1, 1)
             q = q.filter(
-                InvoiceRecord.issue_date >= date(year, month, 1),
-                InvoiceRecord.issue_date < end_date,
+                date_col >= date(year, month, 1),
+                date_col < end_date,
             )
-        return q.order_by(InvoiceRecord.issue_date.desc()).all()
+        return q.order_by(date_col.desc()).all()
 
 
 def get_next_invoice_number(month: int, year: int) -> str:

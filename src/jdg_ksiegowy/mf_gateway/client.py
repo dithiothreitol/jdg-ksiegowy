@@ -281,8 +281,19 @@ class MFGatewayClient:
         )
 
     @staticmethod
-    def save_upo(upo_base64: str, output_path: Path) -> Path:
-        """Zapisz UPO (PDF lub XML zwrocony przez MF) na dysk."""
+    def save_upo(upo_content: str, output_path: Path) -> Path:
+        """Zapisz UPO zwrocone przez MF na dysk.
+
+        MF zwraca UPO jako gotowy XML z podpisem XAdES (zweryfikowane w praktyce
+        2026-04-17). Pole nazywa sie 'Upo' w JSON odpowiedzi Status endpoint.
+        Jesli content zaczyna sie od '<?xml' — zapisz bezposrednio;
+        w innym przypadku sprobuj zdekodowac base64 (zgodnosc wsteczna).
+        """
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(base64.b64decode(upo_base64))
+        stripped = upo_content.lstrip()
+        if stripped.startswith("<?xml") or stripped.startswith("<"):
+            output_path.write_text(upo_content, encoding="utf-8")
+        else:
+            cleaned = "".join(upo_content.split())
+            output_path.write_bytes(base64.b64decode(cleaned.encode("ascii", "ignore")))
         return output_path
