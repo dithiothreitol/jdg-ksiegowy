@@ -42,6 +42,12 @@ class SellerConfig(BaseSettings):
     birth_date: str = ""  # YYYY-MM-DD
     tax_office_code: str = ""  # np. 1471 = US Warszawa-Ursynow
 
+    # ZUS — konfiguracja skladek spolecznych
+    business_start_date: str = ""  # YYYY-MM-DD; data rozpoczecia/wznowienia JDG
+    zus_social_mode: str = "auto"  # auto | start_relief | small_zus | employment | full
+    employment_gross_above_min: bool = False  # UoP z brutto >= min. wyn. -> brak spol.
+    zus_voluntary_sickness: bool = False  # dobrowolna skladka chorobowa
+
     @property
     def bank_account_raw(self) -> str:
         """Numer konta bez spacji (do XML KSeF / JPK)."""
@@ -134,9 +140,9 @@ class KSeFConfig(BaseSettings):
     @property
     def base_url(self) -> str:
         urls = {
-            "prod": "https://ksef.mf.gov.pl/api",
-            "test": "https://ksef-test.mf.gov.pl/api",
-            "demo": "https://ksef-demo.mf.gov.pl/api",
+            "prod": "https://api.ksef.mf.gov.pl/v2",
+            "test": "https://api-test.ksef.mf.gov.pl/v2",
+            "demo": "https://api-demo.ksef.mf.gov.pl/v2",
         }
         return urls[self.env]
 

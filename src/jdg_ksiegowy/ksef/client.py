@@ -1,10 +1,11 @@
-"""Klient KSeF oparty o ksef2 SDK.
+"""Klient KSeF 2.0 oparty o ksef2 SDK (>=0.11, OpenAPI 2.3.0).
 
-Wrapper upraszczajacy integracje z KSeF API 2.0.
-Obsluguje: sesje, wysylke faktur, sprawdzanie statusu, pobieranie UPO.
-
-Wymaga: pip install ksef2
-Dokumentacja ksef2: https://github.com/artpods56/ksef2
+Pipeline sesji online:
+1. Client(Environment) -> Authentication (test-cert albo token KSeF)
+2. auth.online_session(form_code=FormSchema.FA3) — SDK generuje klucze AES/RSA
+3. session.send_invoice(invoice_xml=...) -> SendInvoiceResponse.reference_number
+4. session.wait_for_invoice_ready(invoice_reference_number=ref)
+5. session.get_invoice_upo_by_reference(ref) -> UPO (bytes/dict)
 """
 
 from __future__ import annotations
@@ -23,60 +24,59 @@ class KSeFResult:
 
     success: bool
     reference_number: str | None = None
-    session_token: str | None = None
     error: str | None = None
     details: dict = field(default_factory=dict)
 
 
 class KSeFClient:
-    """Klient KSeF API zbudowany na ksef2 SDK."""
+    """Klient KSeF 2.0 API zbudowany na ksef2 SDK."""
 
     def __init__(self):
         self.env = settings.ksef.env
         self.nip = settings.ksef.nip
         self.token = settings.ksef.token
-        self._session = None
 
     async def send_invoice(self, xml_content: str) -> KSeFResult:
-        """Wyslij fakture XML do KSeF.
+        """Wyslij fakture XML FA(3) do KSeF i poczekaj na UPO.
 
-        Pipeline:
-        1. Inicjalizacja sesji (token auth)
-        2. Wyslanie faktury (base64-encoded XML)
-        3. Pobranie numeru referencyjnego KSeF
-        4. Zamkniecie sesji
+        W KSeF 2.0 UPO pobiera sie w kontekscie otwartej sesji online — dlatego
+        wysylka, oczekiwanie i pobranie UPO odbywaja sie jednym wywolaniem.
         """
         try:
-            from ksef2 import Client, Environment
+            from ksef2 import Client, Environment, FormSchema
 
             env_map = {
-                "prod": Environment.PROD,
+                "prod": Environment.PRODUCTION,
+                "production": Environment.PRODUCTION,
                 "test": Environment.TEST,
                 "demo": Environment.DEMO,
             }
 
             client = Client(env_map[self.env])
 
-            # Autentykacja tokenem
-            if self.env == "test":
+            if self.env == "test" and not self.token:
                 auth = client.authentication.with_test_certificate(nip=self.nip)
             else:
                 auth = client.authentication.with_token(
+                    ksef_token=self.token,
                     nip=self.nip,
-                    token=self.token,
                 )
 
-            # Otworz sesje i wyslij
-            with auth.online_session() as session:
-                result = session.send_invoice(invoice_xml=xml_content.encode("utf-8"))
-                ref_number = getattr(result, "element_reference_number", None) or str(result)
+            with auth.online_session(form_code=FormSchema.FA3) as session:
+                result = session.send_invoice(
+                    invoice_xml=xml_content.encode("utf-8")
+                )
+                ref = result.reference_number
 
-                logger.info("Faktura wyslana do KSeF: %s", ref_number)
+                session.wait_for_invoice_ready(invoice_reference_number=ref)
+                upo = session.get_invoice_upo_by_reference(ref)
+
+                logger.info("Faktura wyslana do KSeF: %s", ref)
 
                 return KSeFResult(
                     success=True,
-                    reference_number=ref_number,
-                    details={"env": self.env},
+                    reference_number=ref,
+                    details={"env": self.env, "upo": upo},
                 )
 
         except ImportError:
@@ -89,53 +89,10 @@ class KSeFClient:
             logger.error("Blad wysylki do KSeF: %s", e)
             return KSeFResult(success=False, error=str(e))
 
-    async def check_invoice_status(self, reference_number: str) -> KSeFResult:
-        """Sprawdz status faktury w KSeF."""
-        try:
-            from ksef2 import Client, Environment
-
-            env_map = {
-                "prod": Environment.PROD,
-                "test": Environment.TEST,
-                "demo": Environment.DEMO,
-            }
-
-            client = Client(env_map[self.env])
-            status = client.invoice.get_status(reference_number)
-
-            return KSeFResult(
-                success=True,
-                reference_number=reference_number,
-                details={"status": str(status)},
-            )
-        except Exception as e:
-            return KSeFResult(success=False, error=str(e))
-
-    async def get_upo(self, reference_number: str) -> KSeFResult:
-        """Pobierz UPO (Urzedowe Poswiadczenie Odbioru) dla faktury."""
-        try:
-            from ksef2 import Client, Environment
-
-            env_map = {
-                "prod": Environment.PROD,
-                "test": Environment.TEST,
-                "demo": Environment.DEMO,
-            }
-
-            client = Client(env_map[self.env])
-
-            auth = client.authentication.with_token(nip=self.nip, token=self.token)
-            with auth.online_session() as session:
-                upo = session.get_upo(reference_number)
-
-                return KSeFResult(
-                    success=True,
-                    reference_number=reference_number,
-                    details={"upo": str(upo)},
-                )
-        except Exception as e:
-            return KSeFResult(success=False, error=str(e))
-
     def is_configured(self) -> bool:
-        """KSeF wymaga NIP + token niezaleznie od srodowiska (test/demo/prod)."""
-        return bool(self.nip) and bool(self.token)
+        """KSeF test akceptuje test-certificate (tylko NIP). Pozostale env wymagaja tokena."""
+        if not self.nip:
+            return False
+        if self.env == "test":
+            return True
+        return bool(self.token)

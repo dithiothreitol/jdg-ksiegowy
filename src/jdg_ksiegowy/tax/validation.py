@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Oficjalne URL-e XSD MF (potwierdzone na 2026-04, za research sub-agent).
 # V7M(3) obowiazuje od 01.02.2026, EWP(4) od 01.01.2026.
 DEFAULT_XSD_URLS: dict[str, str] = {
-    "JPK_V7M_3": "https://www.podatki.gov.pl/media/qord0r0j/schemat_jpk_v7m-3-_v1-0e.xsd",
+    "JPK_V7M_3": "https://crd.gov.pl/wzor/2025/12/19/14090/schemat.xsd",
     "JPK_EWP_4": "https://www.gov.pl/attachment/67b55c59-e05c-42f0-be4c-28afcca460b6",
 }
 

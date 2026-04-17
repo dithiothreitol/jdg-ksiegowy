@@ -15,7 +15,13 @@ from pathlib import Path
 # Dodaj src/ do PYTHONPATH
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
-from jdg_ksiegowy.tax.zus import get_zus_tier
+from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.tax.zus import (
+    ZUSSocialMode,
+    get_current_social_mode,
+    get_social_contribution,
+    get_zus_tier,
+)
 from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 
 
@@ -43,6 +49,18 @@ def main():
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
+    seller = settings.seller
+    override_raw = seller.zus_social_mode
+    override = None if not override_raw or override_raw == "auto" else ZUSSocialMode(override_raw)
+    biz_start = date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+    social_mode = get_current_social_mode(
+        today=date(args.year, args.month, 1),
+        business_start=biz_start,
+        employment_above_min=seller.employment_gross_above_min,
+        override=override,
+    )
+    social_monthly = get_social_contribution(social_mode, voluntary_sickness=seller.zus_voluntary_sickness)
+
     deadlines = get_tax_deadlines(args.month, args.year)
 
     result = {
@@ -55,12 +73,15 @@ def main():
         "zus_health_monthly": str(tier.monthly_contribution),
         "zus_tier": tier.label,
         "zus_deductible_monthly": str(zus_deductible),
+        "zus_social_mode": social_mode.value,
+        "zus_social_monthly": str(social_monthly),
+        "zus_total_monthly": str(tier.monthly_contribution + social_monthly),
         "estimated_annual_revenue": str(annual),
         "deadlines": {
             "ryczalt_zus": deadlines["ryczalt"].isoformat(),
             "vat_jpk": deadlines["vat_jpk"].isoformat(),
         },
-        "total_monthly_tax": str(ryczalt + tier.monthly_contribution + vat),
+        "total_monthly_tax": str(ryczalt + tier.monthly_contribution + social_monthly + vat),
     }
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

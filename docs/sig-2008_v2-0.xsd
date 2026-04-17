@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:podp="http://e-deklaracje.mf.gov.pl/Repozytorium/Definicje/Podpis/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://e-deklaracje.mf.gov.pl/Repozytorium/Definicje/Podpis/" elementFormDefault="qualified" attributeFormDefault="unqualified" xml:lang="pl">
+	<xsd:element name="DaneAutoryzujace">
+		<xsd:annotation>
+			<xsd:documentation>Element użyty do autoryzacji deklaracji i podań składanych do systemu e-Deklaracje od 01.01.2012 r.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:choice>
+					<xsd:element name="NIP">
+						<xsd:annotation>
+							<xsd:documentation>Identyfikator podatkowy NIP</xsd:documentation>
+						</xsd:annotation>
+						<xsd:simpleType>
+							<xsd:restriction base="xsd:string">
+								<xsd:whiteSpace value="collapse"/>
+								<xsd:pattern value="[1-9]((\d[1-9])|([1-9]\d))\d{7}"/>
+							</xsd:restriction>
+						</xsd:simpleType>
+					</xsd:element>
+					<xsd:element name="PESEL">
+						<xsd:annotation>
+							<xsd:documentation>Identyfikator podatkowy numer PESEL</xsd:documentation>
+						</xsd:annotation>
+						<xsd:simpleType>
+							<xsd:restriction base="xsd:string">
+								<xsd:whiteSpace value="collapse"/>
+								<xsd:pattern value="\d{11}"/>
+							</xsd:restriction>
+						</xsd:simpleType>
+					</xsd:element>
+				</xsd:choice>
+				<xsd:element name="ImiePierwsze">
+					<xsd:annotation>
+						<xsd:documentation>Pierwsze imię</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:normalizedString">
+							<xsd:minLength value="1"/>
+							<xsd:maxLength value="30"/>
+							<xsd:whiteSpace value="collapse"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+				<xsd:element name="Nazwisko">
+					<xsd:annotation>
+						<xsd:documentation>Nazwisko</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:normalizedString">
+							<xsd:minLength value="1"/>
+							<xsd:maxLength value="81"/>
+							<xsd:whiteSpace value="collapse"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+				<xsd:element name="DataUrodzenia">
+					<xsd:annotation>
+						<xsd:documentation>Data urodzenia</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:date">
+							<xsd:minInclusive value="1900-01-01"/>
+							<xsd:whiteSpace value="collapse"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+				<xsd:element name="Kwota">
+					<xsd:annotation>
+						<xsd:documentation>Kwota przychodu wykazana w zeznaniu lub rocznym obliczeniu podatku za rok podatkowy, o dwa lata wcześniejszy niż rok, w którym jest składany dokument elektroniczny</xsd:documentation>
+					</xsd:annotation>
+					<xsd:simpleType>
+						<xsd:restriction base="xsd:decimal">
+							<xsd:totalDigits value="16"/>
+							<xsd:whiteSpace value="collapse"/>
+							<xsd:fractionDigits value="2"/>
+							<xsd:minInclusive value="0"/>
+						</xsd:restriction>
+					</xsd:simpleType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+</xsd:schema>

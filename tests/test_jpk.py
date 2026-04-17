@@ -47,7 +47,7 @@ def test_jpk_v7m_uses_v3_tns_and_variant():
     ])
     xml = generate_jpk_v7m([inv], month=4, year=2026)
     root = etree.fromstring(xml.encode("utf-8"))
-    assert TNS == "http://crd.gov.pl/wzor/2025/06/18/06181/"
+    assert TNS == "http://crd.gov.pl/wzor/2025/12/19/14090/"
     kod = root.find(f".//{_ns('KodFormularza')}")
     assert kod.get("kodSystemowy") == "JPK_V7M (3)"
     assert root.find(f".//{_ns('WariantFormularza')}").text == "3"

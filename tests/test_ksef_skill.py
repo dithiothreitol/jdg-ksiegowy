@@ -23,8 +23,11 @@ def test_submit_returns_error_for_missing_xml(monkeypatch):
 
 
 def test_submit_returns_error_when_not_configured(tmp_path, monkeypatch):
-    monkeypatch.delenv("KSEF_TOKEN", raising=False)
-    monkeypatch.delenv("KSEF_NIP", raising=False)
+    from jdg_ksiegowy.config import settings
+
+    monkeypatch.setattr(settings.ksef, "nip", "")
+    monkeypatch.setattr(settings.ksef, "token", "")
+    monkeypatch.setattr(settings.ksef, "env", "prod")
     xml_file = tmp_path / "fake.xml"
     xml_file.write_text("<Faktura/>", encoding="utf-8")
 

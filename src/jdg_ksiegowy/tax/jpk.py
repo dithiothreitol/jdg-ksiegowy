@@ -19,7 +19,7 @@ from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.models import Invoice
 
-TNS = "http://crd.gov.pl/wzor/2025/06/18/06181/"
+TNS = "http://crd.gov.pl/wzor/2025/12/19/14090/"  # CRWDE 19.12.2025, obowiązuje od 01.02.2026
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/09/13/eD/DefinicjeTypy/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
 

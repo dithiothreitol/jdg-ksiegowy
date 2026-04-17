@@ -26,7 +26,12 @@ from decimal import Decimal
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.tax.zus import get_zus_tier
+from jdg_ksiegowy.tax.zus import (
+    ZUSSocialMode,
+    get_current_social_mode,
+    get_social_contribution,
+    get_zus_tier,
+)
 
 KEDU_NS = "http://www.zus.pl/kedu_v5"
 NSMAP = {None: KEDU_NS}
@@ -39,7 +44,9 @@ class DRARequest:
     month: int
     year: int
     annual_prior_income: Decimal  # przychód z poprzedniego roku → próg zdrowotny
-    include_social: bool = False  # czy naliczać składki społeczne (preferencyjne / pełne)
+    include_social: bool = False  # czy naliczać składki społeczne (wg trybu z .env)
+    social_mode: ZUSSocialMode | None = None  # override trybu społecznych
+    voluntary_sickness: bool = False  # dobrowolna chorobowa
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,13 @@ class DRAResult:
 
 def _ns(tag: str) -> str:
     return f"{{{KEDU_NS}}}{tag}"
+
+
+def _mode_from_settings_override(raw: str) -> ZUSSocialMode | None:
+    """Zamien wartosc z .env (np. 'auto', 'full') na ZUSSocialMode lub None dla auto."""
+    if not raw or raw == "auto":
+        return None
+    return ZUSSocialMode(raw)
 
 
 def _el(parent, tag: str, text: str | None = None) -> etree._Element:
@@ -69,9 +83,20 @@ def generate_dra_xml(req: DRARequest) -> DRAResult:
     seller = settings.seller
     tier = get_zus_tier(req.annual_prior_income)
     health = tier.monthly_contribution
-    # Składki społeczne — dla JDG najczęściej Mały ZUS+ lub pełny.
-    # Tu implementacja minimalna — użytkownik określa czy doliczać i w jakiej wysokości.
-    social = Decimal("0") if not req.include_social else Decimal("1646.47")
+
+    if req.include_social:
+        override = req.social_mode or _mode_from_settings_override(seller.zus_social_mode)
+        biz_start = date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+        mode = get_current_social_mode(
+            today=date(req.year, req.month, 1),
+            business_start=biz_start,
+            employment_above_min=seller.employment_gross_above_min,
+            override=override,
+        )
+        sickness = req.voluntary_sickness or seller.zus_voluntary_sickness
+        social = get_social_contribution(mode, voluntary_sickness=sickness)
+    else:
+        social = Decimal("0")
     total = health + social
 
     root = etree.Element(_ns("KEDU"), nsmap=NSMAP)

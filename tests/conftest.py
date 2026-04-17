@@ -16,3 +16,8 @@ os.environ.setdefault("SELLER_EMAIL", "test@example.com")
 os.environ.setdefault("MF_ENV", "test")
 os.environ.setdefault("MF_PESEL", "")
 os.environ.setdefault("MF_PRIOR_INCOME", "0")
+# ZUS — ustaw deterministycznie, aby testy nie zalezaly od uzytkownika .env
+os.environ.setdefault("SELLER_BUSINESS_START_DATE", "")
+os.environ.setdefault("SELLER_ZUS_SOCIAL_MODE", "auto")
+os.environ.setdefault("SELLER_EMPLOYMENT_GROSS_ABOVE_MIN", "false")
+os.environ.setdefault("SELLER_ZUS_VOLUNTARY_SICKNESS", "false")

@@ -23,7 +23,7 @@ def test_returns_error_for_missing_xml(monkeypatch):
 def test_dry_run_works_without_cert(monkeypatch, tmp_path):
     monkeypatch.setenv("MF_PESEL", "44051401458")
     monkeypatch.setenv("MF_PRIOR_INCOME", "100000")
-    monkeypatch.delenv("MF_CERT_PATH", raising=False)
+    monkeypatch.setenv("MF_CERT_PATH", "")
     xml_file = tmp_path / "JPK.xml"
     xml_file.write_text("<JPK/>", encoding="utf-8")
 
@@ -42,7 +42,7 @@ def test_dry_run_works_without_cert(monkeypatch, tmp_path):
 def test_real_submit_fails_without_cert(monkeypatch, tmp_path):
     monkeypatch.setenv("MF_PESEL", "44051401458")
     monkeypatch.setenv("MF_PRIOR_INCOME", "100000")
-    monkeypatch.delenv("MF_CERT_PATH", raising=False)
+    monkeypatch.setenv("MF_CERT_PATH", "")
     xml_file = tmp_path / "JPK.xml"
     xml_file.write_text("<JPK/>", encoding="utf-8")
 
@@ -56,7 +56,7 @@ def test_real_submit_fails_without_cert(monkeypatch, tmp_path):
 
 
 def test_submit_requires_pesel(monkeypatch, tmp_path):
-    monkeypatch.delenv("MF_PESEL", raising=False)
+    monkeypatch.setenv("MF_PESEL", "")
     xml_file = tmp_path / "JPK.xml"
     xml_file.write_text("<JPK/>", encoding="utf-8")
 

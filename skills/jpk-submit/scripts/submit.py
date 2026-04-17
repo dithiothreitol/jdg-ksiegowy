@@ -67,7 +67,7 @@ async def run_submit(xml_path: Path, dry_run: bool) -> dict:
     client = MFGatewayClient()
     xml = xml_path.read_text(encoding="utf-8")
     inner = xml_path.name
-    result = await client.submit(xml, auth, inner_filename=inner)
+    result = await client.submit(xml, auth, xml_filename=inner)
 
     out = {
         "success": result.success,
