@@ -13,9 +13,13 @@ data/*.db
 data/*.csv
 data/faktury/
 
-# IDE
+# IDE / Claude Code
 .vscode/
 .idea/
+.claude/settings.json
+.claude/settings.local.json
+.coverage
+htmlcov/
 
 # Generated invoices
 *.docx

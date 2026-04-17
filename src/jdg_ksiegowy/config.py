@@ -22,11 +22,14 @@ class SellerConfig(BaseSettings):
         extra="ignore",
     )
 
-    name: str  # wymagane — nazwa firmy
-    nip: str  # wymagane
-    address: str  # wymagane
-    bank_account: str  # wymagane (z spacjami: "42 1140 ...")
-    bank_name: str  # wymagane
+    # Wszystkie pola maja domyslne puste wartosci — import settings bez .env
+    # nie crashuje. Walidacja obecnosci zachodzi w jdg_ksiegowy.doctor oraz
+    # w poszczegolnych modulach (np. JPK wymaga tax_office_code/birth_date).
+    name: str = ""
+    nip: str = ""
+    address: str = ""
+    bank_account: str = ""
+    bank_name: str = ""
     email: str = ""  # email kontaktowy (wymagany dla JPK)
     tax_form: str = "ryczalt"  # ryczalt | zasady_ogolne | liniowy
     ryczalt_rate: Decimal = Decimal("12")  # stawka ryczaltu (%)
