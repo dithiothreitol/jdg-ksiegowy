@@ -6,5 +6,24 @@ Na ryczalcie koszty NIE pomniejszaja podatku, ale:
 """
 
 from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
+from jdg_ksiegowy.expenses.ocr import (
+    ClaudeOCR,
+    ExpenseOCR,
+    ExtractedExpense,
+    FallbackOCR,
+    OCRError,
+    OllamaOCR,
+    build_default_ocr,
+)
 
-__all__ = ["Expense", "ExpenseCategory"]
+__all__ = [
+    "ClaudeOCR",
+    "Expense",
+    "ExpenseCategory",
+    "ExpenseOCR",
+    "ExtractedExpense",
+    "FallbackOCR",
+    "OCRError",
+    "OllamaOCR",
+    "build_default_ocr",
+]

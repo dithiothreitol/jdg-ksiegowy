@@ -14,6 +14,9 @@ dependencies = [
     "pydantic-settings>=2.7",
     "sqlalchemy>=2.0",
     "cryptography>=46.0",
+    "anthropic>=0.96",
+    "pillow>=12.0",
+    "pypdf>=6.0",
 ]
 
 [project.optional-dependencies]

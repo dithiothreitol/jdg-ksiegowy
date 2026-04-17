@@ -1,6 +1,6 @@
 ---
 name: expense
-description: Dodaje fakturę zakupu (koszt) do rejestru SQLite — zapisuje sprzedawcę, NIP, kwoty, kategorię, datę wpływu. Na ryczałcie koszty NIE pomniejszają podatku, ale VAT naliczony idzie do JPK_V7M jako odliczalny (jeśli jesteś VAT-owcem). Użyj gdy user mówi "dodaj fakturę zakupu", "zarejestruj koszt", "wprowadź wydatek", "kupiłem laptopa za...", "fakturę za hosting/SaaS/internet/paliwo", "dorzuć fakturę kosztową", lub gdy user przesyła plik faktury.
+description: Dodaje fakturę zakupu (koszt) do rejestru SQLite — zapisuje sprzedawcę, NIP, kwoty, kategorię, datę wpływu. Obsługuje wprowadzanie ręczne ORAZ OCR z pliku (PDF/JPG/PNG) przez lokalny Pixtral 12B z fallbackiem na Claude Haiku 4.5. Na ryczałcie koszty NIE pomniejszają podatku, ale VAT naliczony idzie do JPK_V7M jako odliczalny. Użyj gdy user mówi "dodaj fakturę zakupu", "zarejestruj koszt", "wprowadź wydatek", "kupiłem laptopa za...", "fakturę za hosting/SaaS/internet/paliwo", "dorzuć fakturę kosztową", "zeskanuj fakturę", "wczytaj PDF-a z fakturą", lub gdy user przesyła plik faktury.
 ---
 
 # Dodawanie faktury zakupu (koszt)
@@ -42,6 +42,26 @@ python3 skills/expense/scripts/add.py \
 ```
 
 Zwraca JSON z `id` rekordu, datami i statusem `saved`.
+
+## OCR z pliku (PDF/JPG/PNG)
+
+Zamiast przepisywać dane, user może podać plik faktury:
+
+```bash
+# Podglad (preview, bez zapisu):
+python3 skills/expense/scripts/scan.py --file faktura.pdf
+
+# Zapis od razu:
+python3 skills/expense/scripts/scan.py --file faktura.pdf --save
+```
+
+**Flow:**
+1. Bez `--save` skrypt zwraca JSON z wyciągniętymi polami + `source` (`ollama` | `claude`).
+2. Pokaż userowi preview i spytaj o akceptację/poprawki.
+3. Po akceptacji odpal ten sam skrypt z `--save` lub `skills/expense/scripts/add.py` z poprawionymi polami.
+
+Backend domyślny: **Pixtral 12B** przez Ollama (`http://localhost:11434`). Przy błędzie/timeout → fallback na **Claude Haiku 4.5** (wymaga `ANTHROPIC_API_KEY`).
+Konfiguracja przez `OCR_PROVIDER` (`auto` | `ollama` | `claude`) w `.env`.
 
 ## Listowanie
 

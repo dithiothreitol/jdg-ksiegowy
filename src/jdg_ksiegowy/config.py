@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -42,6 +43,46 @@ class SellerConfig(BaseSettings):
     def bank_account_raw(self) -> str:
         """Numer konta bez spacji (do XML KSeF / JPK)."""
         return self.bank_account.replace(" ", "")
+
+
+class SMTPConfig(BaseSettings):
+    """Konfiguracja SMTP do wysylki faktur emailem."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="SMTP_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    host: str = ""
+    port: int = 587  # 465 dla SSL, 587 dla STARTTLS
+    username: str = ""
+    password: str = ""
+    from_addr: str = Field(default="", alias="SMTP_FROM")  # jesli pusty, uzywa username
+    use_ssl: bool = False  # True dla portu 465, False dla 587 (STARTTLS)
+    timeout: float = 30.0
+
+    def is_configured(self) -> bool:
+        return bool(self.host and self.username and self.password)
+
+
+class OCRConfig(BaseSettings):
+    """Konfiguracja OCR faktur zakupu (Pixtral lokalny + Claude API fallback)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="OCR_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    provider: str = "auto"  # auto | ollama | claude
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "pixtral:12b"
+    ollama_timeout: float = 120.0  # CPU inference moze byc wolna
+    claude_model: str = "claude-haiku-4-5-20251001"
+    claude_max_tokens: int = 1024
 
 
 class MFGatewayConfig(BaseSettings):
@@ -109,6 +150,9 @@ class Settings(BaseSettings):
     seller: SellerConfig = SellerConfig()
     ksef: KSeFConfig = KSeFConfig()
     mf: MFGatewayConfig = MFGatewayConfig()
+    ocr: OCRConfig = OCRConfig()
+    smtp: SMTPConfig = SMTPConfig()
+    anthropic_api_key: str = ""
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 
