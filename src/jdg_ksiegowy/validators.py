@@ -54,6 +54,13 @@ def validate_regon(regon: str) -> bool:
     return False
 
 
+EU_COUNTRY_CODES: frozenset[str] = frozenset({
+    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
+    "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
+    "NL", "PT", "RO", "SE", "SI", "SK",
+})
+
+
 def normalize_nip(nip: str) -> str:
     """Usuń separatory, zwróć 10 cyfr lub rzuć ValueError."""
     digits = re.sub(r"[\s\-]", "", nip)

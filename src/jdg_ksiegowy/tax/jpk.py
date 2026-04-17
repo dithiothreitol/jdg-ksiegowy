@@ -25,7 +25,7 @@ XSI = "http://www.w3.org/2001/XMLSchema-instance"
 
 NSMAP = {"tns": TNS, "etd": ETD, "xsi": XSI}
 
-# Stawka VAT -> (pole podstawy, pole podatku). None dla stawek bez podatku.
+# Stawka VAT -> (pole podstawy, pole podatku). None = brak pola podatku.
 VAT_RATE_TO_K_FIELDS: dict[Decimal, tuple[str, str | None]] = {
     Decimal("23"): ("K_19", "K_20"),
     Decimal("22"): ("K_19", "K_20"),
@@ -33,6 +33,14 @@ VAT_RATE_TO_K_FIELDS: dict[Decimal, tuple[str, str | None]] = {
     Decimal("7"): ("K_17", "K_18"),
     Decimal("5"): ("K_15", "K_16"),
 }
+
+# Kody VAT które idą do K_11 (poza terytorium kraju / art. 28b)
+# zamiast do standardowych par stawek
+VAT_CODE_K11 = {"NP"}
+# Kody VAT które idą do K_13 (dostawy 0% wewnątrzwspólnotowe)
+VAT_CODE_K13 = {"0_WDT", "0"}
+# Kody VAT dla eksportu towarów K_14
+VAT_CODE_K14 = {"0_EXP"}
 
 # Pary stawek w kolejnosci wymaganej przez XSD: K_15/K_16, K_17/K_18, K_19/K_20.
 RATE_PAIRS_ORDER = [
@@ -189,7 +197,7 @@ def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
     wiersz = etree.SubElement(ewidencja, _ns("SprzedazWiersz"))
     etree.SubElement(wiersz, _ns("LpSprzedazy")).text = str(lp)
     etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = inv.buyer.country_code
-    etree.SubElement(wiersz, _ns("NrKontrahenta")).text = inv.buyer.nip
+    etree.SubElement(wiersz, _ns("NrKontrahenta")).text = inv.buyer.best_identifier()
     etree.SubElement(wiersz, _ns("NazwaKontrahenta")).text = inv.buyer.name
     etree.SubElement(wiersz, _ns("DowodSprzedazy")).text = inv.number
     etree.SubElement(wiersz, _ns("DataWystawienia")).text = inv.issue_date.isoformat()
@@ -199,37 +207,54 @@ def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
     if inv.ksef_reference:
         etree.SubElement(wiersz, _ns("NrKSeF")).text = inv.ksef_reference
     else:
-        # Faktura poza KSeF (elektroniczna albo papierowa)
         etree.SubElement(wiersz, _ns("BFK")).text = "1"
 
-    # K_10-K_14: dostawy zagraniczne/wewnatrzwspolnotowe (zawsze wymagane)
-    for f in PRE_RATE_FIELDS:
-        _add_decimal(wiersz, f, Decimal("0"))
+    # Oblicz sumy wg kodu VAT pozycji
+    k11_net = Decimal("0")  # poza terytorium (art. 28b / NP)
+    k13_net = Decimal("0")  # WDT / 0%
+    k14_net = Decimal("0")  # eksport towarów
+    domestic_buckets: dict[Decimal, tuple[Decimal, Decimal]] = {}
 
-    # Pary K_15/K_16 (5%), K_17/K_18 (8%), K_19/K_20 (23%) — w kolejnosci XSD
-    buckets = inv.totals_by_vat_rate()
-    # Walidacja stawek — odrzucamy nieobslugiwane
-    for rate in buckets:
-        if rate not in VAT_RATE_TO_K_FIELDS:
-            raise ValueError(
-                f"Faktura {inv.number}: nieobslugiwana stawka VAT {rate}% "
-                f"(dozwolone: {sorted(VAT_RATE_TO_K_FIELDS.keys())})"
-            )
+    for item in inv.items:
+        code = item.vat_code
+        net, vat_a = item.net_value, item.vat_amount
+        if code in VAT_CODE_K11:
+            k11_net += net
+        elif code in VAT_CODE_K14:
+            k14_net += net
+        elif code in VAT_CODE_K13:
+            k13_net += net
+        else:
+            if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
+                raise ValueError(
+                    f"Faktura {inv.number}: nieobslugiwana stawka VAT {item.vat_rate}% "
+                    f"(dozwolone: {sorted(VAT_RATE_TO_K_FIELDS.keys())} lub kod NP/0_WDT/0_EXP)"
+                )
+            n, v = domestic_buckets.get(item.vat_rate, (Decimal("0"), Decimal("0")))
+            domestic_buckets[item.vat_rate] = (n + net, v + vat_a)
+
+    # K_10-K_14 w kolejnosci XSD
+    _add_decimal(wiersz, "K_10", Decimal("0"))
+    _add_decimal(wiersz, "K_11", k11_net)
+    _add_decimal(wiersz, "K_12", Decimal("0"))
+    _add_decimal(wiersz, "K_13", k13_net)
+    _add_decimal(wiersz, "K_14", k14_net)
+
+    # Pary K_15/K_16 (5%), K_17/K_18 (8%), K_19/K_20 (23%)
     for rate_key, net_field, vat_field in RATE_PAIRS_ORDER:
-        # Znajdz sume netto/VAT dla grupy stawek dajacych te same pola
-        rates_matching = [r for r in buckets if VAT_RATE_TO_K_FIELDS[r][0] == net_field]
+        rates_matching = [r for r in domestic_buckets if VAT_RATE_TO_K_FIELDS[r][0] == net_field]
         if not rates_matching:
             continue
-        net_sum = sum((buckets[r][0] for r in rates_matching), Decimal("0"))
-        vat_sum = sum((buckets[r][1] for r in rates_matching), Decimal("0"))
+        net_sum = sum((domestic_buckets[r][0] for r in rates_matching), Decimal("0"))
+        vat_sum = sum((domestic_buckets[r][1] for r in rates_matching), Decimal("0"))
         _add_decimal(wiersz, net_field, net_sum)
         _add_decimal(wiersz, vat_field, vat_sum)
 
-    # K_21, K_22 (wewnatrzwspolnotowe dostawy) — zawsze wymagane
+    # K_21, K_22 (wewnatrzwspolnotowe dostawy)
     for f in MID_FIELDS:
         _add_decimal(wiersz, f, Decimal("0"))
 
-    # K_33-K_36, K_360 (korekty VAT) — zawsze wymagane
+    # K_33-K_36, K_360 (korekty VAT)
     for f in POST_RATE_FIELDS:
         _add_decimal(wiersz, f, Decimal("0"))
 
