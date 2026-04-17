@@ -13,12 +13,18 @@ from jdg_ksiegowy.ksef.client import KSeFClient
 
 
 async def submit(xml_path: str) -> dict:
+    path = Path(xml_path)
+    if not path.exists():
+        return {"success": False, "error": f"Plik XML nie istnieje: {xml_path}"}
+
     client = KSeFClient()
-
     if not client.is_configured():
-        return {"success": False, "error": "KSeF nie skonfigurowany — ustaw KSEF_TOKEN w .env"}
+        return {
+            "success": False,
+            "error": "KSeF nie skonfigurowany — ustaw KSEF_NIP i KSEF_TOKEN w .env",
+        }
 
-    xml_content = Path(xml_path).read_text(encoding="utf-8")
+    xml_content = path.read_text(encoding="utf-8")
     result = await client.send_invoice(xml_content)
 
     return {

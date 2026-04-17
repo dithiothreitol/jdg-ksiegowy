@@ -22,8 +22,8 @@ from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 def main():
     parser = argparse.ArgumentParser(description="Kalkulator podatkowy JDG")
     parser.add_argument("--netto", type=str, required=True, help="Kwota netto")
-    parser.add_argument("--vat-rate", type=str, default="23", help="Stawka VAT (%)")
-    parser.add_argument("--ryczalt-rate", type=str, default="12", help="Stawka ryczaltu (%)")
+    parser.add_argument("--vat-rate", type=str, default="23", help="Stawka VAT (procent)")
+    parser.add_argument("--ryczalt-rate", type=str, default="12", help="Stawka ryczaltu (procent)")
     parser.add_argument("--annual-revenue", type=str, default="0", help="Szacunkowy roczny przychod")
     parser.add_argument("--month", type=int, default=date.today().month)
     parser.add_argument("--year", type=int, default=date.today().year)

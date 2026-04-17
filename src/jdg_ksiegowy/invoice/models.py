@@ -96,17 +96,25 @@ class Invoice(BaseModel):
     @computed_field
     @property
     def total_net(self) -> Decimal:
-        return sum(item.net_value for item in self.items)
+        return sum((item.net_value for item in self.items), Decimal("0"))
 
     @computed_field
     @property
     def total_vat(self) -> Decimal:
-        return sum(item.vat_amount for item in self.items)
+        return sum((item.vat_amount for item in self.items), Decimal("0"))
 
     @computed_field
     @property
     def total_gross(self) -> Decimal:
-        return sum(item.gross_value for item in self.items)
+        return sum((item.gross_value for item in self.items), Decimal("0"))
+
+    def totals_by_vat_rate(self) -> dict[Decimal, tuple[Decimal, Decimal]]:
+        """Sumy (netto, vat) zgrupowane po stawce VAT (Decimal)."""
+        buckets: dict[Decimal, tuple[Decimal, Decimal]] = {}
+        for item in self.items:
+            net, vat = buckets.get(item.vat_rate, (Decimal("0"), Decimal("0")))
+            buckets[item.vat_rate] = (net + item.net_value, vat + item.vat_amount)
+        return buckets
 
 
 class Contract(BaseModel):

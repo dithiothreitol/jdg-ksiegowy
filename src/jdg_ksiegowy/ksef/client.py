@@ -137,5 +137,5 @@ class KSeFClient:
             return KSeFResult(success=False, error=str(e))
 
     def is_configured(self) -> bool:
-        """Sprawdz czy KSeF jest skonfigurowany."""
-        return bool(self.token) or self.env == "test"
+        """KSeF wymaga NIP + token niezaleznie od srodowiska (test/demo/prod)."""
+        return bool(self.nip) and bool(self.token)
