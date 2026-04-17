@@ -15,22 +15,27 @@ def mailer_module():
 
 @pytest.fixture
 def smtp_configured(monkeypatch):
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_USERNAME", "user@example.com")
-    monkeypatch.setenv("SMTP_PASSWORD", "secret")
-    monkeypatch.setenv("SMTP_FROM", "noreply@example.com")
     from jdg_ksiegowy.config import SMTPConfig, settings
 
-    settings.smtp = SMTPConfig()
+    monkeypatch.setattr(
+        settings,
+        "smtp",
+        SMTPConfig.model_construct(
+            host="smtp.example.com",
+            port=587,
+            username="user@example.com",
+            password="secret",
+            from_addr="noreply@example.com",
+            use_ssl=False,
+            timeout=30.0,
+        ),
+    )
 
 
 def test_returns_error_when_smtp_not_configured(mailer_module, tmp_path, monkeypatch):
-    monkeypatch.delenv("SMTP_HOST", raising=False)
-    monkeypatch.delenv("SMTP_USERNAME", raising=False)
-    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
     from jdg_ksiegowy.config import SMTPConfig, settings
 
-    settings.smtp = SMTPConfig()
+    monkeypatch.setattr(settings, "smtp", SMTPConfig.model_construct())
     pdf = tmp_path / "f.pdf"
     pdf.write_bytes(b"%PDF-1.4")
 
@@ -76,11 +81,10 @@ def test_sends_via_starttls(smtp_configured, mailer_module, tmp_path):
 
 
 def test_sends_via_ssl_when_configured(smtp_configured, mailer_module, tmp_path, monkeypatch):
-    monkeypatch.setenv("SMTP_USE_SSL", "true")
-    monkeypatch.setenv("SMTP_PORT", "465")
-    from jdg_ksiegowy.config import SMTPConfig, settings
+    from jdg_ksiegowy.config import settings
 
-    settings.smtp = SMTPConfig()
+    monkeypatch.setattr(settings.smtp, "use_ssl", True)
+    monkeypatch.setattr(settings.smtp, "port", 465)
 
     pdf = tmp_path / "f.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")

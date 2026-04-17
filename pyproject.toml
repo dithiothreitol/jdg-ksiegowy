@@ -5,24 +5,26 @@ description = "AI Asystent Ksiegowy JDG — OpenClaw AgentSkills dla faktur, KSe
 requires-python = ">=3.12"
 license = "MIT"
 dependencies = [
-    "httpx>=0.28",
-    "ksef2>=0.11",
-    "python-docx>=1.1",
-    "lxml>=6.0",
-    "xmlschema>=4.3",
-    "pydantic>=2.13",
-    "pydantic-settings>=2.7",
-    "sqlalchemy>=2.0",
-    "cryptography>=46.0",
+    "httpx>=0.28.1",
+    "ksef2>=0.12",
+    "python-docx>=1.2",
+    "lxml>=6.0.4",
+    "xmlschema>=4.3.1",
+    "pydantic>=2.13.2",
+    "pydantic-settings>=2.13",
+    "sqlalchemy>=2.0.49",
+    "cryptography>=46.0.7",
     "anthropic>=0.96",
-    "pillow>=12.0",
-    "pypdf>=6.0",
+    "pillow>=12.2",
+    "pypdf>=6.10",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0",
-    "ruff>=0.15",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3",
+    "respx>=0.23",
+    "ruff>=0.15.11",
 ]
 
 [build-system]
@@ -41,6 +43,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "strict"
 markers = [
     "xsd: testy walidujace wygenerowany XML wzgledem oficjalnych XSD MF (wymagaja internetu przy pierwszym uruchomieniu)",
 ]

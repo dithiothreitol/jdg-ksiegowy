@@ -19,7 +19,7 @@ def test_raises_when_docx_missing(pdf_module, tmp_path):
 
 
 def test_raises_when_libreoffice_not_found(pdf_module, tmp_path, monkeypatch):
-    monkeypatch.delenv("LIBREOFFICE_BIN", raising=False)
+    monkeypatch.setattr(pdf_module.settings, "libreoffice_bin", "")
     docx = tmp_path / "f.docx"
     docx.write_bytes(b"PK")  # fake DOCX
 
@@ -31,7 +31,7 @@ def test_raises_when_libreoffice_not_found(pdf_module, tmp_path, monkeypatch):
 def test_uses_libreoffice_bin_override(pdf_module, tmp_path, monkeypatch):
     fake_bin = tmp_path / "soffice"
     fake_bin.write_text("#!/bin/bash\nexit 0\n")
-    monkeypatch.setenv("LIBREOFFICE_BIN", str(fake_bin))
+    monkeypatch.setattr(pdf_module.settings, "libreoffice_bin", str(fake_bin))
 
     docx = tmp_path / "f.docx"
     docx.write_bytes(b"PK")
@@ -52,7 +52,7 @@ def test_uses_libreoffice_bin_override(pdf_module, tmp_path, monkeypatch):
 def test_raises_when_soffice_returncode_nonzero(pdf_module, tmp_path, monkeypatch):
     fake_bin = tmp_path / "soffice"
     fake_bin.write_text("#!/bin/bash\nexit 1\n")
-    monkeypatch.setenv("LIBREOFFICE_BIN", str(fake_bin))
+    monkeypatch.setattr(pdf_module.settings, "libreoffice_bin", str(fake_bin))
 
     docx = tmp_path / "f.docx"
     docx.write_bytes(b"PK")
