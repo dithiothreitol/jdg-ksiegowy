@@ -15,10 +15,13 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.12+-blue?logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/KSeF-FA(3)-green" alt="KSeF" />
-  <img src="https://img.shields.io/badge/JPK__V7M-shipped-green" alt="JPK_V7M" />
-  <img src="https://img.shields.io/badge/JPK__EWP-awaiting_official_XSD-yellow" alt="JPK_EWP" />
+  <img src="https://img.shields.io/badge/KSeF_2.0-FA(3)_e2e-green" alt="KSeF 2.0" />
+  <img src="https://img.shields.io/badge/JPK__V7M-v3_(TNS_14090)-green" alt="JPK_V7M" />
+  <img src="https://img.shields.io/badge/JPK__EWP-v4_shipped-green" alt="JPK_EWP" />
+  <img src="https://img.shields.io/badge/ZUS_DRA-KEDU_v5.05-green" alt="ZUS DRA" />
+  <img src="https://img.shields.io/badge/OCR-Pixtral_+_Claude_Haiku-blue" alt="OCR" />
   <img src="https://img.shields.io/badge/MF_Gateway-REST_+_AES%2BRSA-blue" alt="MF Gateway" />
+  <img src="https://img.shields.io/badge/tests-180_passing-green" alt="Tests" />
   <img src="https://img.shields.io/badge/OpenClaw-agent-orange?logo=lobster" alt="OpenClaw" />
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License" />
   <img src="https://img.shields.io/badge/status-beta-yellow" alt="Status" />
@@ -61,23 +64,47 @@ Honest state per feature &mdash; see [Status](#status) below for the full pictur
 
 ### Shipped and tested
 
-- **Invoicing** &mdash; DOCX (Polish, client-ready) + XML FA(3) (KSeF schema) from one command
+**Invoicing & KSeF (obligatoryjny od 2026-02-01)**
+- **Invoice generation** &mdash; DOCX (Polish, client-ready) + XML **FA(3)** via [ksef2](https://github.com/artpods56/ksef2) `FA3InvoiceBuilder`, namespace `crd.gov.pl/wzor/2025/06/25/13775/`
+- **KSeF submission** &mdash; online session, send + wait + UPO retrieval, test/demo/prod env
+- **Invoice corrections (FA KOR)** &mdash; price change, return, other reasons
+- **Foreign invoices** &mdash; NP VAT code, EU buyers (KodUE + NrVatUE), non-EU (BrakID)
+- **Recurring contracts** &mdash; auto-fakturowanie miesięczne for subscription clients
+- **Email delivery** &mdash; PDF via LibreOffice-headless + SMTP, Polish body text
+
+**Expenses & OCR**
 - **Expense registry** &mdash; purchase invoices in SQLite with categories and `vat_deductible` flag
+- **OCR faktur zakupu** &mdash; multimodal Pixtral 12B lokalnie (CPU inference) + Claude Haiku 4.5 fallback
 - **Input VAT deduction in JPK_V7M** &mdash; expenses feed P_42 / P_43 automatically
-- **KSeF submission** &mdash; via [ksef2](https://github.com/artpods56/ksef2) SDK, token auth, test + prod
-- **JPK_V7M generator** &mdash; schema v2 (namespace `crd.gov.pl/wzor/2021/12/27/11148/`), K-field mapping per VAT rate
-- **MF Gateway submission** &mdash; direct REST POST to e-dokumenty.mf.gov.pl with AES-256-CBC + RSA-OAEP encryption, ZIP compression, status polling, UPO retrieval
-- **Tax calculator** &mdash; ryczalt, VAT, ZUS with 2026 rates and progressive health-contribution thresholds
+
+**Payments**
+- **Payment tracking** &mdash; overdue detection, manual mark-as-paid
+- **Bank CSV import** &mdash; auto-match payments to invoices by NIP / title
+
+**Declarations & submissions**
+- **JPK_V7M generator** &mdash; schema v3, TNS `crd.gov.pl/wzor/2025/12/19/14090/` (CRWDE 2025-12-19, obowiązuje od 2026-02-01), K-field mapping per VAT rate
+- **JPK_EWP generator** &mdash; roczna ewidencja przychodów ryczałtowca, TNS `jpk.mf.gov.pl/wzor/2024/10/30/10301/`
+- **MF Gateway submission** &mdash; direct REST to e-dokumenty.mf.gov.pl with AES-256-CBC + RSA-OAEP, ZIP compression, status polling, UPO retrieval, autoryzacja danymi (no qualified signature required)
+- **ZUS DRA** &mdash; monthly declaration in KEDU v5.05 format, health contribution by ryczalt income brackets
+- **PIT-28** &mdash; annual ryczalt report with monthly income aggregation
+
+**Utilities**
+- **`jdg-status` dashboard** &mdash; upcoming deadlines (20th: ryczalt + ZUS, 25th: VAT + JPK), unpaid invoices, monthly summary
+- **`tax-calculator`** &mdash; ryczalt, VAT, ZUS with 2026 rates and progressive health-contribution thresholds
+- **`doctor` preflight** &mdash; verifies seller data, KSeF, MF Gateway, SMTP, OCR config before submission
+- **NIP / PESEL validation** &mdash; mod-11 checksum, rejects malformed identifiers
 - **`Decimal`-based math** &mdash; tax numbers never touch a float or an LLM
 
-### Partial / awaiting upstream
+### Verified end-to-end
 
-- **JPK_EWP generator** &mdash; code generates XML for schema v4, but the TNS namespace is marked `# placeholder do potwierdzenia` in [ewp.py:22](src/jdg_ksiegowy/tax/ewp.py#L22) &mdash; will be finalized when MF publishes the official XSD
+- **KSeF TEST sandbox** &mdash; FA(3) invoice accepted, KSeF number assigned, UPO retrieved (verified 2026-04-17)
+- **MF Gateway TEST sandbox** &mdash; JPK submit with autoryzacja danymi, UPO retrieved
+- **180 pytest tests** (unit + integration) passing
 
 ### Documented but not wired yet
 
 - **Proactive cron reminders** &mdash; [CRON.md](CRON.md) lists the jobs; you register them manually with `openclaw cron add`. No daemon ships in this repo.
-- **HEARTBEAT payment monitoring** &mdash; [HEARTBEAT.md](HEARTBEAT.md) describes the logic; `InvoiceStatus.OVERDUE` exists in the model but nothing sets it today
+- **HEARTBEAT payment monitoring** &mdash; [HEARTBEAT.md](HEARTBEAT.md) describes the logic; overdue detection works on manual query, no push alerts yet
 
 Contributions on any of the above are very welcome.
 
@@ -91,15 +118,26 @@ Verified against the actual codebase on 2026-04-17:
 
 | Area | State | Evidence |
 |------|:-----:|----------|
-| Invoice DOCX + FA(3) XML | **Shipped** | [generator_docx.py](src/jdg_ksiegowy/invoice/generator_docx.py), [generator_xml.py](src/jdg_ksiegowy/invoice/generator_xml.py), [test_invoice_models.py](tests/test_invoice_models.py) |
-| Expense registry | **Shipped** | [expenses/models.py](src/jdg_ksiegowy/expenses/models.py), [registry/db.py](src/jdg_ksiegowy/registry/db.py) |
-| KSeF submission | **Shipped** | [ksef/client.py](src/jdg_ksiegowy/ksef/client.py), [test_ksef_skill.py](tests/test_ksef_skill.py) |
-| JPK_V7M (with expense deduction) | **Shipped** | [tax/jpk.py](src/jdg_ksiegowy/tax/jpk.py), [test_jpk_with_expenses.py](tests/test_jpk_with_expenses.py) |
-| MF Gateway submit (AES+RSA, UPO) | **Shipped** | [mf_gateway/crypto.py](src/jdg_ksiegowy/mf_gateway/crypto.py), [mf_gateway/client.py](src/jdg_ksiegowy/mf_gateway/client.py), [test_mf_crypto.py](tests/test_mf_crypto.py) |
+| Invoice DOCX + FA(3) XML (via ksef2 builder) | **Shipped + E2E** | [generator_xml.py](src/jdg_ksiegowy/invoice/generator_xml.py), [test_invoice_models.py](tests/test_invoice_models.py) |
+| KSeF submission (online session + UPO) | **Shipped + E2E** | [ksef/client.py](src/jdg_ksiegowy/ksef/client.py), sandbox test 2026-04-17 |
+| Invoice corrections (FA KOR) | **Shipped** | [test_invoice_correction.py](tests/test_invoice_correction.py) |
+| Foreign invoices (NP, EU VAT, BrakID) | **Shipped** | [test_foreign_invoices.py](tests/test_foreign_invoices.py) |
+| Recurring contracts (auto-invoicing) | **Shipped** | [skills/contracts/](skills/contracts/) |
+| OCR purchase invoices (Pixtral + Claude) | **Shipped** | [expenses/ocr.py](src/jdg_ksiegowy/expenses/ocr.py) |
+| Email delivery (LibreOffice PDF + SMTP) | **Shipped** | [invoice/mailer.py](src/jdg_ksiegowy/invoice/mailer.py), [invoice/pdf.py](src/jdg_ksiegowy/invoice/pdf.py) |
+| Expense registry + VAT deduction in JPK | **Shipped** | [expenses/models.py](src/jdg_ksiegowy/expenses/models.py), [test_jpk_with_expenses.py](tests/test_jpk_with_expenses.py) |
+| Payment tracking + bank CSV import | **Shipped** | [skills/contracts/scripts/import_bank.py](skills/contracts/scripts/import_bank.py) |
+| JPK_V7M v3 (TNS 14090) | **Shipped** | [tax/jpk.py](src/jdg_ksiegowy/tax/jpk.py) |
+| JPK_EWP v4 (TNS 10301) | **Shipped** | [tax/ewp.py](src/jdg_ksiegowy/tax/ewp.py) |
+| MF Gateway submit (AES+RSA, UPO) | **Shipped + E2E** | [mf_gateway/crypto.py](src/jdg_ksiegowy/mf_gateway/crypto.py), [test_mf_crypto.py](tests/test_mf_crypto.py), sandbox |
+| ZUS DRA (KEDU v5.05) | **Shipped** | [skills/zus-dra/](skills/zus-dra/) |
+| PIT-28 annual report | **Shipped** | [skills/pit28/](skills/pit28/) |
+| `jdg-status` dashboard | **Shipped** | [skills/jdg-status/](skills/jdg-status/) |
 | Tax calculator (2026 rates) | **Shipped** | [tax/zus.py](src/jdg_ksiegowy/tax/zus.py) |
-| JPK_EWP | **Partial** | Works; namespace placeholder until MF publishes final XSD |
+| `doctor` preflight | **Shipped** | [skills/doctor/](skills/doctor/) |
+| NIP/PESEL validation | **Shipped** | [validators.py](src/jdg_ksiegowy/validators.py) |
 | Cron / HEARTBEAT reminders | **Docs only** | Manual setup per [CRON.md](CRON.md) |
-| Payment overdue detection | **Missing** | Enum state exists; no logic sets or alerts on it |
+| Push alerts for overdue payments | **Missing** | Detection logic works; no notifier hooked up |
 
 All claims above are grep-able in the repo. If you find a discrepancy, file an issue.
 
@@ -135,22 +173,33 @@ jdg-ksiegowy/
 ├── skills/                     # OpenClaw AgentSkills (Python entry points)
 │   ├── tax-calculator/         #   VAT, ryczalt, ZUS, deadlines
 │   ├── invoice/                #   DOCX + XML FA(3) generation
-│   ├── expense/                #   Register purchase invoices
+│   ├── invoice-send/           #   PDF + SMTP email delivery
+│   ├── expense/                #   Register purchase invoices (manual + OCR)
+│   ├── contracts/              #   Recurring contracts + bank CSV import
 │   ├── ksef/                   #   Submit sales invoice to KSeF
 │   ├── jpk/                    #   Generate JPK_V7M (monthly VAT)
-│   ├── jpk-ewp/                #   Generate JPK_EWP (annual ryczalt, partial)
-│   └── jpk-submit/             #   Submit JPK to MF Gateway, fetch UPO
+│   ├── jpk-ewp/                #   Generate JPK_EWP (annual ryczalt)
+│   ├── jpk-submit/             #   Submit JPK to MF Gateway, fetch UPO
+│   ├── zus-dra/                #   ZUS DRA KEDU v5.05
+│   ├── pit28/                  #   Annual ryczalt report
+│   ├── jdg-status/             #   Upcoming deadlines + dashboard
+│   └── doctor/                 #   Preflight config check
 │
 ├── src/jdg_ksiegowy/           # Python library (core, reusable)
 │   ├── config.py               #   Pydantic Settings from .env
-│   ├── invoice/                #   Models, DOCX generator, FA(3) XML
-│   ├── expenses/               #   Expense models + SQLite ops
-│   ├── ksef/                   #   KSeF client (ksef2 SDK wrapper)
+│   ├── validators.py           #   NIP / PESEL mod-11 validation
+│   ├── doctor.py               #   Config preflight
+│   ├── invoice/                #   Models, DOCX, FA(3) via ksef2 builder, PDF, SMTP
+│   ├── expenses/               #   Models, SQLite ops, OCR (Pixtral + Claude)
+│   ├── contracts/              #   Recurring invoices, payment matching
+│   ├── ksef/                   #   KSeF 2.0 client (ksef2 SDK wrapper)
 │   ├── mf_gateway/             #   REST submit, AES-256-CBC + RSA-OAEP
-│   ├── tax/                    #   JPK_V7M, JPK_EWP, ZUS rates
+│   ├── tax/                    #   JPK_V7M v3, JPK_EWP v4, ZUS, PIT-28
+│   ├── zus/                    #   ZUS DRA KEDU builder
+│   ├── status/                 #   Dashboard aggregations
 │   └── registry/               #   SQLite registry (invoices, expenses)
 │
-├── tests/                      # Pytest (~500 lines of real tests)
+├── tests/                      # Pytest — 180 unit + integration tests
 └── data/                       # Database + generated files (git-ignored)
 ```
 
@@ -200,6 +249,18 @@ python3 skills/jpk/scripts/generate_jpk.py --month 4 --year 2026
 
 # Submit the generated JPK to MF Gateway (dry-run available)
 python3 skills/jpk-submit/scripts/submit.py --file data/jpk/2026_04.xml --dry-run
+
+# OCR a purchase invoice (Pixtral lokalnie lub Claude Haiku fallback)
+python3 skills/expense/scripts/add.py --file faktura_hetzner.pdf --ocr
+
+# Submit the generated invoice XML to KSeF sandbox
+python3 skills/ksef/scripts/submit.py --xml-path data/faktury/2026/04/faktura_A1_04_2026.xml
+
+# Current-state dashboard (upcoming deadlines + unpaid invoices)
+python3 skills/jdg-status/scripts/status.py
+
+# Preflight config check before going to prod
+python3 skills/doctor/scripts/check.py
 ```
 
 Full guide: [INSTALL.md](INSTALL.md)
@@ -230,15 +291,18 @@ All business data is in `.env` (never hardcoded). See [`.env.example`](.env.exam
 
 ## AI Model
 
-JDG Ksiegowy is **model-agnostic**. The AI handles natural-language intent; all tax math is deterministic Python.
+JDG Ksiegowy is **model-agnostic**. The AI handles natural-language intent and document understanding; all tax math is deterministic Python on `Decimal`.
 
-Ollama tags confirmed against [ollama.com/library](https://ollama.com/library) at time of writing:
+Two-tier architecture:
 
-| Role | Model | Notes |
+| Role | Model | Usage |
 |------|-------|-------|
-| **Primary** (daily chat, JSON output) | [`qwen3.5`](https://ollama.com/library/qwen3.5) | general-purpose, solid JSON mode |
-| **Vision** (OCR for paper receipts) | [`qwen3-vl:8b`](https://ollama.com/library/qwen3-vl:8b) or [`qwen3-vl:4b`](https://ollama.com/library/qwen3-vl:4b) | required for OCR roadmap item |
-| **Fallback** (tricky tax Q&A) | Claude API (pay-as-you-go) | ~2 PLN/mo typical |
+| **Primary** (daily chat, intent &rarr; skill dispatch, JSON output) | [`qwen3.5:9b`](https://ollama.com/library/qwen3.5) via Ollama | Local, ~0 PLN |
+| **Vision** (OCR faktur zakupu from PDF / JPG / PNG) | [`pixtral:12b`](https://ollama.com/library/pixtral) via Ollama | Local, CPU inference OK |
+| **OCR fallback** (when Pixtral output is malformed) | Claude Haiku 4.5 API | ~2 PLN / month typical |
+| **Optional chat fallback** (tricky tax Q&A) | Claude API (pay-as-you-go) | Opt-in via `ANTHROPIC_API_KEY` |
+
+Key property: the LLM identifies intent (e.g. "register a Hetzner invoice for 50 EUR as infrastructure cost") and extracts fields from scanned documents, but it never computes VAT, ryczalt, or ZUS &mdash; those go through `Decimal`-based skills with `pydantic` validation.
 
 Polish-native models ([Bielik](https://bielik.ai)) are not currently in the Ollama registry under that name &mdash; you can import GGUF manually if you want best-in-class Polish fluency.
 
@@ -294,22 +358,39 @@ Built for 2026 regulations:
 
 **JDG Ksiegowy** to open-source'owy asystent ksiegowy AI dla jednoosobowej dzialalnosci gospodarczej w Polsce. Zastepuje rdzen pracy, ktora dzis robisz w wFirmie / inFakcie / Fakturowni, za **0 PLN/miesiac** &mdash; na Twoim serwerze, z rozmowa po polsku przez WhatsApp, Telegram lub Slack.
 
-### Co dziala dzis (zweryfikowane w kodzie)
+### Co dziala dzis (zweryfikowane w kodzie, 180 testow passing)
 
-- Wystawia faktury (DOCX + XML FA(3)) i wysyla do **KSeF**
-- Rejestruje faktury kosztowe i odlicza **VAT naliczony** w JPK_V7M
-- Generuje **JPK_V7M** co miesiac
-- Wysyla JPK bezposrednio do **bramki MF** (REST + AES + RSA, bez podpisu kwalifikowanego, z odbiorem UPO)
-- Liczy ryczalt, VAT, ZUS ze stawkami 2026
+**Fakturowanie i KSeF**
+- Wystawia faktury **FA(3)** (DOCX + XML przez ksef2 `FA3InvoiceBuilder`) i wysyla do **KSeF 2.0** z odbiorem UPO &mdash; e2e zweryfikowane na sandboxie MF
+- Faktury **korygujace (FA KOR)** i **zagraniczne** (NP, EU VAT, BrakID)
+- **Cykliczne kontrakty** &mdash; auto-fakturowanie miesieczne dla stalych klientow
+- Wysylka faktury mailem jako **PDF** (LibreOffice + SMTP)
 
-### Co jest czesciowe
+**Koszty i OCR**
+- **OCR faktur zakupu** &mdash; lokalny Pixtral 12B + fallback Claude Haiku 4.5 (rzucasz PDF, dostajesz wpis do rejestru)
+- Rejestruje faktury kosztowe i odlicza **VAT naliczony** w JPK_V7M (P_42 / P_43)
 
-- **JPK_EWP** (roczna ewidencja ryczaltowca) &mdash; kod generuje XML v4, ale finalny namespace czeka na oficjalny XSD z MF
+**Platnosci**
+- Sledzenie niezaplaconych / przeterminowanych faktur
+- Import wyciagow CSV z banku &mdash; automatyczne oznaczanie zaplaconych po NIP / tytule
+
+**Deklaracje**
+- **JPK_V7M v3** (TNS 14090, obowiazuje od 2026-02-01)
+- **JPK_EWP v4** (roczna ewidencja przychodow ryczaltowca)
+- Wysylka JPK do **bramki MF** (REST + AES + RSA, autoryzacja danymi, UPO)
+- **ZUS DRA** (KEDU v5.05) &mdash; skladki zdrowotne wg progow rycztaltu
+- **PIT-28** &mdash; roczny raport rycztaltowca
+
+**Narzedzia**
+- Dashboard `jdg-status` &mdash; nadchodzace terminy (20-ty: rycztaltl + ZUS; 25-ty: VAT + JPK)
+- Kalkulator podatkow (VAT / rycztaltl / ZUS, stawki 2026)
+- `doctor` &mdash; preflight sprawdzajacy konfiguracje przed wysylka do KSeF / MF
+- Walidacja NIP / PESEL (mod-11)
 
 ### Czego jeszcze nie ma
 
 - Automatycznego daemona od przypomnien (tylko instrukcja w [CRON.md](CRON.md))
-- Wykrywania przeterminowanych platnosci (pole w bazie jest, logiki jeszcze brak)
+- Push alertow dla przeterminowanych platnosci (wykrywanie dziala na zapytanie, brak notyfikacji)
 
 ### Szybki start
 
@@ -334,12 +415,12 @@ Pelna instrukcja: [INSTALL.md](INSTALL.md)
 ## Roadmap
 
 - [ ] Cron/heartbeat daemon (currently only documented)
-- [ ] Payment overdue detection + alert
-- [ ] JPK_EWP final namespace once MF XSD is published
-- [ ] JPK_V7M schema v3 migration
-- [ ] *Zasady ogolne* and *podatek liniowy* tax forms
-- [ ] PIT-28 annual declaration generator
-- [ ] OCR for paper receipts (qwen3-vl)
+- [ ] Push alerts for overdue payments (Slack/Telegram/email)
+- [ ] *Zasady ogolne* and *podatek liniowy* tax forms (currently ryczalt-only)
+- [ ] MPP (split payment) indicator on invoices
+- [ ] GTU codes for sensitive categories (fuel, electronics, pharmaceuticals)
+- [ ] VAT-UE / VAT-OSS for intra-EU B2C sales
+- [ ] Fixed assets register + depreciation
 - [ ] Web UI dashboard (read-only)
 - [ ] Multi-user mode (accountants managing several JDGs)
 - [ ] CI integration tests against KSeF test environment
