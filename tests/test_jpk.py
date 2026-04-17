@@ -16,7 +16,7 @@ def _make_invoice(number: str, items: list[LineItem]) -> Invoice:
         issue_date=date(2026, 4, 1),
         sale_date=date(2026, 4, 1),
         payment_due=date(2026, 4, 15),
-        buyer=Buyer(name="Acme", nip="1234567890", address="ul. X 1, 00-001 Warszawa"),
+        buyer=Buyer(name="Acme", nip="5260250274", address="ul. X 1, 00-001 Warszawa"),
         items=items,
     )
 

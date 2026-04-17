@@ -17,8 +17,8 @@ from jdg_ksiegowy.tax.jpk import generate_jpk_v7m
 from jdg_ksiegowy.tax.validation import JPKValidator
 
 
-# NIP zgodny z wzorcem XSD [1-9]((\d[1-9])|([1-9]\d))\d{7}
-VALID_NIP = "1234567890"
+# NIP zgodny z wzorcem XSD [1-9]((\d[1-9])|([1-9]\d))\d{7} + suma kontrolna
+VALID_NIP = "5260250274"  # NIP ZUS, publiczny; suma=169, R=4
 
 
 @pytest.fixture(scope="module")

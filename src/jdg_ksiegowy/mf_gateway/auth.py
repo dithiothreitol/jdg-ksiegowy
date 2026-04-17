@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from jdg_ksiegowy.validators import validate_pesel
+
 
 @dataclass(frozen=True)
 class AuthorizationData:
@@ -25,6 +27,10 @@ class AuthorizationData:
     last_name: str
     birth_date: date
     prior_year_income: Decimal  # kwota przychodu z PIT za rok poprzedni-1
+
+    def __post_init__(self) -> None:
+        if self.pesel and not validate_pesel(self.pesel):
+            raise ValueError(f"Nieprawidlowy PESEL: {self.pesel!r}")
 
     def fingerprint(self) -> str:
         """Skrot do logow (nie wycieka PESEL/kwoty)."""

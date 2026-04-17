@@ -7,9 +7,10 @@ from jdg_ksiegowy.mf_gateway.auth import AuthorizationData, build_authorization_
 
 
 def _auth() -> AuthorizationData:
+    # NIP 5260250274 (ZUS, publiczny); PESEL 44051401458 (suma=102, R=8)
     return AuthorizationData(
-        nip="1234567890",
-        pesel="90010100000",
+        nip="5260250274",
+        pesel="44051401458",
         first_name="Jan",
         last_name="Kowalski",
         birth_date=date(1990, 1, 1),
@@ -19,8 +20,8 @@ def _auth() -> AuthorizationData:
 
 def test_authorization_xml_contains_required_fields():
     xml = build_authorization_xml(_auth())
-    assert "<Identyfikator>1234567890</Identyfikator>" in xml
-    assert "<Pesel>90010100000</Pesel>" in xml
+    assert "<Identyfikator>5260250274</Identyfikator>" in xml
+    assert "<Pesel>44051401458</Pesel>" in xml
     assert "<ImiePierwsze>Jan</ImiePierwsze>" in xml
     assert "<Nazwisko>Kowalski</Nazwisko>" in xml
     assert "<DataUrodzenia>1990-01-01</DataUrodzenia>" in xml

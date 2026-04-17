@@ -13,7 +13,7 @@ _spec.loader.exec_module(submit)
 
 
 def test_returns_error_for_missing_xml(monkeypatch):
-    monkeypatch.setenv("MF_PESEL", "90010100000")
+    monkeypatch.setenv("MF_PESEL", "44051401458")
     monkeypatch.setenv("MF_PRIOR_INCOME", "100000")
     result = asyncio.run(submit.run_submit(Path("nieistniejacy.xml"), dry_run=False))
     assert result["success"] is False
@@ -21,7 +21,7 @@ def test_returns_error_for_missing_xml(monkeypatch):
 
 
 def test_dry_run_works_without_cert(monkeypatch, tmp_path):
-    monkeypatch.setenv("MF_PESEL", "90010100000")
+    monkeypatch.setenv("MF_PESEL", "44051401458")
     monkeypatch.setenv("MF_PRIOR_INCOME", "100000")
     monkeypatch.delenv("MF_CERT_PATH", raising=False)
     xml_file = tmp_path / "JPK.xml"
@@ -40,7 +40,7 @@ def test_dry_run_works_without_cert(monkeypatch, tmp_path):
 
 
 def test_real_submit_fails_without_cert(monkeypatch, tmp_path):
-    monkeypatch.setenv("MF_PESEL", "90010100000")
+    monkeypatch.setenv("MF_PESEL", "44051401458")
     monkeypatch.setenv("MF_PRIOR_INCOME", "100000")
     monkeypatch.delenv("MF_CERT_PATH", raising=False)
     xml_file = tmp_path / "JPK.xml"

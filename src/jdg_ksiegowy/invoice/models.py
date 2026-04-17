@@ -7,7 +7,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+from jdg_ksiegowy.validators import validate_nip
 
 
 class InvoiceStatus(StrEnum):
@@ -38,6 +40,15 @@ class Buyer(BaseModel):
     address: str
     email: str | None = None
     country_code: str = "PL"
+
+    @field_validator("nip")
+    @classmethod
+    def nip_must_be_valid(cls, v: str) -> str:
+        import re
+        digits = re.sub(r"[\s\-]", "", v)
+        if digits and not validate_nip(digits):
+            raise ValueError(f"Nieprawidlowy NIP: {v!r}")
+        return digits
 
 
 class LineItem(BaseModel):

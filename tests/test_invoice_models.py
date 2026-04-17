@@ -7,7 +7,8 @@ from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
 
 
 def _buyer() -> Buyer:
-    return Buyer(name="Acme", nip="1234567890", address="ul. Krotka 1, 00-001 Warszawa")
+    # NIP 5260250274 (ZUS, publiczny — poprawna suma kontrolna)
+    return Buyer(name="Acme", nip="5260250274", address="ul. Krotka 1, 00-001 Warszawa")
 
 
 def test_total_net_returns_decimal_for_empty_items():
