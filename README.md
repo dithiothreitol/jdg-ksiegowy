@@ -159,8 +159,8 @@ graph TB
     OC <--> AI
     OC -->|calls| Skills
     Skills -->|reads/writes| DB
-    Skills -->|FA(3) XML| KSeF
-    Skills -->|JPK_V7M / JPK_EWP| MF
+    Skills -->|"FA(3) XML"| KSeF
+    Skills -->|"JPK_V7M / JPK_EWP"| MF
 ```
 
 ```
