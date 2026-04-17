@@ -64,30 +64,26 @@ class TestCorrectionXML:
 
     def test_nr_fa_korygowanej_present(self):
         root = self._root(_correction())
-        fa_kor = root.find(f".//{_fa3('FaKorygowana')}")
-        assert fa_kor is not None
-        assert fa_kor.find(_fa3("NrFaKorygowanej")).text == "A1/04/2026"
+        dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
+        assert dane is not None
+        assert dane.find(_fa3("NrFaKorygowanej")).text == "A1/04/2026"
 
     def test_ksef_reference_in_fa_korygowana(self):
         c = _correction(original_ksef_reference="KSEF-2026-04-01-ABC")
         root = self._root(c)
-        fa_kor = root.find(f".//{_fa3('FaKorygowana')}")
-        assert fa_kor.find(_fa3("NrKSeFFaKorygowanej")).text == "KSEF-2026-04-01-ABC"
+        dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
+        assert dane.find(_fa3("NrKSeFFaKorygowanej")).text == "KSEF-2026-04-01-ABC"
 
     def test_no_ksef_reference_skips_element(self):
         root = self._root(_correction(original_ksef_reference=None))
-        fa_kor = root.find(f".//{_fa3('FaKorygowana')}")
-        assert fa_kor.find(_fa3("NrKSeFFaKorygowanej")) is None
+        dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
+        assert dane.find(_fa3("NrKSeFFaKorygowanej")) is None
 
-    def test_przyczyna_korekty_code(self):
-        root = self._root(_correction(reason=CorrectionReason.PRICE_CHANGE))
-        powod = root.find(f".//{_fa3('PrzyczynaKorekty')}")
-        assert powod.find(_fa3("KodPrzyczyny")).text == "01"
-
-    def test_przyczyna_korekty_description(self):
+    def test_przyczyna_korekty_text_contains_description(self):
+        """FA(3): PrzyczynaKorekty to pojedyncze pole tekstowe."""
         root = self._root(_correction(reason_description="Rabat 20%"))
         powod = root.find(f".//{_fa3('PrzyczynaKorekty')}")
-        assert powod.find(_fa3("OpiszPrzyczyny")).text == "Rabat 20%"
+        assert powod.text == "Rabat 20%"
 
     def test_negative_p11_in_wiersz(self):
         root = self._root(_correction())
@@ -105,9 +101,10 @@ class TestCorrectionXML:
         dane2 = podmiot2.find(_fa3("DaneIdentyfikacyjne"))
         assert dane2.find(_fa3("NIP")).text == "5260250274"
 
-    def test_correction_number_in_nr_fa_uzytkownika(self):
+    def test_correction_number_in_p2(self):
+        """FA(3): numer faktury idzie do pola P_2."""
         root = self._root(_correction())
-        assert root.find(f".//{_fa3('NrFaUzytkownika')}").text == "AK1/04/2026"
+        assert root.find(f".//{_fa3('P_2')}").text == "AK1/04/2026"
 
     def test_eu_buyer_uses_nrvatue_in_correction(self):
         eu_buyer = Buyer(
@@ -118,4 +115,5 @@ class TestCorrectionXML:
         root = self._root(c)
         podmiot2 = root.find(_fa3("Podmiot2"))
         dane2 = podmiot2.find(_fa3("DaneIdentyfikacyjne"))
-        assert dane2.find(_fa3("NrVatUE")).text == "DE987654321"
+        assert dane2.find(_fa3("KodUE")).text == "DE"
+        assert dane2.find(_fa3("NrVatUE")).text == "987654321"

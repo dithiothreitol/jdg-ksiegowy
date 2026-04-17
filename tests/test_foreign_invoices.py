@@ -80,8 +80,9 @@ class TestForeignInvoiceXML:
             LineItem(description="Usługa IT", unit_price_net=Decimal("1000"), vat_rate=Decimal("0"), vat_code="NP"),
         ])
         dane2 = self._podmiot2_dane(generate_invoice_xml(inv))
-        assert dane2.find(_fa3("NrVatUE")) is not None
-        assert dane2.find(_fa3("NrVatUE")).text == "DE123456789"
+        # FA(3) rozdziela prefix kraju (KodUE) od samego numeru (NrVatUE).
+        assert dane2.find(_fa3("KodUE")).text == "DE"
+        assert dane2.find(_fa3("NrVatUE")).text == "123456789"
         assert dane2.find(_fa3("NIP")) is None
 
     def test_non_eu_buyer_uses_brak_id(self):
@@ -103,26 +104,26 @@ class TestForeignInvoiceXML:
         assert dane2.find(_fa3("NIP")).text == "5260250274"
 
     def test_np_vat_code_in_p12(self):
+        """W FA(3) P_12 dla NP zawiera marker 'np' (builder moze dopisac klasyfikator)."""
         buyer = Buyer(name="DE GmbH", nip="", country_code="DE", eu_vat_number="DE123456789", address="Berlin")
         item = LineItem(description="Usługa", unit_price_net=Decimal("1000"), vat_rate=Decimal("0"), vat_code="NP")
         inv = _invoice(buyer, [item])
         xml = generate_invoice_xml(inv)
         root = etree.fromstring(xml.encode())
         p12 = root.find(f".//{_fa3('P_12')}")
-        assert p12.text == "NP"
+        assert "np" in p12.text.lower()
 
-    def test_np_stawka_has_no_p14(self):
-        """Dla NP brak pola P_14_XII (nie ma kwoty podatku)."""
+    def test_np_line_has_no_vat_amount(self):
+        """Dla NP wiersz nie ma kwoty VAT (P_11Vat)."""
         buyer = Buyer(name="DE GmbH", nip="", country_code="DE", eu_vat_number="DE123456789", address="Berlin")
         inv = _invoice(buyer, [
             LineItem(description="Usługa", unit_price_net=Decimal("2000"), vat_rate=Decimal("0"), vat_code="NP"),
         ])
         xml = generate_invoice_xml(inv)
         root = etree.fromstring(xml.encode())
-        stawka = root.find(f".//{_fa3('Stawka')}")
-        assert stawka.find(_fa3("P_12_XII")).text == "NP"
-        assert stawka.find(_fa3("P_13_XII")).text == "2000.00"
-        assert stawka.find(_fa3("P_14_XII")) is None
+        wiersz = root.find(f".//{_fa3('FaWiersz')}")
+        assert wiersz.find(_fa3("P_11")).text == "2000.00"
+        assert wiersz.find(_fa3("P_11Vat")) is None
 
 
 # ─── JPK V7M — K_11 ───────────────────────────────────────────────────────────

@@ -69,7 +69,7 @@ class KSeFClient:
                 ref = result.reference_number
 
                 session.wait_for_invoice_ready(invoice_reference_number=ref)
-                upo = session.get_invoice_upo_by_reference(ref)
+                upo = session.get_invoice_upo_by_reference(invoice_reference_number=ref)
 
                 logger.info("Faktura wyslana do KSeF: %s", ref)
 
