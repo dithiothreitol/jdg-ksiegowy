@@ -1,0 +1,30 @@
+name: Feature request
+description: Zaproponuj nową funkcję
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem do rozwiązania
+      description: Co teraz boli? Jaki workflow JDG nie jest pokryty?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propozycja
+      description: Jak miałoby to działać? Skill? CLI? Nowy moduł w `src/`?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Rozważone alternatywy
+
+  - type: textarea
+    id: refs
+    attributes:
+      label: Referencje (MF, KSeF, ZUS, ustawa)
+      description: Linki do specyfikacji, broszur, art. ustawy.

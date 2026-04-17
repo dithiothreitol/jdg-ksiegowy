@@ -9,9 +9,9 @@ venv/
 .env
 *.db
 *.sqlite
-data/*.db
-data/*.csv
-data/faktury/
+
+# Runtime data: faktury, JPK, UPO, certyfikaty MF, lokalna baza
+data/
 
 # IDE / Claude Code
 .vscode/

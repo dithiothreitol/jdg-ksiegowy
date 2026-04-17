@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Pytanie / dyskusja
+    url: https://github.com/dithiothreitol/jdg-ksiegowy/discussions
+    about: Pytania ogólne, pomysły, dyskusja o podejściu — używaj Discussions.
+  - name: Zgłoszenie podatności (security)
+    url: https://github.com/dithiothreitol/jdg-ksiegowy/security/advisories/new
+    about: Prywatne zgłoszenie luki bezpieczeństwa (NIE issue publiczne).

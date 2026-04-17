@@ -1,0 +1,57 @@
+name: Bug report
+description: Zgłoś bład w jdg-ksiegowy
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dzięki za zgłoszenie. **Nie wklejaj** danych z `.env`, NIP-ów, tokenów KSeF
+        ani realnych faktur. Zanonimizuj przykłady.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Co się stało
+      description: Co próbowałeś zrobić, co zobaczyłeś, co spodziewałeś się zobaczyć.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Kroki do odtworzenia
+      placeholder: |
+        1. `python skills/invoice/scripts/generate.py ...`
+        2. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Wersja / commit
+      placeholder: "v0.2.0 lub git rev-parse HEAD"
+
+  - type: input
+    id: python
+    attributes:
+      label: Python
+      placeholder: "3.12.7"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Docker
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logi / traceback
+      render: shell
