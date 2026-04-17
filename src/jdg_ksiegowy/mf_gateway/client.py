@@ -22,11 +22,15 @@ import base64
 from dataclasses import dataclass
 from pathlib import Path
 
+from datetime import timedelta
+
 import httpx
 
-from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.config import DATA_DIR, settings
 from jdg_ksiegowy.mf_gateway.auth import AuthorizationData, build_authorization_xml
 from jdg_ksiegowy.mf_gateway.crypto import EncryptedPayload, encrypt_jpk, load_mf_public_key
+from jdg_ksiegowy.mf_gateway.public_key import MFPublicKeyRegistry
+from jdg_ksiegowy.tax.validation import JPKValidator, XSDValidationError
 
 STATUS_POLL_INTERVAL_SEC = 15
 STATUS_TIMEOUT_SEC = 600  # max 10 min na przetworzenie
@@ -48,20 +52,27 @@ class MFGatewayClient:
         self,
         base_url: str | None = None,
         cert_path: str | None = None,
+        cert_url: str | None = None,
         timeout: float = 60.0,
+        registry: MFPublicKeyRegistry | None = None,
     ):
         cfg = settings.mf
         self.base_url = base_url or cfg.base_url
         self.cert_path = cert_path or cfg.cert_path
         self.timeout = timeout
+        self._registry = registry or MFPublicKeyRegistry(
+            cache_dir=DATA_DIR / "mf_cert",
+            env=cfg.env,
+            cert_url=cert_url or cfg.cert_url,
+            ttl=timedelta(days=cfg.cert_ttl_days),
+        )
 
     def _public_key(self):
-        if not self.cert_path:
-            raise ValueError(
-                "MF_CERT_PATH nie ustawiony. Pobierz klucz publiczny MF z "
-                "podatki.gov.pl (sekcja 'Klucze publiczne MF') i ustaw sciezke."
-            )
-        return load_mf_public_key(self.cert_path)
+        # Override: lokalny plik PEM/DER przez MF_CERT_PATH ma pierwszenstwo
+        if self.cert_path:
+            return load_mf_public_key(self.cert_path)
+        # Domyslnie: auto-pobieranie z cache + TTL
+        return self._registry.get().key
 
     def _encrypt(self, xml: str, inner_filename: str) -> EncryptedPayload:
         return encrypt_jpk(xml.encode("utf-8"), self._public_key(), inner_filename)

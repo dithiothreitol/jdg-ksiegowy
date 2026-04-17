@@ -1,13 +1,16 @@
-"""Generator JPK_V7M (Jednolity Plik Kontrolny — deklaracja VAT).
+"""Generator JPK_V7M(3) — miesieczna deklaracja VAT z ewidencja.
 
-Struktura: JPK_V7M(2) — miesięczna deklaracja VAT z ewidencją.
-Źródło schematów: https://jpk.info.pl/wysylka-jpk/struktura-xml-plikow-jpk/
+Schemat: JPK_V7M(3), TNS http://crd.gov.pl/wzor/2025/06/18/06181/
+Obowiazuje od 01.02.2026 (dopasowanie do KSeF 2.0). Dodaje oznaczenia
+NrKSeF/OFF/BFK/DI (exclusive choice) na kazdy wiersz sprzedazy.
+
+Zrodlo XSD: https://www.podatki.gov.pl/media/qord0r0j/schemat_jpk_v7m-3-_v1-0e.xsd
 """
 
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from lxml import etree
@@ -16,27 +19,43 @@ from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.models import Invoice
 
-# Namespaces JPK_V7M
-TNS = "http://crd.gov.pl/wzor/2021/12/27/11148/"
-ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2021/06/08/eD/DefinicjeTypy/"
+TNS = "http://crd.gov.pl/wzor/2025/06/18/06181/"
+ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/09/13/eD/DefinicjeTypy/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
 
-NSMAP = {
-    "tns": TNS,
-    "etd": ETD,
-    "xsi": XSI,
-}
+NSMAP = {"tns": TNS, "etd": ETD, "xsi": XSI}
 
-# Mapowanie stawki VAT -> (pole podstawy K_, pole podatku K_) w SprzedazWiersz JPK_V7M(2).
-# Brak K_ dla podatku przy stawkach 0% i zwolnionych (tylko podstawa).
+# Stawka VAT -> (pole podstawy, pole podatku). None dla stawek bez podatku.
 VAT_RATE_TO_K_FIELDS: dict[Decimal, tuple[str, str | None]] = {
     Decimal("23"): ("K_19", "K_20"),
     Decimal("22"): ("K_19", "K_20"),
     Decimal("8"): ("K_17", "K_18"),
     Decimal("7"): ("K_17", "K_18"),
     Decimal("5"): ("K_15", "K_16"),
-    Decimal("0"): ("K_13", None),
 }
+
+# Pary stawek w kolejnosci wymaganej przez XSD: K_15/K_16, K_17/K_18, K_19/K_20.
+RATE_PAIRS_ORDER = [
+    (Decimal("5"), "K_15", "K_16"),
+    (Decimal("8"), "K_17", "K_18"),
+    (Decimal("23"), "K_19", "K_20"),
+]
+
+# Pola wiersza sprzedazy przed parami stawek (zawsze "0.00" gdy nieaktywne).
+PRE_RATE_FIELDS = ["K_10", "K_11", "K_12", "K_13", "K_14"]
+# Pola miedzy parami stawek a dalszymi parami (K_23-K_32).
+MID_FIELDS = ["K_21", "K_22"]
+# Pola po parach stawek (zawsze "0.00" gdy nieaktywne).
+POST_RATE_FIELDS = ["K_33", "K_34", "K_35", "K_36", "K_360"]
+
+
+def _ns(tag: str) -> str:
+    return f"{{{TNS}}}{tag}"
+
+
+def _etd(tag: str) -> str:
+    """Namespace etd (DefinicjeTypy MF) — pola identyfikacyjne osoby fizycznej."""
+    return f"{{{ETD}}}{tag}"
 
 
 def generate_jpk_v7m(
@@ -46,158 +65,76 @@ def generate_jpk_v7m(
     correction: int = 0,
     expenses: list[Expense] | None = None,
 ) -> str:
-    """Wygeneruj JPK_V7M XML za dany miesiąc.
+    """Wygeneruj JPK_V7M(3) XML za dany miesiac.
 
     Args:
-        invoices: Lista faktur sprzedażowych za dany miesiąc
-        month: Miesiąc (1-12)
+        invoices: Faktury sprzedazowe za miesiac
+        month: 1-12
         year: Rok
         correction: 0 = pierwotny, 1+ = korekta
-        expenses: Lista faktur zakupu (kosztow). VAT naliczony idzie do odliczenia.
-
-    Returns:
-        XML string gotowy do wysyłki
+        expenses: Faktury zakupu (koszty). VAT naliczony idzie do odliczenia.
     """
-    if expenses is None:
-        expenses = []
+    expenses = expenses or []
     seller = settings.seller
     now = datetime.now()
 
-    root = etree.Element("{%s}JPK" % TNS, nsmap=NSMAP)
+    _require_seller_fields(seller)
 
-    # --- Nagłówek ---
-    naglowek = etree.SubElement(root, "{%s}Naglowek" % TNS)
+    root = etree.Element(_ns("JPK"), nsmap=NSMAP)
 
-    kod = etree.SubElement(naglowek, "{%s}KodFormularza" % TNS)
-    kod.text = "JPK_VAT"
-    kod.set("kodSystemowy", "JPK_V7M (2)")
-    kod.set("wersjaSchemy", "1-0E")
+    _append_naglowek(root, seller, now, month, year, correction)
+    _append_podmiot(root, seller)
 
-    etree.SubElement(naglowek, "{%s}WariantFormularza" % TNS).text = "2"
-    etree.SubElement(naglowek, "{%s}DataWytworzeniaJPK" % TNS).text = now.isoformat()[:19]
-    etree.SubElement(naglowek, "{%s}NazwaSystemu" % TNS).text = "JDG-Ksiegowy/1.0"
+    # --- Deklaracja ---
+    deklaracja = etree.SubElement(root, _ns("Deklaracja"))
+    nagl_dek = etree.SubElement(deklaracja, _ns("Naglowek"))
+    kod_dek = etree.SubElement(nagl_dek, _ns("KodFormularzaDekl"))
+    kod_dek.text = "VAT-7"
+    kod_dek.set("kodSystemowy", "VAT-7 (23)")
+    kod_dek.set("kodPodatku", "VAT")
+    kod_dek.set("rodzajZobowiazania", "Z")
+    kod_dek.set("wersjaSchemy", "1-0E")
+    etree.SubElement(nagl_dek, _ns("WariantFormularzaDekl")).text = "23"
 
-    cel = etree.SubElement(naglowek, "{%s}CelZlozenia" % TNS)
-    cel.text = str(correction + 1)  # 1 = złożenie, 2+ = korekta
-    cel.set("poz", "P_7")
+    poz = etree.SubElement(deklaracja, _ns("PozycjeSzczegolowe"))
 
-    if not seller.tax_office_code:
-        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany do generowania JPK (np. 1471)")
-    etree.SubElement(naglowek, "{%s}KodUrzedu" % TNS).text = seller.tax_office_code
-    etree.SubElement(naglowek, "{%s}Rok" % TNS).text = str(year)
-    etree.SubElement(naglowek, "{%s}Miesiac" % TNS).text = str(month)
-
-    # --- Podmiot (podatnik) ---
-    podmiot = etree.SubElement(root, "{%s}Podmiot1" % TNS)
-    osoba = etree.SubElement(podmiot, "{%s}OsobaFizyczna" % TNS)
-
-    if not seller.first_name or not seller.last_name:
-        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane do generowania JPK")
-    if not seller.birth_date:
-        raise ValueError("SELLER_BIRTH_DATE wymagana do generowania JPK (format: YYYY-MM-DD)")
-
-    etree.SubElement(osoba, "{%s}NIP" % TNS).text = seller.nip
-    etree.SubElement(osoba, "{%s}ImiePierwsze" % TNS).text = seller.first_name
-    etree.SubElement(osoba, "{%s}Nazwisko" % TNS).text = seller.last_name
-    etree.SubElement(osoba, "{%s}DataUrodzenia" % TNS).text = seller.birth_date
-    etree.SubElement(osoba, "{%s}Email" % TNS).text = seller.email
-
-    # --- Deklaracja (podsumowanie) ---
-    deklaracja = etree.SubElement(root, "{%s}Deklaracja" % TNS)
-    nagl_dek = etree.SubElement(deklaracja, "{%s}Naglowek" % TNS)
-    etree.SubElement(nagl_dek, "{%s}KodFormularzaDek" % TNS).text = "VAT-7"
-    etree.SubElement(nagl_dek, "{%s}WariantFormularzaDek" % TNS).text = "22"
-
-    poz = etree.SubElement(deklaracja, "{%s}PozycjeSzczegolowe" % TNS)
-
-    # Oblicz sumy (Decimal-safe, dziala przy pustej liscie)
     total_net = sum((inv.total_net for inv in invoices), Decimal("0"))
     total_vat = sum((inv.total_vat for inv in invoices), Decimal("0"))
-
-    # Sumy zakupow z odliczalnym VAT (np. paliwo do auta osobowego ma vat_deductible=False)
     deductible = [e for e in expenses if e.vat_deductible]
-    total_exp_net = sum((e.total_net for e in deductible), Decimal("0"))
-    total_exp_vat = sum((e.total_vat for e in deductible), Decimal("0"))
+    exp_net = sum((e.total_net for e in deductible), Decimal("0"))
+    exp_vat = sum((e.total_vat for e in deductible), Decimal("0"))
+    vat_to_pay = max(total_vat - exp_vat, Decimal("0"))
 
-    # Kwota VAT do wplaty po odliczeniu naliczonego (>=0)
-    vat_to_pay = max(total_vat - total_exp_vat, Decimal("0"))
-
-    # P_10 — Podstawa opodatkowania (dostawa towarów/usług krajowa)
-    etree.SubElement(poz, "{%s}P_10" % TNS).text = f"{total_net:.2f}"
-    # P_11 — Podatek należny
-    etree.SubElement(poz, "{%s}P_11" % TNS).text = f"{total_vat:.2f}"
-    # P_38 — Razem podstawa opodatkowania
-    etree.SubElement(poz, "{%s}P_38" % TNS).text = f"{total_net:.2f}"
-    # P_39 — Razem podatek należny
-    etree.SubElement(poz, "{%s}P_39" % TNS).text = f"{total_vat:.2f}"
-
-    # Sekcja zakupow (jesli sa odliczalne)
+    # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote)
+    # Kolejnosc i grupowanie wg XSD JPK_V7M(3). Pola w sekwencjach min=0
+    # musza isc razem (P_40+P_41 jedna grupa, P_42+P_43 druga, itd.)
+    _add_int(poz, "P_10", total_net)  # dostawa krajowa, opt
+    _add_int(poz, "P_38", total_net)  # razem podstawa, REQ
+    _add_int(poz, "P_39", total_vat)  # razem VAT nalezny
     if deductible:
-        # P_41 — Wartosc netto nabyc krajowych innych niz ST
-        etree.SubElement(poz, "{%s}P_41" % TNS).text = f"{total_exp_net:.2f}"
-        # P_42 — VAT naliczony do odliczenia z nabyc krajowych innych niz ST
-        etree.SubElement(poz, "{%s}P_42" % TNS).text = f"{total_exp_vat:.2f}"
-        # P_43 — Razem VAT naliczony do odliczenia
-        etree.SubElement(poz, "{%s}P_43" % TNS).text = f"{total_exp_vat:.2f}"
+        _add_int(poz, "P_40", Decimal("0"))  # nabycia ST netto
+        _add_int(poz, "P_41", exp_net)  # nabycia inne netto
+        _add_int(poz, "P_42", Decimal("0"))  # VAT od nabyc ST
+        _add_int(poz, "P_43", exp_vat)  # VAT od nabyc innych
+    _add_int(poz, "P_51", vat_to_pay)  # do zaplaty, REQ
 
-    # P_49 — Roznica VAT do wplaty (P_38 - P_43, nie mniej niz 0)
-    etree.SubElement(poz, "{%s}P_49" % TNS).text = f"{vat_to_pay:.2f}"
-    # P_51 — Kwota do wpłaty
-    etree.SubElement(poz, "{%s}P_51" % TNS).text = f"{vat_to_pay:.2f}"
+    etree.SubElement(deklaracja, _ns("Pouczenia")).text = "1"
 
-    etree.SubElement(deklaracja, "{%s}Pouczenia" % TNS).text = "1"
-
-    # --- Ewidencja (szczegółowe wiersze) ---
-    ewidencja = etree.SubElement(root, "{%s}Ewidencja" % TNS)
-
+    # --- Ewidencja ---
+    ewidencja = etree.SubElement(root, _ns("Ewidencja"))
     for lp, inv in enumerate(invoices, start=1):
-        wiersz = etree.SubElement(ewidencja, "{%s}SprzedazWiersz" % TNS)
+        _append_sprzedaz_wiersz(ewidencja, lp, inv)
 
-        etree.SubElement(wiersz, "{%s}LpSprzedazy" % TNS).text = str(lp)
-        etree.SubElement(wiersz, "{%s}KodKrajuNadaniaTIN" % TNS).text = inv.buyer.country_code
-        etree.SubElement(wiersz, "{%s}NrKontrahenta" % TNS).text = inv.buyer.nip
-        etree.SubElement(wiersz, "{%s}NazwaKontrahenta" % TNS).text = inv.buyer.name
-        etree.SubElement(wiersz, "{%s}DowodSprzedazy" % TNS).text = inv.number
-        etree.SubElement(wiersz, "{%s}DataWystawienia" % TNS).text = inv.issue_date.isoformat()
-        etree.SubElement(wiersz, "{%s}DataSprzedazy" % TNS).text = inv.sale_date.isoformat()
+    ctrl_sprz = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
+    etree.SubElement(ctrl_sprz, _ns("LiczbaWierszySprzedazy")).text = str(len(invoices))
+    _add_decimal(ctrl_sprz, "PodatekNalezny", total_vat)
 
-        # Pogrupuj pozycje wg stawki -> osobne pola K_ per stawka
-        for vat_rate, (net_sum, vat_sum) in inv.totals_by_vat_rate().items():
-            mapping = VAT_RATE_TO_K_FIELDS.get(vat_rate)
-            if mapping is None:
-                raise ValueError(
-                    f"Faktura {inv.number}: nieobslugiwana stawka VAT {vat_rate}% "
-                    f"(dozwolone: {sorted(VAT_RATE_TO_K_FIELDS.keys())})"
-                )
-            net_field, vat_field = mapping
-            etree.SubElement(wiersz, "{%s}%s" % (TNS, net_field)).text = f"{net_sum:.2f}"
-            if vat_field is not None:
-                etree.SubElement(wiersz, "{%s}%s" % (TNS, vat_field)).text = f"{vat_sum:.2f}"
-
-    # Podsumowanie sprzedaży
-    ctrl_sprz = etree.SubElement(ewidencja, "{%s}SprzedazCtrl" % TNS)
-    etree.SubElement(ctrl_sprz, "{%s}LiczbaWierszySprzedazy" % TNS).text = str(len(invoices))
-    etree.SubElement(ctrl_sprz, "{%s}PodatekNalezny" % TNS).text = f"{total_vat:.2f}"
-
-    # Ewidencja zakupow (ZakupWiersz per faktura zakupu)
     for lp, exp in enumerate(deductible, start=1):
-        wiersz = etree.SubElement(ewidencja, "{%s}ZakupWiersz" % TNS)
-        etree.SubElement(wiersz, "{%s}LpZakupu" % TNS).text = str(lp)
-        etree.SubElement(wiersz, "{%s}KodKrajuNadaniaTIN" % TNS).text = exp.seller_country
-        etree.SubElement(wiersz, "{%s}NrDostawcy" % TNS).text = exp.seller_nip
-        etree.SubElement(wiersz, "{%s}NazwaDostawcy" % TNS).text = exp.seller_name
-        etree.SubElement(wiersz, "{%s}DowodZakupu" % TNS).text = exp.document_number
-        etree.SubElement(wiersz, "{%s}DataZakupu" % TNS).text = exp.issue_date.isoformat()
-        etree.SubElement(wiersz, "{%s}DataWplywu" % TNS).text = exp.receive_date.isoformat()
-        # K_42 — wartosc netto nabyc krajowych innych niz ST
-        etree.SubElement(wiersz, "{%s}K_42" % TNS).text = f"{exp.total_net:.2f}"
-        # K_43 — VAT naliczony przy nabyciach krajowych innych niz ST
-        etree.SubElement(wiersz, "{%s}K_43" % TNS).text = f"{exp.total_vat:.2f}"
+        _append_zakup_wiersz(ewidencja, lp, exp)
 
-    # Podsumowanie zakupow
-    ctrl_zak = etree.SubElement(ewidencja, "{%s}ZakupCtrl" % TNS)
-    etree.SubElement(ctrl_zak, "{%s}LiczbaWierszyZakupow" % TNS).text = str(len(deductible))
-    etree.SubElement(ctrl_zak, "{%s}PodatekNaliczony" % TNS).text = f"{total_exp_vat:.2f}"
+    ctrl_zak = etree.SubElement(ewidencja, _ns("ZakupCtrl"))
+    etree.SubElement(ctrl_zak, _ns("LiczbaWierszyZakupow")).text = str(len(deductible))
+    _add_decimal(ctrl_zak, "PodatekNaliczony", exp_vat)
 
     return etree.tostring(
         root,
@@ -205,6 +142,130 @@ def generate_jpk_v7m(
         encoding="UTF-8",
         pretty_print=True,
     ).decode("utf-8")
+
+
+def _require_seller_fields(seller) -> None:
+    if not seller.tax_office_code:
+        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany (np. 1471)")
+    if not seller.first_name or not seller.last_name:
+        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane")
+    if not seller.birth_date:
+        raise ValueError("SELLER_BIRTH_DATE wymagana (YYYY-MM-DD)")
+
+
+def _append_naglowek(root, seller, now, month, year, correction) -> None:
+    naglowek = etree.SubElement(root, _ns("Naglowek"))
+    kod = etree.SubElement(naglowek, _ns("KodFormularza"))
+    kod.text = "JPK_VAT"
+    kod.set("kodSystemowy", "JPK_V7M (3)")
+    kod.set("wersjaSchemy", "1-0E")
+
+    etree.SubElement(naglowek, _ns("WariantFormularza")).text = "3"
+    etree.SubElement(naglowek, _ns("DataWytworzeniaJPK")).text = now.isoformat()[:19]
+    etree.SubElement(naglowek, _ns("NazwaSystemu")).text = "JDG-Ksiegowy/1.0"
+
+    cel = etree.SubElement(naglowek, _ns("CelZlozenia"))
+    cel.text = str(correction + 1)
+    cel.set("poz", "P_7")
+
+    etree.SubElement(naglowek, _ns("KodUrzedu")).text = seller.tax_office_code
+    etree.SubElement(naglowek, _ns("Rok")).text = str(year)
+    etree.SubElement(naglowek, _ns("Miesiac")).text = str(month)
+
+
+def _append_podmiot(root, seller) -> None:
+    podmiot = etree.SubElement(root, _ns("Podmiot1"), rola="Podatnik")
+    osoba = etree.SubElement(podmiot, _ns("OsobaFizyczna"))
+    # Pola identyfikacyjne idd z namespace etd (DefinicjeTypy)
+    etree.SubElement(osoba, _etd("NIP")).text = seller.nip
+    etree.SubElement(osoba, _etd("ImiePierwsze")).text = seller.first_name
+    etree.SubElement(osoba, _etd("Nazwisko")).text = seller.last_name
+    etree.SubElement(osoba, _etd("DataUrodzenia")).text = seller.birth_date
+    if seller.email:
+        etree.SubElement(osoba, _ns("Email")).text = seller.email
+
+
+def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
+    wiersz = etree.SubElement(ewidencja, _ns("SprzedazWiersz"))
+    etree.SubElement(wiersz, _ns("LpSprzedazy")).text = str(lp)
+    etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = inv.buyer.country_code
+    etree.SubElement(wiersz, _ns("NrKontrahenta")).text = inv.buyer.nip
+    etree.SubElement(wiersz, _ns("NazwaKontrahenta")).text = inv.buyer.name
+    etree.SubElement(wiersz, _ns("DowodSprzedazy")).text = inv.number
+    etree.SubElement(wiersz, _ns("DataWystawienia")).text = inv.issue_date.isoformat()
+    etree.SubElement(wiersz, _ns("DataSprzedazy")).text = inv.sale_date.isoformat()
+
+    # Choice: NrKSeF | OFF | BFK | DI (dokladnie jedno)
+    if inv.ksef_reference:
+        etree.SubElement(wiersz, _ns("NrKSeF")).text = inv.ksef_reference
+    else:
+        # Faktura poza KSeF (elektroniczna albo papierowa)
+        etree.SubElement(wiersz, _ns("BFK")).text = "1"
+
+    # K_10-K_14: dostawy zagraniczne/wewnatrzwspolnotowe (zawsze wymagane)
+    for f in PRE_RATE_FIELDS:
+        _add_decimal(wiersz, f, Decimal("0"))
+
+    # Pary K_15/K_16 (5%), K_17/K_18 (8%), K_19/K_20 (23%) — w kolejnosci XSD
+    buckets = inv.totals_by_vat_rate()
+    # Walidacja stawek — odrzucamy nieobslugiwane
+    for rate in buckets:
+        if rate not in VAT_RATE_TO_K_FIELDS:
+            raise ValueError(
+                f"Faktura {inv.number}: nieobslugiwana stawka VAT {rate}% "
+                f"(dozwolone: {sorted(VAT_RATE_TO_K_FIELDS.keys())})"
+            )
+    for rate_key, net_field, vat_field in RATE_PAIRS_ORDER:
+        # Znajdz sume netto/VAT dla grupy stawek dajacych te same pola
+        rates_matching = [r for r in buckets if VAT_RATE_TO_K_FIELDS[r][0] == net_field]
+        if not rates_matching:
+            continue
+        net_sum = sum((buckets[r][0] for r in rates_matching), Decimal("0"))
+        vat_sum = sum((buckets[r][1] for r in rates_matching), Decimal("0"))
+        _add_decimal(wiersz, net_field, net_sum)
+        _add_decimal(wiersz, vat_field, vat_sum)
+
+    # K_21, K_22 (wewnatrzwspolnotowe dostawy) — zawsze wymagane
+    for f in MID_FIELDS:
+        _add_decimal(wiersz, f, Decimal("0"))
+
+    # K_33-K_36, K_360 (korekty VAT) — zawsze wymagane
+    for f in POST_RATE_FIELDS:
+        _add_decimal(wiersz, f, Decimal("0"))
+
+
+def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
+    wiersz = etree.SubElement(ewidencja, _ns("ZakupWiersz"))
+    etree.SubElement(wiersz, _ns("LpZakupu")).text = str(lp)
+    etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = exp.seller_country
+    etree.SubElement(wiersz, _ns("NrDostawcy")).text = exp.seller_nip
+    etree.SubElement(wiersz, _ns("NazwaDostawcy")).text = exp.seller_name
+    etree.SubElement(wiersz, _ns("DowodZakupu")).text = exp.document_number
+    etree.SubElement(wiersz, _ns("DataZakupu")).text = exp.issue_date.isoformat()
+    etree.SubElement(wiersz, _ns("DataWplywu")).text = exp.receive_date.isoformat()
+
+    # Choice: NrKSeF | OFF | BFK | DI (faktura papierowa/elektroniczna -> BFK)
+    etree.SubElement(wiersz, _ns("BFK")).text = "1"
+
+    # K_42/K_43: nabycia krajowe inne niz ST (netto + VAT)
+    _add_decimal(wiersz, "K_42", exp.total_net)
+    _add_decimal(wiersz, "K_43", exp.total_vat)
+
+    # K_44-K_47: korekty VAT naliczonego — zawsze wymagane (0.00 gdy brak)
+    for f in ("K_44", "K_45", "K_46", "K_47"):
+        _add_decimal(wiersz, f, Decimal("0"))
+
+
+def _add_decimal(parent, tag: str, value: Decimal) -> None:
+    """Kwota z groszami (TKwotowy) — uzywane w wierszach ewidencji K_*."""
+    etree.SubElement(parent, _ns(tag)).text = f"{value:.2f}"
+
+
+def _add_int(parent, tag: str, value: Decimal) -> None:
+    """Kwota w pelnych zlotych (TKwotaC) — uzywane w deklaracji P_*.
+    Zaokraglenie: pol w gore."""
+    rounded = int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    etree.SubElement(parent, _ns(tag)).text = str(rounded)
 
 
 def save_jpk_v7m(
@@ -215,7 +276,7 @@ def save_jpk_v7m(
     correction: int = 0,
     expenses: list[Expense] | None = None,
 ) -> Path:
-    """Wygeneruj i zapisz JPK_V7M do pliku."""
+    """Wygeneruj i zapisz JPK_V7M(3) do pliku."""
     xml = generate_jpk_v7m(invoices, month, year, correction, expenses=expenses)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(xml, encoding="utf-8")

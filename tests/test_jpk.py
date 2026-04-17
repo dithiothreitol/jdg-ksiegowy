@@ -33,11 +33,65 @@ def test_jpk_uses_correct_k_fields_for_8_percent():
     root = etree.fromstring(xml.encode("utf-8"))
     wiersz = root.find(f".//{_ns('SprzedazWiersz')}")
     assert wiersz is not None
-    # Stawka 8% -> K_17 (podstawa) / K_18 (VAT), NIE K_19/K_20
-    assert wiersz.find(_ns("K_17")) is not None
-    assert wiersz.find(_ns("K_18")) is not None
+    # Stawka 8% -> K_17 (podstawa) / K_18 (VAT) wypelnione rzeczywistym
+    assert wiersz.find(_ns("K_17")).text == "100.00"
+    assert wiersz.find(_ns("K_18")).text == "8.00"
+    # K_19/K_20 nie powinny byc dodane (opcjonalne, nieuzywane)
     assert wiersz.find(_ns("K_19")) is None
     assert wiersz.find(_ns("K_20")) is None
+
+
+def test_jpk_v7m_uses_v3_tns_and_variant():
+    inv = _make_invoice("V3/04/2026", [
+        LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("23")),
+    ])
+    xml = generate_jpk_v7m([inv], month=4, year=2026)
+    root = etree.fromstring(xml.encode("utf-8"))
+    assert TNS == "http://crd.gov.pl/wzor/2025/06/18/06181/"
+    kod = root.find(f".//{_ns('KodFormularza')}")
+    assert kod.get("kodSystemowy") == "JPK_V7M (3)"
+    assert root.find(f".//{_ns('WariantFormularza')}").text == "3"
+    assert root.find(f".//{_ns('WariantFormularzaDekl')}").text == "23"
+
+
+def test_jpk_v7m_sprzedaz_wiersz_uses_bfk_by_default():
+    """Faktura bez ksef_reference -> BFK=1 (faktura poza KSeF)."""
+    inv = _make_invoice("B/04/2026", [
+        LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("23")),
+    ])
+    xml = generate_jpk_v7m([inv], month=4, year=2026)
+    root = etree.fromstring(xml.encode("utf-8"))
+    wiersz = root.find(f".//{_ns('SprzedazWiersz')}")
+    assert wiersz.find(_ns("BFK")).text == "1"
+    assert wiersz.find(_ns("NrKSeF")) is None
+    assert wiersz.find(_ns("OFF")) is None
+    assert wiersz.find(_ns("DI")) is None
+
+
+def test_jpk_v7m_sprzedaz_wiersz_uses_nrksef_when_present():
+    inv = _make_invoice("K/04/2026", [
+        LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("23")),
+    ])
+    inv.ksef_reference = "KSEF-2026-04-15-ABC"
+    xml = generate_jpk_v7m([inv], month=4, year=2026)
+    root = etree.fromstring(xml.encode("utf-8"))
+    wiersz = root.find(f".//{_ns('SprzedazWiersz')}")
+    assert wiersz.find(_ns("NrKSeF")).text == "KSEF-2026-04-15-ABC"
+    assert wiersz.find(_ns("BFK")) is None
+
+
+def test_jpk_v7m_required_zero_fields_present():
+    """K_10-K_14, K_21-K_22, K_33-K_36 musza byc w wierszu (0.00 jesli nieuzywane)."""
+    inv = _make_invoice("Z/04/2026", [
+        LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("23")),
+    ])
+    xml = generate_jpk_v7m([inv], month=4, year=2026)
+    root = etree.fromstring(xml.encode("utf-8"))
+    wiersz = root.find(f".//{_ns('SprzedazWiersz')}")
+    for tag in ("K_10", "K_11", "K_12", "K_13", "K_14", "K_21", "K_22", "K_33", "K_34", "K_35", "K_36"):
+        el = wiersz.find(_ns(tag))
+        assert el is not None, f"Brak wymaganego pola {tag}"
+        assert el.text == "0.00", f"{tag} powinno byc 0.00, jest {el.text}"
 
 
 def test_jpk_lp_uses_enumerate_not_index():

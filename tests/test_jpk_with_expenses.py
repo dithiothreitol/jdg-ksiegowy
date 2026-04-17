@@ -51,14 +51,13 @@ def test_jpk_includes_zakup_section_when_expenses_provided():
     assert zakup.find(_ns("K_42")).text == "500.00"
     assert zakup.find(_ns("K_43")).text == "115.00"
 
-    # P_41/P_42/P_43 w deklaracji
+    # P_41/P_42/P_43 w deklaracji (typ TKwotaC: integer, pelne zlote)
     poz = root.find(f".//{_ns('PozycjeSzczegolowe')}")
-    assert poz.find(_ns("P_41")).text == "500.00"
-    assert poz.find(_ns("P_42")).text == "115.00"
-    assert poz.find(_ns("P_43")).text == "115.00"
+    assert poz.find(_ns("P_41")).text == "500"
+    assert poz.find(_ns("P_43")).text == "115"
 
-    # P_49 (do wplaty) = VAT nalezny - VAT naliczony = 230 - 115 = 115
-    assert poz.find(_ns("P_49")).text == "115.00"
+    # P_51 (do wplaty) = VAT nalezny - VAT naliczony = 230 - 115 = 115
+    assert poz.find(_ns("P_51")).text == "115"
 
     # ZakupCtrl
     ctrl = root.find(f".//{_ns('ZakupCtrl')}")
@@ -88,10 +87,10 @@ def test_jpk_excludes_non_deductible_expenses_from_section():
 
 
 def test_vat_to_pay_clamped_at_zero():
-    """Gdy VAT naliczony > naleznego, P_49 powinien byc 0 (nie ujemny)."""
+    """Gdy VAT naliczony > naleznego, P_51 powinien byc 0 (nie ujemny)."""
     inv = _invoice(Decimal("100"))  # VAT nalezny: 23
     exp = _expense(Decimal("1000"), Decimal("230"))  # VAT naliczony: 230
     xml = generate_jpk_v7m([inv], month=4, year=2026, expenses=[exp])
     root = etree.fromstring(xml.encode("utf-8"))
     poz = root.find(f".//{_ns('PozycjeSzczegolowe')}")
-    assert poz.find(_ns("P_49")).text == "0.00"
+    assert poz.find(_ns("P_51")).text == "0"

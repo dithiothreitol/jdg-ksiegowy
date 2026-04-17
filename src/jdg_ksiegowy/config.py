@@ -57,7 +57,9 @@ class MFGatewayConfig(BaseSettings):
     env: str = "test"  # test | prod
     pesel: str = ""
     prior_income: Decimal = Decimal("0")  # kwota przychodu z PIT za rok N-2
-    cert_path: str | None = None  # sciezka do klucza publicznego MF (PEM)
+    cert_path: str | None = None  # lokalny PEM (override automatycznego pobierania)
+    cert_url: str | None = None  # override URL-a skad pobierac klucz publiczny MF
+    cert_ttl_days: int = 30  # jak czesto sprawdzac rotacje klucza MF
 
     @property
     def base_url(self) -> str:

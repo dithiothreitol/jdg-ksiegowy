@@ -70,3 +70,42 @@ Wystarczy na OpenClaw + Ollama z qwen3.5:9b.
 - ZUS/podatki: single source of truth w `src/jdg_ksiegowy/tax/zus.py`
 - Skill scripts importuja z `src/` via sys.path
 - Dane sprzedawcy TYLKO z .env (zero hardkodu)
+
+## Zasady pracy (wytyczne developera AI)
+
+Przy KAZDEJ zmianie kodu w tym projekcie:
+
+1. **Najlepsze wzorce i standardy** — clean architecture (domena/aplikacja/infra),
+   single responsibility, dependency injection gdzie naturalne, nie kombinuj
+   ponad potrzebe. Code smells (long methods, magic numbers, god objects) —
+   refaktoryzuj od razu. Typowanie (PEP 604: `str | None`), pydantic dla
+   walidacji, dataclass dla frozen value objects.
+
+2. **Najnowsze wersje bibliotek i narzedzi** — przed dodaniem zaleznosci
+   sprawdz aktualna wersje (np. `pip index versions <pkg>` lub pypi). Nie
+   kopiuj przestarzalych wzorcow. Python 3.12+ idiomy (match statements,
+   generic syntax PEP 695, `@override`). Jesli lib ma >1 roku od
+   ostatniego release — rozwaz alternatywe.
+
+3. **Bez over-engineeringu** — minimum viable feature, bez hipotetycznych
+   rozszerzen. Trzy podobne linie lepsze niz przedwczesna abstrakcja.
+   Brak feature flag / kompatybilnosci wstecznej tam gdzie mozna po prostu
+   zmienic. Brak try/except "na wszelki wypadek". Walidacja TYLKO na granicy
+   systemu (user input, zewnetrzne API) — zaufaj wewnetrznemu kodowi.
+
+4. **Odwoluj sie do kontekstu** — przed zmiana sprawdz: CLAUDE.md (ten plik),
+   pydantic models w `src/jdg_ksiegowy/`, istniejace skille, `.env.example`,
+   `pyproject.toml`. Nie duplikuj logiki — jesli cos juz istnieje (np.
+   `totals_by_vat_rate`), uzyj. Jesli konwencja istnieje (np. argparse
+   skrypt zwracajacy JSON na stdout) — trzymaj sie jej. Nie wymyslaj
+   wlasnej notacji kategorii/stawek/kodow pol gdy MF ma wlasna.
+
+5. **Weryfikacja, nie deklaracja** — po zmianie uruchom testy (`py -m pytest`),
+   end-to-end skrypt na przykladowych danych, sprawdz wynikowy XML lxml-em.
+   Nie mow "gotowe" zanim wszystko nie zadziala na czysto.
+
+## Zapisywanie "wytycznych"
+
+Jesli user mowi "zapisz w wytycznych" lub "dopisz do wytycznych" — aktualizuj
+te sekcje tego pliku (CLAUDE.md) I rownolegle utworz memory typu `feedback`
+z kluczowym punktem, zeby nie zgubilo sie miedzy sesjami.
