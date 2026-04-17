@@ -14,7 +14,12 @@ DATA_DIR = PROJECT_ROOT / "data"
 class SellerConfig(BaseSettings):
     """Dane sprzedawcy — konfigurowalne z .env."""
 
-    model_config = SettingsConfigDict(env_prefix="SELLER_")
+    model_config = SettingsConfigDict(
+        env_prefix="SELLER_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     name: str  # wymagane — nazwa firmy
     nip: str  # wymagane
@@ -39,10 +44,41 @@ class SellerConfig(BaseSettings):
         return self.bank_account.replace(" ", "")
 
 
+class MFGatewayConfig(BaseSettings):
+    """Konfiguracja bramki MF dla JPK_V7M / JPK_EWP (autoryzacja danymi)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="MF_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    env: str = "test"  # test | prod
+    pesel: str = ""
+    prior_income: Decimal = Decimal("0")  # kwota przychodu z PIT za rok N-2
+    cert_path: str | None = None  # sciezka do klucza publicznego MF (PEM)
+
+    @property
+    def base_url(self) -> str:
+        return {
+            "prod": "https://e-dokumenty.mf.gov.pl",
+            "test": "https://test-e-dokumenty.mf.gov.pl",
+        }[self.env]
+
+    def is_configured(self) -> bool:
+        return bool(self.pesel) and self.prior_income >= Decimal("0")
+
+
 class KSeFConfig(BaseSettings):
     """Konfiguracja KSeF API."""
 
-    model_config = SettingsConfigDict(env_prefix="KSEF_")
+    model_config = SettingsConfigDict(
+        env_prefix="KSEF_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     env: str = "test"  # test | demo | prod
     nip: str = ""
@@ -70,6 +106,7 @@ class Settings(BaseSettings):
 
     seller: SellerConfig = SellerConfig()
     ksef: KSeFConfig = KSeFConfig()
+    mf: MFGatewayConfig = MFGatewayConfig()
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 

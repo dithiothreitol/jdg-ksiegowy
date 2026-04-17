@@ -71,6 +71,31 @@ class ContractRecord(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class ExpenseRecord(Base):
+    """Faktura zakupu (koszt). Na ryczalcie nie pomniejsza podatku,
+    ale VAT naliczony idzie do JPK_V7M (jesli VAT-owiec)."""
+
+    __tablename__ = "expenses"
+
+    id = Column(String, primary_key=True)
+    seller_name = Column(String, nullable=False)
+    seller_nip = Column(String, nullable=False)
+    seller_country = Column(String, default="PL")
+    document_number = Column(String, nullable=False)  # numer faktury sprzedawcy
+    issue_date = Column(Date, nullable=False)
+    receive_date = Column(Date, nullable=False)  # data wplywu, decyduje o miesiacu JPK
+    description = Column(String)
+    category = Column(String)  # np. "uslugi obce", "materialy", "media"
+    total_net = Column(Numeric(10, 2), nullable=False)
+    total_vat = Column(Numeric(10, 2), nullable=False)
+    total_gross = Column(Numeric(10, 2), nullable=False)
+    vat_rate = Column(Numeric(5, 2), default=23)
+    vat_deductible = Column(Boolean, default=True)  # czy VAT podlega odliczeniu
+    file_path = Column(String)  # PDF/JPG zachowanego dowodu
+    notes = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+
 class TaxPaymentRecord(Base):
     """Rekord płatności podatkowej (ryczałt, VAT, ZUS)."""
 
@@ -172,3 +197,26 @@ def save_tax_payment(record: TaxPaymentRecord) -> TaxPaymentRecord:
         session.add(record)
         session.commit()
     return record
+
+
+def save_expense(record: ExpenseRecord) -> ExpenseRecord:
+    with get_session() as session:
+        session.merge(record)
+        session.commit()
+    return record
+
+
+def get_expenses(month: int | None = None, year: int | None = None) -> list[ExpenseRecord]:
+    """Koszty wg miesiaca WPLYWU faktury (receive_date), nie wystawienia."""
+    with get_session() as session:
+        q = session.query(ExpenseRecord)
+        if month and year:
+            if month < 12:
+                end_date = date(year, month + 1, 1)
+            else:
+                end_date = date(year + 1, 1, 1)
+            q = q.filter(
+                ExpenseRecord.receive_date >= date(year, month, 1),
+                ExpenseRecord.receive_date < end_date,
+            )
+        return q.order_by(ExpenseRecord.receive_date.desc()).all()

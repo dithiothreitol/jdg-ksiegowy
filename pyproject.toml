@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "sqlalchemy>=2.0",
+    "cryptography>=44.0",
 ]
 
 [project.optional-dependencies]
