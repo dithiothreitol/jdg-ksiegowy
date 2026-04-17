@@ -23,6 +23,7 @@ class MarkPaidResult:
 @dataclass
 class BankRow:
     """Wiersz z wyciągu bankowego (CSV)."""
+
     transaction_date: date
     amount: Decimal
     description: str
@@ -41,13 +42,15 @@ def mark_paid(invoice_number: str, paid_at: datetime | None = None) -> MarkPaidR
     init_db()
     paid_at = paid_at or datetime.now()
     with get_session() as session:
-        inv = session.query(InvoiceRecord).filter(
-            InvoiceRecord.number == invoice_number
-        ).first()
+        inv = session.query(InvoiceRecord).filter(InvoiceRecord.number == invoice_number).first()
         if inv is None:
             return MarkPaidResult(invoice_number, False, f"Faktura {invoice_number!r} nie istnieje")
         if inv.paid_at is not None:
-            return MarkPaidResult(invoice_number, False, f"Faktura {invoice_number!r} jest juz zaplacona ({inv.paid_at})")
+            return MarkPaidResult(
+                invoice_number,
+                False,
+                f"Faktura {invoice_number!r} jest juz zaplacona ({inv.paid_at})",
+            )
         inv.paid_at = paid_at
         inv.status = "paid"
         session.commit()
@@ -162,8 +165,10 @@ def match_payments(bank_rows: list[BankRow], invoices: list[InvoiceRecord]) -> M
                 used_bank_indices.add(i)
                 break
 
-    result.unmatched_bank = [r for i, r in enumerate(bank_rows)
-                              if i not in used_bank_indices and r.amount > 0]
-    result.unmatched_invoices = [inv for nr, inv in unpaid.items()
-                                  if nr not in used_invoice_numbers]
+    result.unmatched_bank = [
+        r for i, r in enumerate(bank_rows) if i not in used_bank_indices and r.amount > 0
+    ]
+    result.unmatched_invoices = [
+        inv for nr, inv in unpaid.items() if nr not in used_invoice_numbers
+    ]
     return result

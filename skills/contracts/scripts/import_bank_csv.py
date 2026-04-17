@@ -15,7 +15,11 @@ from jdg_ksiegowy.registry.payments import mark_paid, match_payments, parse_bank
 def main():
     parser = argparse.ArgumentParser(description="Import CSV z banku i dopasowanie platnosci")
     parser.add_argument("csv_path", help="Sciezka do pliku CSV z banku")
-    parser.add_argument("--auto-mark", action="store_true", help="Automatycznie oznacz dopasowane faktury jako zaplacone")
+    parser.add_argument(
+        "--auto-mark",
+        action="store_true",
+        help="Automatycznie oznacz dopasowane faktury jako zaplacone",
+    )
     args = parser.parse_args()
 
     init_db()
@@ -39,6 +43,7 @@ def main():
         }
         if args.auto_mark:
             from datetime import datetime
+
             r = mark_paid(inv.number, datetime.combine(row.transaction_date, datetime.min.time()))
             entry["marked_paid"] = r.success
         out["matched"].append(entry)

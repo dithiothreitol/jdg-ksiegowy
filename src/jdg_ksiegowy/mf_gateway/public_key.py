@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -93,8 +93,7 @@ class MFPublicKeyRegistry:
         """Pobierz klucz z URL-a MF, zapisz do cache, zwroc."""
         if not self.cert_url:
             raise ValueError(
-                f"Brak URL klucza publicznego MF dla env={self.env!r}. "
-                "Ustaw MF_CERT_URL w .env."
+                f"Brak URL klucza publicznego MF dla env={self.env!r}. Ustaw MF_CERT_URL w .env."
             )
         logger.info("Pobieram klucz publiczny MF z %s", self.cert_url)
         with httpx.Client(timeout=self.http_timeout, follow_redirects=True) as http:
@@ -114,7 +113,7 @@ class MFPublicKeyRegistry:
             fetched = datetime.fromisoformat(fetched_iso)
         except (OSError, ValueError, IndexError):
             return False
-        return datetime.now(tz=timezone.utc) - fetched < self.ttl
+        return datetime.now(tz=UTC) - fetched < self.ttl
 
     def _load_from_cache(self) -> PublicKeyInfo:
         raw = self._cert_path.read_bytes()
@@ -145,7 +144,7 @@ ROTATION_WARNING_WINDOW = timedelta(days=30)
 def _warn_if_expiring_soon(not_after: datetime | None) -> None:
     if not_after is None:
         return
-    remaining = not_after - datetime.now(tz=timezone.utc)
+    remaining = not_after - datetime.now(tz=UTC)
     if remaining < ROTATION_WARNING_WINDOW:
         logger.warning(
             "Klucz publiczny MF wygasa %s (za %s). Sprawdz komunikaty techniczne "
@@ -181,7 +180,7 @@ def _parse_public_key(raw: bytes, source_url: str) -> PublicKeyInfo:
 
     return PublicKeyInfo(
         key=key,
-        fetched_at=datetime.now(tz=timezone.utc),
+        fetched_at=datetime.now(tz=UTC),
         source_url=source_url,
         not_valid_after=not_after,
     )

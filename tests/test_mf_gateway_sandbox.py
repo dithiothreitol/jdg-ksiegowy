@@ -19,7 +19,6 @@ from jdg_ksiegowy.mf_gateway.auth import AuthorizationData
 from jdg_ksiegowy.mf_gateway.client import MFGatewayClient
 from jdg_ksiegowy.mf_gateway.crypto import EncryptedPayload
 
-
 TEST_BASE = "https://test-e-dokumenty.mf.gov.pl"
 BLOB_URL = "https://taxdocumentstorage09tst.blob.core.windows.net/REF123/BLOB1?sas=xxx"
 BLOB_NAME = "8377ed3d-1b05-4c76-b718-6fddd46fd298"
@@ -65,16 +64,18 @@ def _init_response(ref_num: str = "REF123") -> dict:
     return {
         "ReferenceNumber": ref_num,
         "TimeoutInSec": 900,
-        "RequestToUploadFileList": [{
-            "BlobName": BLOB_NAME,
-            "FileName": "JPK.xml.zip.001.aes",
-            "Url": BLOB_URL,
-            "Method": "PUT",
-            "HeaderList": [
-                {"Key": "Content-MD5", "Value": "eXkPLHMM+dHB5GCFoeAvsA=="},
-                {"Key": "x-ms-blob-type", "Value": "BlockBlob"},
-            ],
-        }],
+        "RequestToUploadFileList": [
+            {
+                "BlobName": BLOB_NAME,
+                "FileName": "JPK.xml.zip.001.aes",
+                "Url": BLOB_URL,
+                "Method": "PUT",
+                "HeaderList": [
+                    {"Key": "Content-MD5", "Value": "eXkPLHMM+dHB5GCFoeAvsA=="},
+                    {"Key": "x-ms-blob-type", "Value": "BlockBlob"},
+                ],
+            }
+        ],
     }
 
 
@@ -125,6 +126,7 @@ async def test_init_sends_xml_body_with_auth_and_metadata(respx_mock, auth):
     assert init_call.request.headers["content-type"] == "application/xml"
 
     from jdg_ksiegowy.mf_gateway.metadata import INIT_NS
+
     ns = f"{{{INIT_NS}}}"
 
     root = etree.fromstring(init_call.request.content)
@@ -159,7 +161,9 @@ async def test_init_sends_xml_body_with_auth_and_metadata(respx_mock, auth):
 @pytest.mark.asyncio
 async def test_init_failure_propagates_error(respx_mock, auth):
     respx_mock.post(f"{TEST_BASE}/api/Storage/InitUploadSigned").mock(
-        return_value=httpx.Response(400, json={"Code": 120, "Message": "Podpis negatywnie zweryfikowany"})
+        return_value=httpx.Response(
+            400, json={"Code": 120, "Message": "Podpis negatywnie zweryfikowany"}
+        )
     )
 
     client = _build_client()
@@ -198,9 +202,13 @@ async def test_status_error_returns_error(respx_mock, auth):
     respx_mock.put(BLOB_URL).mock(return_value=httpx.Response(201))
     respx_mock.post(f"{TEST_BASE}/api/Storage/FinishUpload").mock(return_value=httpx.Response(200))
     respx_mock.get(f"{TEST_BASE}/api/Storage/Status/R1").mock(
-        return_value=httpx.Response(200, json={
-            "Code": 401, "Description": "Dane autoryzujące niepoprawne",
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "Code": 401,
+                "Description": "Dane autoryzujące niepoprawne",
+            },
+        )
     )
 
     client = _build_client()

@@ -32,8 +32,12 @@ def test_totals_by_vat_rate_groups_correctly():
         payment_due=date(2026, 4, 15),
         buyer=_buyer(),
         items=[
-            LineItem(description="usluga 23", unit_price_net=Decimal("1000"), vat_rate=Decimal("23")),
-            LineItem(description="usluga 23 #2", unit_price_net=Decimal("500"), vat_rate=Decimal("23")),
+            LineItem(
+                description="usluga 23", unit_price_net=Decimal("1000"), vat_rate=Decimal("23")
+            ),
+            LineItem(
+                description="usluga 23 #2", unit_price_net=Decimal("500"), vat_rate=Decimal("23")
+            ),
             LineItem(description="ksiazka", unit_price_net=Decimal("100"), vat_rate=Decimal("5")),
         ],
     )

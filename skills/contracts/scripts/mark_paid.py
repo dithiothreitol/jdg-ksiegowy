@@ -20,7 +20,12 @@ def main():
 
     paid_at = datetime.fromisoformat(args.date) if args.date else None
     result = mark_paid(args.number, paid_at)
-    print(json.dumps({"number": result.invoice_number, "success": result.success, "error": result.error}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"number": result.invoice_number, "success": result.success, "error": result.error},
+            ensure_ascii=False,
+        )
+    )
     if not result.success:
         sys.exit(1)
 

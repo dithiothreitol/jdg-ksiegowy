@@ -4,7 +4,6 @@
 import argparse
 import json
 import sys
-from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -24,11 +23,14 @@ def main():
         help="Przychod roczny za poprzedni rok (dla progu zdrowotnego)",
     )
     parser.add_argument(
-        "--include-social", action="store_true",
+        "--include-social",
+        action="store_true",
         help="Dolicz skladki spoleczne (domyslnie tylko zdrowotne)",
     )
     parser.add_argument(
-        "--output", type=Path, default=None,
+        "--output",
+        type=Path,
+        default=None,
         help="Sciezka do pliku XML KEDU (domyslnie: data/zus/DRA_MM_RRRR.xml)",
     )
     args = parser.parse_args()
@@ -49,14 +51,23 @@ def main():
     output.write_text(result.xml, encoding="utf-8")
 
     deadline = dra_deadline(args.month, args.year)
-    print(json.dumps({
-        "xml_path": str(output),
-        "health_contribution": f"{result.health_contribution:.2f}",
-        "social_contribution": f"{result.social_contribution:.2f}",
-        "total": f"{result.total:.2f}",
-        "deadline": deadline.isoformat(),
-        "how_to_send": "Zaloguj do PUE ZUS, zakladka 'Dokumenty i wiadomosci' > 'Import KEDU' i wskaz wygenerowany plik XML.",
-    }, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "xml_path": str(output),
+                "health_contribution": f"{result.health_contribution:.2f}",
+                "social_contribution": f"{result.social_contribution:.2f}",
+                "total": f"{result.total:.2f}",
+                "deadline": deadline.isoformat(),
+                "how_to_send": (
+                    "Zaloguj do PUE ZUS, zakladka 'Dokumenty i wiadomosci' "
+                    "> 'Import KEDU' i wskaz wygenerowany plik XML."
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

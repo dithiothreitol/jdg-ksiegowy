@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from jdg_ksiegowy.tax.pit28 import PIT28Report, generate_pit28_report, format_pit28_text
+from jdg_ksiegowy.tax.pit28 import format_pit28_text, generate_pit28_report
 
 
 @pytest.fixture(autouse=True)
@@ -23,25 +23,29 @@ def isolated_db(tmp_path, monkeypatch):
 
 def _inv(month: int, year: int, net: Decimal):
     from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+
     init_db()
-    save_invoice(InvoiceRecord(
-        id=f"i-{month}-{year}-{net}",
-        number=f"A/{month:02d}/{year}",
-        issue_date=date(year, month, 15),
-        sale_date=date(year, month, 15),
-        payment_due=date(year, month, 28),
-        buyer_name="Klient",
-        buyer_nip="5260250274",
-        total_net=net,
-        total_vat=net * Decimal("0.23"),
-        total_gross=net * Decimal("1.23"),
-        vat_rate=Decimal("23"),
-    ))
+    save_invoice(
+        InvoiceRecord(
+            id=f"i-{month}-{year}-{net}",
+            number=f"A/{month:02d}/{year}",
+            issue_date=date(year, month, 15),
+            sale_date=date(year, month, 15),
+            payment_due=date(year, month, 28),
+            buyer_name="Klient",
+            buyer_nip="5260250274",
+            total_net=net,
+            total_vat=net * Decimal("0.23"),
+            total_gross=net * Decimal("1.23"),
+            vat_rate=Decimal("23"),
+        )
+    )
 
 
 class TestPIT28Report:
     def test_empty_db_returns_zero_sums(self):
         from jdg_ksiegowy.registry.db import init_db
+
         init_db()
         report = generate_pit28_report(2025)
         assert report.annual_sales_net == Decimal("0")

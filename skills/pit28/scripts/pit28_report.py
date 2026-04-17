@@ -14,7 +14,12 @@ from jdg_ksiegowy.tax.pit28 import format_pit28_text, generate_pit28_report
 
 def main():
     parser = argparse.ArgumentParser(description="Raport PIT-28 roczny")
-    parser.add_argument("--year", type=int, default=date.today().year - 1, help="Rok podatkowy (domyslnie rok poprzedni)")
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=date.today().year - 1,
+        help="Rok podatkowy (domyslnie rok poprzedni)",
+    )
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args()
 

@@ -7,7 +7,7 @@ i `invoice.calculator` — nie hitsuje sieci.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
@@ -70,16 +70,24 @@ class Dashboard:
         prev_year = self.today.year if self.today.month > 1 else self.today.year - 1
 
         snap = DashboardSnapshot(today=self.today)
-        snap.unpaid_invoices = [i for i in invoices if not i.paid_at and i.payment_due >= self.today]
-        snap.overdue_invoices = [i for i in invoices if not i.paid_at and i.payment_due < self.today]
-        snap.month_sales_net, snap.month_sales_vat = self._sum_invoices(invoices, self.today.year, self.today.month)
-        snap.month_expenses_net, snap.month_expenses_vat = self._sum_expenses(expenses, self.today.year, self.today.month)
+        snap.unpaid_invoices = [
+            i for i in invoices if not i.paid_at and i.payment_due >= self.today
+        ]
+        snap.overdue_invoices = [
+            i for i in invoices if not i.paid_at and i.payment_due < self.today
+        ]
+        snap.month_sales_net, snap.month_sales_vat = self._sum_invoices(
+            invoices, self.today.year, self.today.month
+        )
+        snap.month_expenses_net, snap.month_expenses_vat = self._sum_expenses(
+            expenses, self.today.year, self.today.month
+        )
 
         # Ryczalt za poprzedni miesiac (platne do 20-go obecnego)
         prev_sales_net, _ = self._sum_invoices(invoices, prev_year, prev_month)
-        snap.estimated_ryczalt = (
-            prev_sales_net * settings.seller.ryczalt_rate / 100
-        ).quantize(Decimal("0.01"))
+        snap.estimated_ryczalt = (prev_sales_net * settings.seller.ryczalt_rate / 100).quantize(
+            Decimal("0.01")
+        )
 
         # ZUS zdrowotne — biezacy miesiac (platne do 20-go nastepnego miesiaca)
         annual_estimate = prev_sales_net * 12
@@ -93,15 +101,20 @@ class Dashboard:
         snap.reminders.sort(key=lambda r: r.due_date)
         return snap
 
-    def _sum_invoices(self, records: list[InvoiceRecord], year: int, month: int) -> tuple[Decimal, Decimal]:
+    def _sum_invoices(
+        self, records: list[InvoiceRecord], year: int, month: int
+    ) -> tuple[Decimal, Decimal]:
         filtered = [r for r in records if r.issue_date.year == year and r.issue_date.month == month]
         net = sum((Decimal(str(r.total_net)) for r in filtered), Decimal("0"))
         vat = sum((Decimal(str(r.total_vat)) for r in filtered), Decimal("0"))
         return net, vat
 
-    def _sum_expenses(self, records: list[ExpenseRecord], year: int, month: int) -> tuple[Decimal, Decimal]:
+    def _sum_expenses(
+        self, records: list[ExpenseRecord], year: int, month: int
+    ) -> tuple[Decimal, Decimal]:
         filtered = [
-            r for r in records
+            r
+            for r in records
             if r.receive_date.year == year and r.receive_date.month == month and r.vat_deductible
         ]
         net = sum((Decimal(str(r.total_net)) for r in filtered), Decimal("0"))
@@ -132,30 +145,37 @@ class Dashboard:
         reminders: list[Reminder] = []
         for inv in overdue:
             days = (inv.payment_due - self.today).days
-            reminders.append(Reminder(
-                label=f"Faktura {inv.number} ({inv.buyer_name}) — PO TERMINIE",
-                due_date=inv.payment_due,
-                amount=Decimal(str(inv.total_gross)),
-                level=ReminderLevel.OVERDUE,
-                days_until=days,
-            ))
+            reminders.append(
+                Reminder(
+                    label=f"Faktura {inv.number} ({inv.buyer_name}) — PO TERMINIE",
+                    due_date=inv.payment_due,
+                    amount=Decimal(str(inv.total_gross)),
+                    level=ReminderLevel.OVERDUE,
+                    days_until=days,
+                )
+            )
         for inv in unpaid:
             days = (inv.payment_due - self.today).days
             if days <= 7:
-                reminders.append(Reminder(
-                    label=f"Faktura {inv.number} ({inv.buyer_name})",
-                    due_date=inv.payment_due,
-                    amount=Decimal(str(inv.total_gross)),
-                    level=self._level_for(days),
-                    days_until=days,
-                ))
+                reminders.append(
+                    Reminder(
+                        label=f"Faktura {inv.number} ({inv.buyer_name})",
+                        due_date=inv.payment_due,
+                        amount=Decimal(str(inv.total_gross)),
+                        level=self._level_for(days),
+                        days_until=days,
+                    )
+                )
         return reminders
 
     def _make_reminder(self, label: str, due: date, amount: Decimal | None) -> Reminder:
         days = (due - self.today).days
         return Reminder(
-            label=label, due_date=due, amount=amount,
-            level=self._level_for(days), days_until=days,
+            label=label,
+            due_date=due,
+            amount=amount,
+            level=self._level_for(days),
+            days_until=days,
         )
 
     @staticmethod

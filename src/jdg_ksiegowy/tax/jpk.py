@@ -9,7 +9,7 @@ Zrodlo XSD: https://www.podatki.gov.pl/media/qord0r0j/schemat_jpk_v7m-3-_v1-0e.x
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 

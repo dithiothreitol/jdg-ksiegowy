@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 OCR_SYSTEM_PROMPT = """Jestes asystentem ksiegowym analizujacym polskie faktury zakupu.
 Wyciagnij z obrazu/PDF faktury nastepujace pola i zwroc JSON:
 - seller_name: nazwa sprzedawcy
-- seller_nip: NIP (10 cyfr, bez mysnikow i spacji; dla zagranicznego z prefiksem kraju np. 'DE812871812')
+- seller_nip: NIP (10 cyfr; dla zagranicznych z prefiksem kraju, np. 'DE812871812')
 - seller_country: dwuliterowy kod kraju ISO (PL dla polskiego NIP)
 - document_number: numer faktury
 - issue_date: data wystawienia (YYYY-MM-DD)
@@ -39,7 +39,7 @@ Wyciagnij z obrazu/PDF faktury nastepujace pola i zwroc JSON:
 - total_vat: kwota VAT (Decimal). Jesli sprzedawca zwolniony z VAT -> 0
 - vat_rate: stawka VAT procent (23/8/5/0). Domyslnie 23 jesli nieczytelne
 - description: krotki opis (max 100 znakow) czego dotyczy faktura
-- category: jedna z [uslugi_obce, materialy, media, paliwo, samochod, biuro, sprzet, szkolenia, inne]
+- category: jedna z {uslugi_obce|materialy|media|paliwo|samochod|biuro|sprzet|szkolenia|inne}
 
 Zasady:
 - Kwoty jako Decimal z dwoma miejscami po przecinku ('100.00', nie '100,00')
@@ -115,9 +115,7 @@ class ClaudeOCR:
 
         key = api_key or settings.anthropic_api_key
         if not key:
-            raise OCRError(
-                "ANTHROPIC_API_KEY nie ustawiony w .env — ClaudeOCR niedostepny"
-            )
+            raise OCRError("ANTHROPIC_API_KEY nie ustawiony w .env — ClaudeOCR niedostepny")
         self._client = Anthropic(api_key=key)
         self.model = model or settings.ocr.claude_model
         self.max_tokens = settings.ocr.claude_max_tokens

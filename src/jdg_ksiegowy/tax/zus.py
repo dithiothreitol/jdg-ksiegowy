@@ -16,8 +16,8 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-
 # -------------------- SKLADKA ZDROWOTNA (ryczalt, progi) --------------------
+
 
 @dataclass(frozen=True)
 class ZUSHealthTier:
@@ -83,22 +83,23 @@ def get_deductible_zus(annual_revenue: Decimal) -> Decimal:
 
 # -------------------- SKLADKI SPOLECZNE (4 tryby) --------------------
 
+
 class ZUSSocialMode(StrEnum):
     """Tryb rozliczenia skladek spolecznych."""
 
-    START_RELIEF = "start_relief"   # Ulga na start, 6 mies od rozpoczecia
-    SMALL_ZUS = "small_zus"         # Preferencyjne, 24 mies po uldze (30% min. wyn.)
-    EMPLOYMENT = "employment"       # Zbieg z UoP >= min. wyn. — brak spolecznych z JDG
-    FULL = "full"                   # Pelne (60% prognozowanego przecietnego)
+    START_RELIEF = "start_relief"  # Ulga na start, 6 mies od rozpoczecia
+    SMALL_ZUS = "small_zus"  # Preferencyjne, 24 mies po uldze (30% min. wyn.)
+    EMPLOYMENT = "employment"  # Zbieg z UoP >= min. wyn. — brak spolecznych z JDG
+    FULL = "full"  # Pelne (60% prognozowanego przecietnego)
 
 
 @dataclass(frozen=True)
 class ZUSSocialTier:
     mode: ZUSSocialMode
     monthly_contribution: Decimal  # BEZ dobrowolnej chorobowej
-    sickness_optional: Decimal     # kwota chorobowej (do doliczenia gdy dobrowolna)
+    sickness_optional: Decimal  # kwota chorobowej (do doliczenia gdy dobrowolna)
     label: str
-    kedu_code: str                 # kod tytulu ubezpieczenia (KEDU)
+    kedu_code: str  # kod tytulu ubezpieczenia (KEDU)
 
 
 # Wartosci 2026 (bez chorobowej dobrowolnej). Z chorobowa: dodac sickness_optional.
@@ -171,12 +172,12 @@ def get_current_social_mode(
     return ZUSSocialMode.FULL
 
 
-def get_social_contribution(
-    mode: ZUSSocialMode, voluntary_sickness: bool = False
-) -> Decimal:
+def get_social_contribution(mode: ZUSSocialMode, voluntary_sickness: bool = False) -> Decimal:
     """Miesieczna skladka spoleczna dla trybu (opcjonalnie + chorobowa)."""
     tier = ZUS_SOCIAL_TIERS_2026[mode]
-    return tier.monthly_contribution + (tier.sickness_optional if voluntary_sickness else Decimal("0"))
+    return tier.monthly_contribution + (
+        tier.sickness_optional if voluntary_sickness else Decimal("0")
+    )
 
 
 def get_total_monthly_zus(

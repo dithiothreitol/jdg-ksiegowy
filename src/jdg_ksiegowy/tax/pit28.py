@@ -11,7 +11,6 @@ PIT-28 składany do 30 kwietnia za rok poprzedni. Stawki ryczałtu:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from jdg_ksiegowy.config import settings
@@ -48,10 +47,7 @@ class PIT28Report:
 
 
 def _month_sales(invoices: list[InvoiceRecord], year: int, month: int) -> Decimal:
-    filtered = [
-        i for i in invoices
-        if i.issue_date.year == year and i.issue_date.month == month
-    ]
+    filtered = [i for i in invoices if i.issue_date.year == year and i.issue_date.month == month]
     return sum((Decimal(str(i.total_net)) for i in filtered), Decimal("0"))
 
 
@@ -77,6 +73,23 @@ def generate_pit28_report(year: int) -> PIT28Report:
     )
 
 
+_MONTHS_PL = [
+    "",
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień",
+]
+
+
 def format_pit28_text(report: PIT28Report) -> str:
     """Sformatuj raport PIT-28 jako czytelny tekst."""
     lines = [
@@ -87,15 +100,9 @@ def format_pit28_text(report: PIT28Report) -> str:
         f"{'Miesiąc':<12} {'Przychód netto':>16} {'Ryczałt':>12}",
         "-" * 44,
     ]
-    MONTHS_PL = [
-        "", "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
-        "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
-    ]
     for m in report.monthly:
         if m.sales_net > 0:
-            lines.append(
-                f"{MONTHS_PL[m.month]:<12} {m.sales_net:>16.2f} {m.ryczalt:>12.2f}"
-            )
+            lines.append(f"{_MONTHS_PL[m.month]:<12} {m.sales_net:>16.2f} {m.ryczalt:>12.2f}")
     lines += [
         "-" * 44,
         f"{'RAZEM':<12} {report.annual_sales_net:>16.2f} {report.annual_ryczalt:>12.2f}",

@@ -50,9 +50,7 @@ class AuthorizationData:
 
     def fingerprint(self) -> str:
         """Skrot do logow (nie wycieka PESEL/kwoty)."""
-        h = hashlib.sha256(
-            f"{self.nip}|{self.pesel}|{self.prior_year_income}".encode()
-        ).hexdigest()
+        h = hashlib.sha256(f"{self.nip}|{self.pesel}|{self.prior_year_income}".encode()).hexdigest()
         return f"sha256:{h[:12]}"
 
 
@@ -63,7 +61,8 @@ def build_authorization_xml(auth: AuthorizationData) -> bytes:
     MF odrzuci z kodem 120 (podpis negatywnie zweryfikowany).
     """
     root = etree.Element(
-        f"{{{SIG_NS}}}DaneAutoryzujace", nsmap={None: SIG_NS},
+        f"{{{SIG_NS}}}DaneAutoryzujace",
+        nsmap={None: SIG_NS},
     )
 
     # xs:choice: NIP | PESEL — zgodnie z praktyka MF:

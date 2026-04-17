@@ -44,11 +44,21 @@ def main():
                 for r in snap.reminders
             ],
             "unpaid_invoices": [
-                {"number": i.number, "buyer": i.buyer_name, "gross": str(i.total_gross), "due": i.payment_due.isoformat()}
+                {
+                    "number": i.number,
+                    "buyer": i.buyer_name,
+                    "gross": str(i.total_gross),
+                    "due": i.payment_due.isoformat(),
+                }
                 for i in snap.unpaid_invoices
             ],
             "overdue_invoices": [
-                {"number": i.number, "buyer": i.buyer_name, "gross": str(i.total_gross), "due": i.payment_due.isoformat()}
+                {
+                    "number": i.number,
+                    "buyer": i.buyer_name,
+                    "gross": str(i.total_gross),
+                    "due": i.payment_due.isoformat(),
+                }
                 for i in snap.overdue_invoices
             ],
             "month_summary": {

@@ -46,7 +46,9 @@ def test_authorization_xml_uses_pesel_only_when_nip_empty():
     """PESEL uzywany tylko gdy NIP jest pusty (osoba fiz. bez dzialalnosci)."""
     from datetime import date
     from decimal import Decimal
+
     from jdg_ksiegowy.mf_gateway.auth import AuthorizationData
+
     auth = AuthorizationData(
         nip="",
         pesel="44051401458",
@@ -71,7 +73,7 @@ def test_authorization_xml_structure_nip_variant():
 
 def test_authorization_xml_has_declaration_and_utf8():
     xml = build_authorization_xml(_auth())
-    assert xml.startswith(b'<?xml version')
+    assert xml.startswith(b"<?xml version")
     assert b"UTF-8" in xml[:60]
 
 

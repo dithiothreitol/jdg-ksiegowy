@@ -25,8 +25,7 @@ def main():
             "warnings": len(report.warnings),
             "errors": len(report.errors),
             "findings": [
-                {"level": f.level, "area": f.area, "message": f.message}
-                for f in report.findings
+                {"level": f.level, "area": f.area, "message": f.message} for f in report.findings
             ],
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))

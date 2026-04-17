@@ -58,9 +58,7 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     dates_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     dates_para.add_run(f"Data wystawienia: {_format_date(invoice.issue_date)}\n").font.size = Pt(9)
     dates_para.add_run(f"Data sprzedazy: {_format_date(invoice.sale_date)}\n").font.size = Pt(9)
-    dates_para.add_run(
-        f"Termin platnosci: {_format_date(invoice.payment_due)}"
-    ).font.size = Pt(9)
+    dates_para.add_run(f"Termin platnosci: {_format_date(invoice.payment_due)}").font.size = Pt(9)
 
     if invoice.period_from and invoice.period_to:
         dates_para.add_run(
@@ -94,7 +92,17 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     doc.add_paragraph()  # spacer
 
     # --- Tabela pozycji ---
-    headers = ["Lp", "Opis", "Ilosc", "J.m.", "Cena netto", "Wart. netto", "VAT %", "Kwota VAT", "Wart. brutto"]
+    headers = [
+        "Lp",
+        "Opis",
+        "Ilosc",
+        "J.m.",
+        "Cena netto",
+        "Wart. netto",
+        "VAT %",
+        "Kwota VAT",
+        "Wart. brutto",
+    ]
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -140,7 +148,7 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     # --- Podsumowanie kwot ---
     summary = doc.add_paragraph()
     summary.add_run(f"Do zaplaty: {_format_pln(invoice.total_gross)}\n").bold = True
-    summary.add_run(f"Forma platnosci: przelew bankowy\n")
+    summary.add_run("Forma platnosci: przelew bankowy\n")
     summary.add_run(f"Nr konta: {seller.bank_account}\n")
     summary.add_run(f"Termin platnosci: {_format_date(invoice.payment_due)}")
 

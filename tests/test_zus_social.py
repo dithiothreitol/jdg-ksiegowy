@@ -15,47 +15,65 @@ class TestSocialModeAutoselect:
     BIZ_START = date(2021, 5, 1)
 
     def test_start_relief_first_6_months(self):
-        assert get_current_social_mode(
-            today=date(2021, 6, 1),
-            business_start=self.BIZ_START,
-            employment_above_min=False,
-        ) == ZUSSocialMode.START_RELIEF
+        assert (
+            get_current_social_mode(
+                today=date(2021, 6, 1),
+                business_start=self.BIZ_START,
+                employment_above_min=False,
+            )
+            == ZUSSocialMode.START_RELIEF
+        )
 
     def test_small_zus_after_relief(self):
-        assert get_current_social_mode(
-            today=date(2022, 6, 1),
-            business_start=self.BIZ_START,
-            employment_above_min=False,
-        ) == ZUSSocialMode.SMALL_ZUS
+        assert (
+            get_current_social_mode(
+                today=date(2022, 6, 1),
+                business_start=self.BIZ_START,
+                employment_above_min=False,
+            )
+            == ZUSSocialMode.SMALL_ZUS
+        )
 
     def test_full_after_30_months(self):
-        assert get_current_social_mode(
-            today=date(2026, 4, 17),
-            business_start=self.BIZ_START,
-            employment_above_min=False,
-        ) == ZUSSocialMode.FULL
+        assert (
+            get_current_social_mode(
+                today=date(2026, 4, 17),
+                business_start=self.BIZ_START,
+                employment_above_min=False,
+            )
+            == ZUSSocialMode.FULL
+        )
 
     def test_employment_overrides_date_based(self):
-        assert get_current_social_mode(
-            today=date(2021, 6, 1),
-            business_start=self.BIZ_START,
-            employment_above_min=True,
-        ) == ZUSSocialMode.EMPLOYMENT
+        assert (
+            get_current_social_mode(
+                today=date(2021, 6, 1),
+                business_start=self.BIZ_START,
+                employment_above_min=True,
+            )
+            == ZUSSocialMode.EMPLOYMENT
+        )
 
     def test_manual_override_wins(self):
-        assert get_current_social_mode(
-            today=date(2026, 4, 17),
-            business_start=self.BIZ_START,
-            employment_above_min=True,
-            override=ZUSSocialMode.FULL,
-        ) == ZUSSocialMode.FULL
+        assert (
+            get_current_social_mode(
+                today=date(2026, 4, 17),
+                business_start=self.BIZ_START,
+                employment_above_min=True,
+                override=ZUSSocialMode.FULL,
+            )
+            == ZUSSocialMode.FULL
+        )
 
     def test_no_business_start_defaults_to_full(self):
-        assert get_current_social_mode(
-            today=date(2026, 4, 17),
-            business_start=None,
-            employment_above_min=False,
-        ) == ZUSSocialMode.FULL
+        assert (
+            get_current_social_mode(
+                today=date(2026, 4, 17),
+                business_start=None,
+                employment_above_min=False,
+            )
+            == ZUSSocialMode.FULL
+        )
 
 
 class TestSocialContribution:
@@ -69,17 +87,17 @@ class TestSocialContribution:
         assert get_social_contribution(ZUSSocialMode.SMALL_ZUS) == Decimal("420.86")
 
     def test_small_zus_with_sickness(self):
-        assert get_social_contribution(
-            ZUSSocialMode.SMALL_ZUS, voluntary_sickness=True
-        ) == Decimal("456.18")
+        assert get_social_contribution(ZUSSocialMode.SMALL_ZUS, voluntary_sickness=True) == Decimal(
+            "456.18"
+        )
 
     def test_full_without_sickness(self):
         assert get_social_contribution(ZUSSocialMode.FULL) == Decimal("1788.29")
 
     def test_full_with_sickness(self):
-        assert get_social_contribution(
-            ZUSSocialMode.FULL, voluntary_sickness=True
-        ) == Decimal("1926.76")
+        assert get_social_contribution(ZUSSocialMode.FULL, voluntary_sickness=True) == Decimal(
+            "1926.76"
+        )
 
 
 class TestTotalMonthlyZus:

@@ -39,7 +39,9 @@ class Expense(BaseModel):
     total_net: Decimal
     total_vat: Decimal
     vat_rate: Decimal = Decimal("23")
-    vat_deductible: bool = True  # czy VAT podlega odliczeniu (False np. dla paliwa do auta osobowego)
+    vat_deductible: bool = (
+        True  # czy VAT podlega odliczeniu (False np. dla paliwa do auta osobowego)
+    )
     file_path: str | None = None  # PDF/JPG dowodu
     notes: str | None = None
 

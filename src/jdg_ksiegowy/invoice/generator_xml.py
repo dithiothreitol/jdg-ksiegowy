@@ -6,7 +6,6 @@ Generacja przez SDK gwarantuje zgodnosc z XSD i semantyka MF.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 
 from ksef2.fa3 import FA3InvoiceBuilder

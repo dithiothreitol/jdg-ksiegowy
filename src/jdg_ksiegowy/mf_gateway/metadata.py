@@ -40,11 +40,9 @@ Struktura (spec 5.4 sekcja 2.2.1):
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 
 from lxml import etree
-
 
 REST_API_VERSION = "01.02.01.20160617"
 INIT_NS = "http://e-dokumenty.mf.gov.pl"
@@ -55,19 +53,19 @@ class DocumentMetadata:
     """Metadane dokumentu JPK do InitUpload."""
 
     # Atrybuty FormCode — z <KodFormularza> w JPK XML
-    form_code: str              # zawartosc: np. "JPK_VAT"
-    system_code: str            # kodSystemowy: np. "JPK_V7M (3)"
-    schema_version: str         # wersjaSchemy: np. "1-0E"
+    form_code: str  # zawartosc: np. "JPK_VAT"
+    system_code: str  # kodSystemowy: np. "JPK_V7M (3)"
+    schema_version: str  # wersjaSchemy: np. "1-0E"
 
     # Nazwa pliku i metadane
-    filename: str               # np. "JPK_V7M_2026_03.xml"
-    content_length: int         # rozmiar oryginalnego XML
-    hash_sha256_b64: str        # SHA-256 oryginalu, Base64
+    filename: str  # np. "JPK_V7M_2026_03.xml"
+    content_length: int  # rozmiar oryginalnego XML
+    hash_sha256_b64: str  # SHA-256 oryginalu, Base64
 
     # Metadane pliku zaszyfrowanego (trafia na Azure Blob)
-    encrypted_filename: str     # np. "JPK_V7M_2026_03.xml.zip.001.aes"
-    encrypted_length: int       # rozmiar ciphertext (po ZIP+AES)
-    encrypted_md5_b64: str      # MD5 ciphertext, Base64
+    encrypted_filename: str  # np. "JPK_V7M_2026_03.xml.zip.001.aes"
+    encrypted_length: int  # rozmiar ciphertext (po ZIP+AES)
+    encrypted_md5_b64: str  # MD5 ciphertext, Base64
 
 
 def encrypted_filename_for(xml_filename: str) -> str:
@@ -104,8 +102,12 @@ def build_init_upload_xml(
     etree.SubElement(root, _ns("Version")).text = REST_API_VERSION
 
     enc_key = etree.SubElement(
-        root, _ns("EncryptionKey"),
-        algorithm="RSA", mode="ECB", padding="PKCS#1", encoding="Base64",
+        root,
+        _ns("EncryptionKey"),
+        algorithm="RSA",
+        mode="ECB",
+        padding="PKCS#1",
+        encoding="Base64",
     )
     enc_key.text = encrypted_aes_key_b64
 
@@ -113,8 +115,10 @@ def build_init_upload_xml(
     document = etree.SubElement(doc_list, _ns("Document"))
 
     form_code = etree.SubElement(
-        document, _ns("FormCode"),
-        systemCode=doc.system_code, schemaVersion=doc.schema_version,
+        document,
+        _ns("FormCode"),
+        systemCode=doc.system_code,
+        schemaVersion=doc.schema_version,
     )
     form_code.text = doc.form_code
 
@@ -122,12 +126,17 @@ def build_init_upload_xml(
     etree.SubElement(document, _ns("ContentLength")).text = str(doc.content_length)
 
     hash_val = etree.SubElement(
-        document, _ns("HashValue"), algorithm="SHA-256", encoding="Base64",
+        document,
+        _ns("HashValue"),
+        algorithm="SHA-256",
+        encoding="Base64",
     )
     hash_val.text = doc.hash_sha256_b64
 
     file_sig_list = etree.SubElement(
-        document, _ns("FileSignatureList"), filesNumber="1",
+        document,
+        _ns("FileSignatureList"),
+        filesNumber="1",
     )
 
     packaging = etree.SubElement(file_sig_list, _ns("Packaging"))
@@ -136,7 +145,12 @@ def build_init_upload_xml(
     # Wazne: IV jest WEWNATRZ AES (wg przykladu MF), nie jako rodzenstwo
     encryption = etree.SubElement(file_sig_list, _ns("Encryption"))
     aes_el = etree.SubElement(
-        encryption, _ns("AES"), size="256", block="16", mode="CBC", padding="PKCS#7",
+        encryption,
+        _ns("AES"),
+        size="256",
+        block="16",
+        mode="CBC",
+        padding="PKCS#7",
     )
     iv_el = etree.SubElement(aes_el, _ns("IV"), bytes="16", encoding="Base64")
     iv_el.text = iv_b64
@@ -146,14 +160,20 @@ def build_init_upload_xml(
     etree.SubElement(file_sig, _ns("FileName")).text = doc.encrypted_filename
     etree.SubElement(file_sig, _ns("ContentLength")).text = str(doc.encrypted_length)
     enc_hash = etree.SubElement(
-        file_sig, _ns("HashValue"), algorithm="MD5", encoding="Base64",
+        file_sig,
+        _ns("HashValue"),
+        algorithm="MD5",
+        encoding="Base64",
     )
     enc_hash.text = doc.encrypted_md5_b64
 
     etree.SubElement(root, _ns("AuthData")).text = auth_data_b64
 
     return etree.tostring(
-        root, xml_declaration=True, encoding="UTF-8", standalone=False,
+        root,
+        xml_declaration=True,
+        encoding="UTF-8",
+        standalone=False,
     )
 
 

@@ -66,6 +66,7 @@ class SubmitResult:
 @dataclass
 class _UploadTarget:
     """Jeden plik do uploadu na Azure Blob (z InitUpload response)."""
+
     blob_name: str
     url: str
     method: str
@@ -103,7 +104,10 @@ class MFGatewayClient:
         return encrypt_jpk(xml.encode("utf-8"), self._public_key(), inner_filename)
 
     def _build_init_upload_body(
-        self, payload: EncryptedPayload, auth: AuthorizationData, xml_filename: str,
+        self,
+        payload: EncryptedPayload,
+        auth: AuthorizationData,
+        xml_filename: str,
     ) -> bytes:
         """Zbuduj kompletny dokument InitUpload XML z zaszyfrowanym AuthData."""
         form_code, system_code, schema_version = extract_jpk_form_code(payload.plaintext)
@@ -163,7 +167,8 @@ class MFGatewayClient:
 
             if not targets:
                 return SubmitResult(
-                    success=False, reference_number=ref_num,
+                    success=False,
+                    reference_number=ref_num,
                     error="init_returned_no_upload_targets",
                 )
 
@@ -172,7 +177,9 @@ class MFGatewayClient:
                     await self._upload_blob(target, payload.ciphertext)
             except Exception as e:
                 return SubmitResult(
-                    success=False, reference_number=ref_num, error=f"upload_failed: {e}",
+                    success=False,
+                    reference_number=ref_num,
+                    error=f"upload_failed: {e}",
                 )
 
             try:
@@ -180,13 +187,17 @@ class MFGatewayClient:
                 await self._finish_upload(http, ref_num, blob_names)
             except Exception as e:
                 return SubmitResult(
-                    success=False, reference_number=ref_num, error=f"finish_failed: {e}",
+                    success=False,
+                    reference_number=ref_num,
+                    error=f"finish_failed: {e}",
                 )
 
             return await self._poll_status(http, ref_num, poll_interval, timeout_sec)
 
     async def _init_upload(
-        self, http: httpx.AsyncClient, init_body: bytes,
+        self,
+        http: httpx.AsyncClient,
+        init_body: bytes,
     ) -> tuple[str, list[_UploadTarget]]:
         """POST XML -> ReferenceNumber + lista URL-i do Azure Blob."""
         resp = await http.post(
@@ -209,24 +220,32 @@ class MFGatewayClient:
         targets = []
         for item in data.get("RequestToUploadFileList", []):
             headers = {h["Key"]: h["Value"] for h in item.get("HeaderList", [])}
-            targets.append(_UploadTarget(
-                blob_name=item["BlobName"],
-                url=item["Url"],
-                method=item.get("Method", "PUT"),
-                headers=headers,
-            ))
+            targets.append(
+                _UploadTarget(
+                    blob_name=item["BlobName"],
+                    url=item["Url"],
+                    method=item.get("Method", "PUT"),
+                    headers=headers,
+                )
+            )
         return ref_num, targets
 
     async def _upload_blob(self, target: _UploadTarget, ciphertext: bytes) -> None:
         """PUT zaszyfrowanego pliku na Azure Blob z headerami z InitUpload response."""
         async with httpx.AsyncClient(timeout=self.timeout) as blob_http:
             resp = await blob_http.request(
-                target.method, target.url, content=ciphertext, headers=target.headers,
+                target.method,
+                target.url,
+                content=ciphertext,
+                headers=target.headers,
             )
             resp.raise_for_status()
 
     async def _finish_upload(
-        self, http: httpx.AsyncClient, reference_number: str, blob_names: list[str],
+        self,
+        http: httpx.AsyncClient,
+        reference_number: str,
+        blob_names: list[str],
     ) -> None:
         resp = await http.post(
             "/api/Storage/FinishUpload",

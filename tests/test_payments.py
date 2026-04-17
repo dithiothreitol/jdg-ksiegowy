@@ -7,8 +7,8 @@ import pytest
 
 from jdg_ksiegowy.registry.payments import (
     BankRow,
-    match_payments,
     mark_paid,
+    match_payments,
     parse_bank_csv,
 )
 
@@ -57,6 +57,7 @@ class TestMarkPaid:
 
     def test_returns_error_for_missing_invoice(self):
         from jdg_ksiegowy.registry.db import init_db
+
         init_db()
         result = mark_paid("NIEISTNIEJACA/01/2026")
         assert result.success is False
@@ -70,6 +71,7 @@ class TestMarkPaid:
 
     def test_sets_paid_at_timestamp(self):
         from jdg_ksiegowy.registry.db import get_invoices, init_db
+
         init_db()
         _inv("A3/04/2026", Decimal("1230"), date(2026, 4, 30))
         ts = datetime(2026, 4, 25, 12, 0, 0)

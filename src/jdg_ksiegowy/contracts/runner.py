@@ -28,8 +28,8 @@ from jdg_ksiegowy.registry.db import (
 
 @dataclass
 class RunResult:
-    generated: list[str] = field(default_factory=list)   # numery faktur
-    skipped: list[str] = field(default_factory=list)      # kontrakty pominięte
+    generated: list[str] = field(default_factory=list)  # numery faktur
+    skipped: list[str] = field(default_factory=list)  # kontrakty pominięte
     errors: list[str] = field(default_factory=list)
 
 

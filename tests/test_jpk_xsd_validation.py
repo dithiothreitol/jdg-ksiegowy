@@ -6,7 +6,6 @@ Test pobiera oficjalne XSD z podatki.gov.pl przy pierwszym uruchomieniu
 
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 
@@ -15,7 +14,6 @@ from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
 from jdg_ksiegowy.tax.ewp import generate_jpk_ewp
 from jdg_ksiegowy.tax.jpk import generate_jpk_v7m
 from jdg_ksiegowy.tax.validation import JPKValidator
-
 
 # NIP zgodny z wzorcem XSD [1-9]((\d[1-9])|([1-9]\d))\d{7} + suma kontrolna
 VALID_NIP = "5260250274"  # NIP ZUS, publiczny; suma=169, R=4

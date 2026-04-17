@@ -22,8 +22,8 @@ from jdg_ksiegowy.validators import validate_nip, validate_pesel
 
 @dataclass
 class Finding:
-    level: str          # "ok" | "warn" | "error"
-    area: str           # "seller" | "ksef" | "mf" | "smtp" | "ocr"
+    level: str  # "ok" | "warn" | "error"
+    area: str  # "seller" | "ksef" | "mf" | "smtp" | "ocr"
     message: str
 
 
@@ -56,7 +56,9 @@ def _check_seller(report: DoctorReport) -> None:
     if not s.nip:
         report.findings.append(Finding("error", area, "SELLER_NIP pusty"))
     elif not validate_nip(s.nip):
-        report.findings.append(Finding("error", area, f"SELLER_NIP nieprawidłowy (suma kontrolna): {s.nip}"))
+        report.findings.append(
+            Finding("error", area, f"SELLER_NIP nieprawidłowy (suma kontrolna): {s.nip}")
+        )
     else:
         report.findings.append(Finding("ok", area, f"NIP poprawny: {s.nip}"))
     if not s.address:
@@ -66,30 +68,42 @@ def _check_seller(report: DoctorReport) -> None:
     if not s.email:
         report.findings.append(Finding("warn", area, "SELLER_EMAIL pusty — wymagany dla JPK"))
     if not (s.first_name and s.last_name):
-        report.findings.append(Finding("warn", area, "SELLER_FIRST_NAME/LAST_NAME puste — wymagane dla JPK_V7M"))
+        report.findings.append(
+            Finding("warn", area, "SELLER_FIRST_NAME/LAST_NAME puste — wymagane dla JPK_V7M")
+        )
     if not s.birth_date:
-        report.findings.append(Finding("warn", area, "SELLER_BIRTH_DATE pusta — wymagana dla JPK_V7M"))
+        report.findings.append(
+            Finding("warn", area, "SELLER_BIRTH_DATE pusta — wymagana dla JPK_V7M")
+        )
     else:
         try:
             date.fromisoformat(s.birth_date)
         except ValueError:
-            report.findings.append(Finding("error", area, f"SELLER_BIRTH_DATE zły format (YYYY-MM-DD): {s.birth_date}"))
+            report.findings.append(
+                Finding("error", area, f"SELLER_BIRTH_DATE zły format (YYYY-MM-DD): {s.birth_date}")
+            )
     if not s.tax_office_code:
-        report.findings.append(Finding("warn", area, "SELLER_TAX_OFFICE_CODE pusty — wymagany dla JPK"))
+        report.findings.append(
+            Finding("warn", area, "SELLER_TAX_OFFICE_CODE pusty — wymagany dla JPK")
+        )
 
 
 def _check_ksef(report: DoctorReport) -> None:
     k = settings.ksef
     area = "ksef"
     if k.env not in {"test", "demo", "prod"}:
-        report.findings.append(Finding("error", area, f"KSEF_ENV musi być test/demo/prod, jest: {k.env}"))
+        report.findings.append(
+            Finding("error", area, f"KSEF_ENV musi być test/demo/prod, jest: {k.env}")
+        )
         return
     report.findings.append(Finding("ok", area, f"KSEF_ENV={k.env} (URL: {k.base_url})"))
     effective_nip = k.nip or settings.seller.nip
     if not effective_nip:
         report.findings.append(Finding("error", area, "KSEF_NIP pusty i SELLER_NIP też"))
     elif not k.token:
-        report.findings.append(Finding("warn", area, "KSEF_TOKEN pusty — wysyłka do KSeF nie zadziała"))
+        report.findings.append(
+            Finding("warn", area, "KSEF_TOKEN pusty — wysyłka do KSeF nie zadziała")
+        )
     else:
         report.findings.append(Finding("ok", area, "KSEF NIP + token obecne"))
 
@@ -104,7 +118,7 @@ def _check_mf(report: DoctorReport) -> None:
     if not m.pesel:
         report.findings.append(Finding("warn", area, "MF_PESEL pusty — wysyłka JPK nie zadziała"))
     elif not validate_pesel(m.pesel):
-        report.findings.append(Finding("error", area, f"MF_PESEL nieprawidłowy (suma kontrolna)"))
+        report.findings.append(Finding("error", area, "MF_PESEL nieprawidłowy (suma kontrolna)"))
     if m.cert_path:
         p = Path(m.cert_path)
         if not p.exists():
@@ -114,14 +128,18 @@ def _check_mf(report: DoctorReport) -> None:
     elif m.cert_url:
         report.findings.append(Finding("ok", area, f"MF_CERT_URL ustawiony: {m.cert_url}"))
     else:
-        report.findings.append(Finding("warn", area, "MF_CERT_PATH/URL puste — wysyłka JPK nie zadziała"))
+        report.findings.append(
+            Finding("warn", area, "MF_CERT_PATH/URL puste — wysyłka JPK nie zadziała")
+        )
 
 
 def _check_smtp(report: DoctorReport) -> None:
     s = settings.smtp
     area = "smtp"
     if not s.host:
-        report.findings.append(Finding("warn", area, "SMTP nie skonfigurowany (wysyłka email nieaktywna)"))
+        report.findings.append(
+            Finding("warn", area, "SMTP nie skonfigurowany (wysyłka email nieaktywna)")
+        )
         return
     if not (s.username and s.password):
         report.findings.append(Finding("warn", area, "SMTP host jest, brak username/password"))
@@ -133,11 +151,15 @@ def _check_ocr(report: DoctorReport) -> None:
     o = settings.ocr
     area = "ocr"
     if o.provider not in {"auto", "ollama", "claude"}:
-        report.findings.append(Finding("error", area, f"OCR_PROVIDER musi być auto/ollama/claude, jest: {o.provider}"))
+        report.findings.append(
+            Finding("error", area, f"OCR_PROVIDER musi być auto/ollama/claude, jest: {o.provider}")
+        )
         return
     has_claude_key = bool(settings.anthropic_api_key)
     if o.provider == "claude" and not has_claude_key:
-        report.findings.append(Finding("error", area, "OCR_PROVIDER=claude wymaga ANTHROPIC_API_KEY"))
+        report.findings.append(
+            Finding("error", area, "OCR_PROVIDER=claude wymaga ANTHROPIC_API_KEY")
+        )
     else:
         details = f"provider={o.provider}"
         if o.provider in {"ollama", "auto"}:

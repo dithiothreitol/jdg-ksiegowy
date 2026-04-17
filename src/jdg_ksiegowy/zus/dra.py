@@ -86,7 +86,9 @@ def generate_dra_xml(req: DRARequest) -> DRAResult:
 
     if req.include_social:
         override = req.social_mode or _mode_from_settings_override(seller.zus_social_mode)
-        biz_start = date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+        biz_start = (
+            date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+        )
         mode = get_current_social_mode(
             today=date(req.year, req.month, 1),
             business_start=biz_start,
@@ -103,7 +105,9 @@ def generate_dra_xml(req: DRARequest) -> DRAResult:
     naglowek = etree.SubElement(root, _ns("naglowek"))
     etree.SubElement(naglowek, _ns("typ_dokumentu")).text = "DRA"
     etree.SubElement(naglowek, _ns("wersja_schematu")).text = "5.05"
-    etree.SubElement(naglowek, _ns("data_wytworzenia")).text = datetime.now().isoformat(timespec="seconds")
+    etree.SubElement(naglowek, _ns("data_wytworzenia")).text = datetime.now().isoformat(
+        timespec="seconds"
+    )
 
     # DRA: pozycje
     dra = etree.SubElement(root, _ns("DRA"))
@@ -127,12 +131,17 @@ def generate_dra_xml(req: DRARequest) -> DRAResult:
     etree.SubElement(skladki, _ns("razem")).text = f"{total:.2f}"
 
     xml = etree.tostring(
-        root, xml_declaration=True, encoding="UTF-8", pretty_print=True,
+        root,
+        xml_declaration=True,
+        encoding="UTF-8",
+        pretty_print=True,
     ).decode("utf-8")
 
     return DRAResult(
-        xml=xml, health_contribution=health,
-        social_contribution=social, total=total,
+        xml=xml,
+        health_contribution=health,
+        social_contribution=social,
+        total=total,
     )
 
 

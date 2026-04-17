@@ -5,10 +5,13 @@ from decimal import Decimal
 
 from lxml import etree
 
-from jdg_ksiegowy.invoice.models import (
-    Buyer, CorrectionReason, InvoiceCorrection, LineItem,
-)
 from jdg_ksiegowy.invoice.generator_xml import FA3_NS, generate_correction_xml
+from jdg_ksiegowy.invoice.models import (
+    Buyer,
+    CorrectionReason,
+    InvoiceCorrection,
+    LineItem,
+)
 
 
 def _fa3(tag: str) -> str:
@@ -108,8 +111,11 @@ class TestCorrectionXML:
 
     def test_eu_buyer_uses_nrvatue_in_correction(self):
         eu_buyer = Buyer(
-            name="DE GmbH", nip="", country_code="DE",
-            eu_vat_number="DE987654321", address="Berlin 1",
+            name="DE GmbH",
+            nip="",
+            country_code="DE",
+            eu_vat_number="DE987654321",
+            address="Berlin 1",
         )
         c = _correction(buyer=eu_buyer)
         root = self._root(c)

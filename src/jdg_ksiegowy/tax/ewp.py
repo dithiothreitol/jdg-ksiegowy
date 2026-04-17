@@ -33,6 +33,7 @@ RYCZALT_STAWKI: frozenset[Decimal] = frozenset(
     Decimal(v) for v in ("17", "15", "14", "12.5", "12", "10", "8.5", "5.5", "3")
 )
 
+
 def _ns(tag: str) -> str:
     return f"{{{TNS}}}{tag}"
 
@@ -69,8 +70,7 @@ def generate_jpk_ewp(
     rate = ryczalt_rate if ryczalt_rate is not None else seller.ryczalt_rate
     if rate not in RYCZALT_STAWKI:
         raise ValueError(
-            f"Stawka ryczaltu {rate}% nie jest w slowniku MF "
-            f"(dozwolone: {sorted(RYCZALT_STAWKI)})"
+            f"Stawka ryczaltu {rate}% nie jest w slowniku MF (dozwolone: {sorted(RYCZALT_STAWKI)})"
         )
     if not seller.first_name or not seller.last_name:
         raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")

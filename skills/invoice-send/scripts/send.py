@@ -43,7 +43,12 @@ def main():
         sys.exit(1)
 
     if not record.docx_path or not Path(record.docx_path).exists():
-        print(json.dumps({"success": False, "error": f"Brak pliku DOCX dla {record.number}"}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"success": False, "error": f"Brak pliku DOCX dla {record.number}"},
+                ensure_ascii=False,
+            )
+        )
         sys.exit(1)
 
     try:
@@ -63,13 +68,19 @@ def main():
         cc=[e.strip() for e in args.cc.split(",")] if args.cc else None,
     )
 
-    print(json.dumps({
-        "success": result.success,
-        "to": result.to,
-        "subject": result.subject,
-        "pdf_path": str(pdf_path),
-        "error": result.error,
-    }, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "success": result.success,
+                "to": result.to,
+                "subject": result.subject,
+                "pdf_path": str(pdf_path),
+                "error": result.error,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     sys.exit(0 if result.success else 1)
 
 

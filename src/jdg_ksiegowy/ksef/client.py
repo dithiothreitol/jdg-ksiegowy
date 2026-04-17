@@ -63,9 +63,7 @@ class KSeFClient:
                 )
 
             with auth.online_session(form_code=FormSchema.FA3) as session:
-                result = session.send_invoice(
-                    invoice_xml=xml_content.encode("utf-8")
-                )
+                result = session.send_invoice(invoice_xml=xml_content.encode("utf-8"))
                 ref = result.reference_number
 
                 session.wait_for_invoice_ready(invoice_reference_number=ref)

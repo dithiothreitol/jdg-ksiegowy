@@ -35,13 +35,13 @@ class EncryptedPayload:
     kluczem element AuthData (wymog spec 5.4 sekcja 1.3.2).
     """
 
-    ciphertext: bytes             # zaszyfrowany ZIP (do uploadu na Azure Blob)
-    encrypted_aes_key: bytes      # klucz AES zaszyfrowany RSA kluczem publicznym MF
-    iv: bytes                     # 16 bajtow
-    aes_key: bytes                # 32 bajty — do szyfrowania AuthData
-    plaintext: bytes              # oryginalny XML (do liczenia SHA-256)
-    plaintext_size: int           # rozmiar oryginalu
-    zip_size: int                 # rozmiar po ZIP (przed AES)
+    ciphertext: bytes  # zaszyfrowany ZIP (do uploadu na Azure Blob)
+    encrypted_aes_key: bytes  # klucz AES zaszyfrowany RSA kluczem publicznym MF
+    iv: bytes  # 16 bajtow
+    aes_key: bytes  # 32 bajty — do szyfrowania AuthData
+    plaintext: bytes  # oryginalny XML (do liczenia SHA-256)
+    plaintext_size: int  # rozmiar oryginalu
+    zip_size: int  # rozmiar po ZIP (przed AES)
 
 
 def zip_xml(xml_content: bytes, inner_filename: str = "jpk.xml") -> bytes:

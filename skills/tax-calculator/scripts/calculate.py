@@ -16,13 +16,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 from jdg_ksiegowy.tax.zus import (
     ZUSSocialMode,
     get_current_social_mode,
     get_social_contribution,
     get_zus_tier,
 )
-from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 
 
 def main():
@@ -30,7 +30,9 @@ def main():
     parser.add_argument("--netto", type=str, required=True, help="Kwota netto")
     parser.add_argument("--vat-rate", type=str, default="23", help="Stawka VAT (procent)")
     parser.add_argument("--ryczalt-rate", type=str, default="12", help="Stawka ryczaltu (procent)")
-    parser.add_argument("--annual-revenue", type=str, default="0", help="Szacunkowy roczny przychod")
+    parser.add_argument(
+        "--annual-revenue", type=str, default="0", help="Szacunkowy roczny przychod"
+    )
     parser.add_argument("--month", type=int, default=date.today().month)
     parser.add_argument("--year", type=int, default=date.today().year)
     args = parser.parse_args()
@@ -52,14 +54,18 @@ def main():
     seller = settings.seller
     override_raw = seller.zus_social_mode
     override = None if not override_raw or override_raw == "auto" else ZUSSocialMode(override_raw)
-    biz_start = date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+    biz_start = (
+        date.fromisoformat(seller.business_start_date) if seller.business_start_date else None
+    )
     social_mode = get_current_social_mode(
         today=date(args.year, args.month, 1),
         business_start=biz_start,
         employment_above_min=seller.employment_gross_above_min,
         override=override,
     )
-    social_monthly = get_social_contribution(social_mode, voluntary_sickness=seller.zus_voluntary_sickness)
+    social_monthly = get_social_contribution(
+        social_mode, voluntary_sickness=seller.zus_voluntary_sickness
+    )
 
     deadlines = get_tax_deadlines(args.month, args.year)
 

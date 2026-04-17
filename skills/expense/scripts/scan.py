@@ -56,7 +56,11 @@ def main():
     }
 
     if not args.save:
-        print(json.dumps({"success": True, "preview": preview, "saved": False}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"success": True, "preview": preview, "saved": False}, ensure_ascii=False, indent=2
+            )
+        )
         return
 
     init_db()
@@ -79,10 +83,13 @@ def main():
         file_path=str(file_path.resolve()),
     )
     save_expense(record)
-    print(json.dumps(
-        {"success": True, "preview": preview, "saved": True, "id": record.id},
-        ensure_ascii=False, indent=2,
-    ))
+    print(
+        json.dumps(
+            {"success": True, "preview": preview, "saved": True, "id": record.id},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

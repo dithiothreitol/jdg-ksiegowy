@@ -1,6 +1,5 @@
 """Testy mailera SMTP — bez realnego polaczenia."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,8 +39,11 @@ def test_returns_error_when_smtp_not_configured(mailer_module, tmp_path, monkeyp
     pdf.write_bytes(b"%PDF-1.4")
 
     result = mailer_module.send_invoice_email(
-        to="x@y.pl", pdf_path=pdf,
-        invoice_number="A1/04/2026", gross_amount="100.00", payment_due="2026-05-01",
+        to="x@y.pl",
+        pdf_path=pdf,
+        invoice_number="A1/04/2026",
+        gross_amount="100.00",
+        payment_due="2026-05-01",
     )
     assert result.success is False
     assert "SMTP" in result.error
@@ -49,8 +51,11 @@ def test_returns_error_when_smtp_not_configured(mailer_module, tmp_path, monkeyp
 
 def test_returns_error_when_pdf_missing(smtp_configured, mailer_module, tmp_path):
     result = mailer_module.send_invoice_email(
-        to="x@y.pl", pdf_path=tmp_path / "missing.pdf",
-        invoice_number="A1/04/2026", gross_amount="100.00", payment_due="2026-05-01",
+        to="x@y.pl",
+        pdf_path=tmp_path / "missing.pdf",
+        invoice_number="A1/04/2026",
+        gross_amount="100.00",
+        payment_due="2026-05-01",
     )
     assert result.success is False
     assert "PDF nie istnieje" in result.error
@@ -65,8 +70,11 @@ def test_sends_via_starttls(smtp_configured, mailer_module, tmp_path):
         smtp_class.return_value.__enter__.return_value = ctx
 
         result = mailer_module.send_invoice_email(
-            to="kontrahent@firma.pl", pdf_path=pdf,
-            invoice_number="A1/04/2026", gross_amount="123.45", payment_due="2026-05-01",
+            to="kontrahent@firma.pl",
+            pdf_path=pdf,
+            invoice_number="A1/04/2026",
+            gross_amount="123.45",
+            payment_due="2026-05-01",
         )
 
     assert result.success is True
@@ -94,8 +102,11 @@ def test_sends_via_ssl_when_configured(smtp_configured, mailer_module, tmp_path,
         ssl_class.return_value.__enter__.return_value = ctx
 
         result = mailer_module.send_invoice_email(
-            to="x@y.pl", pdf_path=pdf,
-            invoice_number="A2/04/2026", gross_amount="100.00", payment_due="2026-05-01",
+            to="x@y.pl",
+            pdf_path=pdf,
+            invoice_number="A2/04/2026",
+            gross_amount="100.00",
+            payment_due="2026-05-01",
         )
 
     assert result.success is True
@@ -112,11 +123,16 @@ def test_handles_smtp_exception(smtp_configured, mailer_module, tmp_path):
     with patch.object(mailer_module.smtplib, "SMTP") as smtp_class:
         ctx = MagicMock()
         smtp_class.return_value.__enter__.return_value = ctx
-        ctx.send_message.side_effect = smtplib.SMTPRecipientsRefused({"x@y.pl": (550, b"User unknown")})
+        ctx.send_message.side_effect = smtplib.SMTPRecipientsRefused(
+            {"x@y.pl": (550, b"User unknown")}
+        )
 
         result = mailer_module.send_invoice_email(
-            to="x@y.pl", pdf_path=pdf,
-            invoice_number="A3/04/2026", gross_amount="100.00", payment_due="2026-05-01",
+            to="x@y.pl",
+            pdf_path=pdf,
+            invoice_number="A3/04/2026",
+            gross_amount="100.00",
+            payment_due="2026-05-01",
         )
 
     assert result.success is False

@@ -10,20 +10,23 @@ from pathlib import Path
 # Dodaj src/ do PYTHONPATH
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
+from decimal import Decimal
+
 from jdg_ksiegowy.config import DATA_DIR, settings
 from jdg_ksiegowy.invoice.generator_docx import generate_invoice_docx
 from jdg_ksiegowy.invoice.generator_xml import save_invoice_xml
 from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
-from jdg_ksiegowy.registry.db import InvoiceRecord, get_next_invoice_number, save_invoice, init_db
-from decimal import Decimal
+from jdg_ksiegowy.registry.db import InvoiceRecord, get_next_invoice_number, init_db, save_invoice
 
 
 def parse_period(period_str: str) -> tuple[date, date]:
     """Parse 'DD.MM.YYYY-DD.MM.YYYY' -> (date, date)."""
     parts = period_str.split("-")
+
     def to_date(s: str) -> date:
         d = s.strip().split(".")
         return date(int(d[2]), int(d[1]), int(d[0]))
+
     return to_date(parts[0]), to_date(parts[1])
 
 

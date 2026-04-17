@@ -23,6 +23,7 @@ def isolated_db(tmp_path, monkeypatch):
 
 def _contract(**kwargs):
     from jdg_ksiegowy.registry.db import ContractRecord, init_db, save_contract
+
     init_db()
     defaults = dict(
         id=str(uuid.uuid4()),
@@ -65,6 +66,7 @@ class TestLastWorkingDay:
 class TestRunContracts:
     def test_no_contracts_no_invoices(self):
         from jdg_ksiegowy.registry.db import init_db
+
         init_db()
         result = run_contracts(today=date(2026, 4, 30))
         assert result.generated == []
@@ -100,6 +102,7 @@ class TestRunContracts:
 
     def test_invoice_saved_to_db(self):
         from jdg_ksiegowy.registry.db import get_invoices
+
         _contract(day_of_month=10)
         run_contracts(today=date(2026, 4, 10))
         invoices = get_invoices(month=4, year=2026)

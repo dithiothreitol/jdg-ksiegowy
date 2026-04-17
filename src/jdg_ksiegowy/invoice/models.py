@@ -46,6 +46,7 @@ class Buyer(BaseModel):
     @classmethod
     def nip_must_be_valid(cls, v: str) -> str:
         import re
+
         digits = re.sub(r"[\s\-]", "", v)
         if re.fullmatch(r"\d{10}", digits) and not validate_nip(digits):
             raise ValueError(f"Nieprawidlowy NIP: {v!r}")
@@ -150,9 +151,10 @@ class Invoice(BaseModel):
 
 class CorrectionReason(StrEnum):
     """Powód korekty faktury wg FA(3)."""
-    PRICE_CHANGE = "01"       # zmiana ceny / rabat
-    RETURN_GOODS = "02"       # zwrot towaru / odstąpienie
-    OTHER = "99"              # inne
+
+    PRICE_CHANGE = "01"  # zmiana ceny / rabat
+    RETURN_GOODS = "02"  # zwrot towaru / odstąpienie
+    OTHER = "99"  # inne
 
 
 class InvoiceCorrection(BaseModel):
@@ -163,15 +165,15 @@ class InvoiceCorrection(BaseModel):
     """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    number: str                    # numer korekty, np. "AK1/04/2026"
-    original_number: str           # numer korygowanej faktury
+    number: str  # numer korekty, np. "AK1/04/2026"
+    original_number: str  # numer korygowanej faktury
     original_ksef_reference: str | None = None
     issue_date: date
-    correction_date: date          # data wystawienia korekty
+    correction_date: date  # data wystawienia korekty
     buyer: Buyer
-    items: list[LineItem]          # pozycje różnicowe (ujemne = zmniejszenie)
+    items: list[LineItem]  # pozycje różnicowe (ujemne = zmniejszenie)
     reason: CorrectionReason = CorrectionReason.OTHER
-    reason_description: str = ""   # opis słowny powodu korekty
+    reason_description: str = ""  # opis słowny powodu korekty
     notes: str | None = None
 
     @computed_field

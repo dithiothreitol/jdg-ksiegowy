@@ -1,16 +1,15 @@
 """Testy doctor — preflight check konfiguracji."""
 
-from decimal import Decimal
-
 import pytest
 
-from jdg_ksiegowy.doctor import DoctorReport, Finding, format_report, run_doctor
+from jdg_ksiegowy.doctor import DoctorReport, format_report, run_doctor
 
 
 @pytest.fixture
 def fresh_settings():
     """Przygotuj czyste settings — każdy test ustawia swoje env."""
     from jdg_ksiegowy.config import settings
+
     # Domyślne wartości z conftest są ustawione — nie resetujemy pól wymaganych
     original_pesel = settings.mf.pesel
     original_cert = settings.mf.cert_path
@@ -41,28 +40,30 @@ class TestRunDoctor:
         # 10 cyfr, ale zła suma kontrolna
         fresh_settings.seller.nip = "5260250270"
         report = run_doctor()
-        assert any(f.level == "error" and "NIP nieprawidłowy" in f.message
-                   for f in report.findings)
+        assert any(f.level == "error" and "NIP nieprawidłowy" in f.message for f in report.findings)
 
     def test_valid_mf_pesel_no_error(self, fresh_settings):
         fresh_settings.mf.pesel = "44051401458"
         report = run_doctor()
-        pesel_errors = [f for f in report.findings
-                         if f.area == "mf" and "PESEL" in f.message and f.level == "error"]
+        pesel_errors = [
+            f
+            for f in report.findings
+            if f.area == "mf" and "PESEL" in f.message and f.level == "error"
+        ]
         assert len(pesel_errors) == 0
 
     def test_invalid_mf_pesel_is_error(self, fresh_settings):
         fresh_settings.mf.pesel = "44051401457"  # zła suma kontrolna
         report = run_doctor()
-        assert any(f.level == "error" and "PESEL nieprawidłowy" in f.message
-                   for f in report.findings)
+        assert any(
+            f.level == "error" and "PESEL nieprawidłowy" in f.message for f in report.findings
+        )
 
     def test_missing_mf_cert_is_warn(self, fresh_settings):
         fresh_settings.mf.cert_path = None
         fresh_settings.mf.cert_url = None
         report = run_doctor()
-        assert any(f.level == "warn" and "CERT" in f.message
-                   for f in report.findings)
+        assert any(f.level == "warn" and "CERT" in f.message for f in report.findings)
 
     def test_mf_cert_url_set_is_ok(self, fresh_settings):
         fresh_settings.mf.cert_path = None
@@ -74,8 +75,7 @@ class TestRunDoctor:
     def test_mf_cert_path_not_existing_is_error(self, fresh_settings):
         fresh_settings.mf.cert_path = "/nonexistent/cert.pem"
         report = run_doctor()
-        assert any(f.level == "error" and "CERT_PATH" in f.message
-                   for f in report.findings)
+        assert any(f.level == "error" and "CERT_PATH" in f.message for f in report.findings)
 
     def test_smtp_not_configured_is_warn_only(self, fresh_settings):
         fresh_settings.smtp.host = ""

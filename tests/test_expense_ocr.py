@@ -21,18 +21,20 @@ from jdg_ksiegowy.expenses.ocr import (
     _parse_ocr_response,
 )
 
-VALID_JSON = json.dumps({
-    "seller_name": "Hetzner Online GmbH",
-    "seller_nip": "DE812871812",
-    "seller_country": "DE",
-    "document_number": "R0012345",
-    "issue_date": "2026-04-15",
-    "total_net": "100.00",
-    "total_vat": "23.00",
-    "vat_rate": "23",
-    "description": "Hosting VPS kwiecien 2026",
-    "category": "uslugi_obce",
-})
+VALID_JSON = json.dumps(
+    {
+        "seller_name": "Hetzner Online GmbH",
+        "seller_nip": "DE812871812",
+        "seller_country": "DE",
+        "document_number": "R0012345",
+        "issue_date": "2026-04-15",
+        "total_net": "100.00",
+        "total_vat": "23.00",
+        "vat_rate": "23",
+        "description": "Hosting VPS kwiecien 2026",
+        "category": "uslugi_obce",
+    }
+)
 
 
 # --- Parser ---
@@ -154,7 +156,7 @@ def test_fallback_raises_when_no_secondary(tmp_path):
 
 def test_claude_without_key_raises(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    from jdg_ksiegowy.config import Settings, settings
+    from jdg_ksiegowy.config import settings
 
     settings.anthropic_api_key = ""
     with pytest.raises(OCRError, match="ANTHROPIC_API_KEY"):
