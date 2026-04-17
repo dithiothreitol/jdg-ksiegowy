@@ -162,6 +162,7 @@ class Settings(BaseSettings):
     ocr: OCRConfig = OCRConfig()
     smtp: SMTPConfig = SMTPConfig()
     anthropic_api_key: str = ""
+    libreoffice_bin: str = Field(default="", alias="LIBREOFFICE_BIN")
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 

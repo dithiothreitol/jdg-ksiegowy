@@ -11,10 +11,11 @@ Wymagania:
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
+
+from jdg_ksiegowy.config import settings
 
 
 class PDFConversionError(Exception):
@@ -23,7 +24,7 @@ class PDFConversionError(Exception):
 
 def _find_soffice() -> str:
     """Zwroc sciezke do `soffice` (linux/mac) lub `soffice.exe` (windows)."""
-    override = os.environ.get("LIBREOFFICE_BIN")
+    override = settings.libreoffice_bin
     if override and Path(override).exists():
         return override
     for cmd in ("soffice", "libreoffice", "soffice.exe"):
