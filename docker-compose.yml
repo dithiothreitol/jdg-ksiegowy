@@ -7,6 +7,9 @@ services:
     env_file:
       - .env
     volumes:
+      # Persystencja pelnego stanu OpenClaw (config, agents, identity, logs, tasks) — przezywa `docker compose down`
+      - openclaw-state:/home/node/.openclaw
+      # Workspace mounty naklada ponad stan (pliki z repo, read-only dla definicji; `data/` zapisywalne)
       - ./SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
       - ./HEARTBEAT.md:/home/node/.openclaw/workspace/HEARTBEAT.md:ro
       - ./skills:/home/node/.openclaw/workspace/skills:ro
@@ -14,3 +17,6 @@ services:
       - ./data:/home/node/.openclaw/workspace/data
     ports:
       - "18789:18789"   # OpenClaw Web UI
+
+volumes:
+  openclaw-state:

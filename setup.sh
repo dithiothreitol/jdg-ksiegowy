@@ -34,9 +34,16 @@ echo "Step 2/7: Detecting hardware..."
 
 TOTAL_RAM_MB=$(free -m 2>/dev/null | awk '/Mem:/ {print $2}' || echo "0")
 
-if [ "$TOTAL_RAM_MB" -ge 8000 ]; then
+if [ "$TOTAL_RAM_MB" -ge 32000 ]; then
     AI_STRATEGY="ollama"
-    ok "RAM: ${TOTAL_RAM_MB} MB — Ollama with local AI model"
+    OLLAMA_TAG="qwen3.5:35b"
+    OLLAMA_SIZE="24 GB"
+    ok "RAM: ${TOTAL_RAM_MB} MB — Ollama with qwen3.5:35b (MoE 35B-A3B)"
+elif [ "$TOTAL_RAM_MB" -ge 8000 ]; then
+    AI_STRATEGY="ollama"
+    OLLAMA_TAG="qwen3.5:9b"
+    OLLAMA_SIZE="6.6 GB"
+    ok "RAM: ${TOTAL_RAM_MB} MB — Ollama with qwen3.5:9b (baseline)"
 elif [ "$TOTAL_RAM_MB" -ge 2000 ]; then
     AI_STRATEGY="api"
     warn "RAM: ${TOTAL_RAM_MB} MB — not enough for Ollama, will use Claude API"
@@ -56,12 +63,12 @@ if [ "$AI_STRATEGY" = "ollama" ]; then
     fi
     ok "Ollama installed"
 
-    echo "  Pulling qwen3.5:9b (6.6 GB, may take a few minutes)..."
-    ollama pull qwen3.5:9b
-    ok "Model qwen3.5:9b ready"
+    echo "  Pulling ${OLLAMA_TAG} (${OLLAMA_SIZE}, may take a while)..."
+    ollama pull "$OLLAMA_TAG"
+    ok "Model ${OLLAMA_TAG} ready"
 
     OPENCLAW_PROVIDER="ollama"
-    OPENCLAW_MODEL="qwen3.5:9b"
+    OPENCLAW_MODEL="$OLLAMA_TAG"
 else
     warn "Skipping Ollama (not enough RAM)"
     warn "You will need an Anthropic API key (pay-as-you-go)"

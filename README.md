@@ -297,7 +297,7 @@ Two-tier architecture:
 
 | Role | Model | Usage |
 |------|-------|-------|
-| **Primary** (daily chat, intent &rarr; skill dispatch, JSON output) | [`qwen3.5:9b`](https://ollama.com/library/qwen3.5) via Ollama | Local, ~0 PLN |
+| **Primary** (daily chat, intent &rarr; skill dispatch, JSON output) | [`qwen3.5`](https://ollama.com/library/qwen3.5) via Ollama &mdash; `35b` MoE on desktop (&ge; 32 GB RAM), `9b` baseline elsewhere | Local, ~0 PLN |
 | **Vision** (OCR faktur zakupu from PDF / JPG / PNG) | [`pixtral:12b`](https://ollama.com/library/pixtral) via Ollama | Local, CPU inference OK |
 | **OCR fallback** (when Pixtral output is malformed) | Claude Haiku 4.5 API | ~2 PLN / month typical |
 | **Optional chat fallback** (tricky tax Q&A) | Claude API (pay-as-you-go) | Opt-in via `ANTHROPIC_API_KEY` |

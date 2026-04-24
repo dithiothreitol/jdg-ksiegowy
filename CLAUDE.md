@@ -35,7 +35,8 @@ OpenClaw Gateway
 
 | Warstwa | Model | Koszt |
 |---|---|---|
-| Codzienna praca | **Ollama qwen3.5:9b** (lokalny) | 0 PLN |
+| Codzienna praca (desktop ≥ 32 GB RAM) | **Ollama qwen3.5:35b** (MoE 35B-A3B, lokalny) | 0 PLN |
+| Low-RAM baseline (< 16 GB, np. Oracle Free) | Ollama qwen3.5:9b (lokalny) | 0 PLN |
 | Fallback (opcjonalny) | Claude API pay-as-you-go | ~2 PLN/mies. |
 
 **UWAGA:** Anthropic zablokowal subskrypcje Claude Pro/Max dla OpenClaw (4.04.2026).
@@ -50,7 +51,7 @@ Uzywaj TYLKO API key (pay-as-you-go) lub Ollama.
 # Reczny setup:
 cp .env.example .env && nano .env    # Dane sprzedawcy
 pip install -e .                      # Python deps
-ollama pull qwen3.5:9b                # Model AI
+ollama pull qwen3.5:35b               # Model AI (MoE 35B-A3B, ~24 GB; na słabszym hoście: qwen3.5:9b)
 openclaw onboard                      # Gateway + kanaly
 docker compose up -d                  # Uruchom
 
@@ -62,7 +63,7 @@ python3 skills/invoice/scripts/generate.py --buyer-name "Firma" --buyer-nip 1234
 ## Darmowy hosting
 
 **Oracle Cloud Always Free** — 4 ARM OCPU, 24 GB RAM, 200 GB disk, 0 PLN na zawsze.
-Wystarczy na OpenClaw + Ollama z qwen3.5:9b.
+Na tej maszynie użyj qwen3.5:9b (6.6 GB) — 35b się nie zmieści w 24 GB RAM.
 
 ## Konwencje
 

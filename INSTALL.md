@@ -68,25 +68,40 @@ Works on Linux, macOS, and WSL2 on Windows. Same commands apply.
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-Pull the recommended model:
+Pull a model matching your host RAM. Qwen3.5 is the default — native multimodal, strong Polish, strong tool-use / structured JSON. Pick the largest your RAM allows:
 
 ```bash
-# Best all-rounder: vision + Polish + structured JSON (6.6 GB)
-ollama pull qwen3.5:9b
+# Recommended for desktop / 32 GB+ RAM workstations (best quality on this project)
+# MoE 35B total / 3B active per token — quality of ~30B dense at speed of a 3B model
+ollama pull qwen3.5:35b            # ~24 GB
 
-# Low-RAM alternative (3.4 GB)
-# ollama pull qwen3.5:4b
+# Mid-tier — 16-32 GB RAM hosts
+ollama pull qwen3.5:27b            # ~17 GB, dense
 
-# Best for Polish language specifically (~8 GB)
-# ollama pull bielik:11b
+# Baseline — small VPS / Oracle Cloud Free Tier (24 GB RAM shared with everything else)
+ollama pull qwen3.5:9b             # ~6.6 GB
+
+# Low-RAM fallback (< 8 GB)
+# ollama pull qwen3.5:4b           # ~3.4 GB — noticeably weaker at tool calling
+
+# Polish-native alternative (if Qwen3.5 output quality is not enough for free-form Polish)
+# ollama pull bielik:11b           # ~8 GB
+```
+
+Then set the chosen tag in `.env`:
+
+```env
+OPENCLAW_MODEL=qwen3.5:35b         # whatever you pulled above
 ```
 
 Verify:
 
 ```bash
-ollama run qwen3.5:9b "Ile wynosi VAT 23% od kwoty 10000 PLN netto?"
+ollama run qwen3.5:35b "Ile wynosi VAT 23% od kwoty 10000 PLN netto?"
 # Expected: ~2300 PLN
 ```
+
+> **Note on tag choice for this project:** on a ryczalt JDG, the agent rarely needs long-form generation — most of its work is tool calls (invoice/ksef/jpk skills) with a short natural-language wrapper. That means **tool-calling reliability matters more than raw eloquence**. Qwen3.5 dense variants and the `35b-a3b` MoE are all strong tool-callers. Going bigger than `35b` buys marginal improvement for this workload — skip `122b` unless you have 90+ GB RAM free.
 
 ---
 
@@ -216,8 +231,44 @@ openclaw onboard
 The wizard will ask:
 
 1. **AI Provider** → Choose `ollama`
-2. **Model** → Type `qwen3.5:9b`
+2. **Model** → Type the tag you pulled in §3 (e.g. `qwen3.5:35b`)
 3. **Channel** → Choose `whatsapp` or `telegram`
+
+### If you skipped `openclaw onboard` (Docker-compose setup)
+
+When running via `docker compose up`, onboarding isn't interactive — OpenClaw starts with its default agent model (`openai/gpt-5.4`) and ignores `OPENCLAW_PROVIDER` / `OPENCLAW_MODEL` env vars. You need to write the config explicitly once; a named Docker volume keeps it across recreates.
+
+```bash
+# 1. Tell OpenClaw which model to use as default
+docker exec jdg-ksiegowy openclaw config set agents.defaults.model "ollama/qwen3.5:35b"
+
+# 2. Register the Ollama provider pointing to the host (NOT localhost — localhost inside
+#    the container is the container itself; use host.docker.internal on Docker Desktop
+#    or the host's LAN IP on Linux without Docker Desktop)
+docker exec jdg-ksiegowy sh -c 'cat > /tmp/ollama-provider.json << "EOF"
+[
+  {
+    "path": "models.providers.ollama",
+    "value": {
+      "baseUrl": "http://host.docker.internal:11434",
+      "models": [
+        { "id": "qwen3.5:35b", "name": "Qwen3.5 35B (MoE A3B)", "api": "ollama", "input": ["text", "image"] },
+        { "id": "pixtral:12b", "name": "Pixtral 12B", "api": "ollama", "input": ["text", "image"] }
+      ]
+    }
+  }
+]
+EOF
+openclaw config set --batch-file /tmp/ollama-provider.json'
+
+# 3. Restart to apply
+docker compose restart
+
+# 4. Verify — this line should show ollama/qwen3.5:35b, not openai/gpt-5.4
+docker logs jdg-ksiegowy 2>&1 | grep "agent model"
+```
+
+Config persists in the `openclaw-state` named volume (defined in [docker-compose.yml](../docker-compose.yml)), so you only need to do this once. `docker compose down && up -d` keeps the config; `docker volume rm openclaw-state` wipes it.
 
 ### WhatsApp setup
 
@@ -242,6 +293,43 @@ Hi
 ```
 
 The agent should respond (using SOUL.md persona).
+
+### Alternative: Web Dashboard (Control UI)
+
+Besides WhatsApp/Telegram, you can talk to the agent through the built-in web UI served by the gateway on port `18789`. Useful for local development and when you don't want to link a messaging account.
+
+**Get the tokenized URL:**
+
+```bash
+# If running via docker compose:
+docker exec jdg-ksiegowy openclaw dashboard
+
+# If running openclaw directly on host:
+openclaw dashboard
+```
+
+Output looks like:
+
+```
+Dashboard URL: http://127.0.0.1:18789/#token=37b07683b26e7b...
+```
+
+Open that URL in your browser — the `#token=...` fragment auto-fills the Control UI auth form, so **Connect** works without manual paste.
+
+**Reusing the same token after restart** — the default token is regenerated on each gateway start. To pin it (so you can bookmark the URL), set in `.env`:
+
+```env
+OPENCLAW_GATEWAY_TOKEN=your-long-random-secret
+```
+
+Then `docker compose restart`. The token you put here is the value after `#token=` in the URL.
+
+**Accessing from another machine** — the gateway binds to localhost only. Tunnel over SSH:
+
+```bash
+ssh -N -L 18789:127.0.0.1:18789 user@your-server
+# then open http://localhost:18789/#token=... on your laptop
+```
 
 ---
 
@@ -476,6 +564,16 @@ openclaw channels login whatsapp
 ```
 
 Scan the new QR code.
+
+### Control UI: "unauthorized: gateway token missing"
+
+You opened `http://127.0.0.1:18789/` without the `#token=...` fragment, so the UI has nothing to authenticate with. Fix:
+
+```bash
+docker exec jdg-ksiegowy openclaw dashboard
+```
+
+Open the full URL that command prints (it includes `#token=...`). If the token keeps changing on restart, pin it via `OPENCLAW_GATEWAY_TOKEN` in `.env` — see [Section 8 → Alternative: Web Dashboard](#alternative-web-dashboard-control-ui).
 
 ---
 

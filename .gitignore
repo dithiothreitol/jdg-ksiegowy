@@ -20,6 +20,7 @@ data/
 .claude/settings.local.json
 .coverage
 htmlcov/
+scripts/
 
 # Generated invoices
 *.docx
@@ -32,6 +33,8 @@ credentials.json
 token.json
 *.pem
 *.key
+
+# (OpenClaw runtime state żyje w named Docker volume 'openclaw-state' — nie ma plików na hoście)
 
 # OS
 .DS_Store
