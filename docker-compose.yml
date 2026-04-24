@@ -1,6 +1,7 @@
 services:
   openclaw:
-    image: ghcr.io/openclaw/openclaw:latest
+    build: .
+    image: jdg-ksiegowy:local
     container_name: jdg-ksiegowy
     restart: unless-stopped
     env_file:
