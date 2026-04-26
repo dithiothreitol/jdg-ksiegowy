@@ -14,6 +14,8 @@ from sqlalchemy import (
     Numeric,
     String,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -90,7 +92,9 @@ class ExpenseRecord(Base):
     total_vat = Column(Numeric(10, 2), nullable=False)
     total_gross = Column(Numeric(10, 2), nullable=False)
     vat_rate = Column(Numeric(5, 2), default=23)
-    vat_deductible = Column(Boolean, default=True)  # czy VAT podlega odliczeniu
+    # Procent VAT odliczalnego: 100=pelne odliczenie, 50=auto osobowe mieszane,
+    # 0=brak odliczenia (np. reprezentacja).
+    vat_deduction_pct = Column(Numeric(5, 2), default=100, nullable=False)
     file_path = Column(String)  # PDF/JPG zachowanego dowodu
     notes = Column(String)
     created_at = Column(DateTime, default=datetime.now)
@@ -132,7 +136,37 @@ def init_db() -> Engine:
     """Utwórz tabele jeśli nie istnieją. Wywołaj raz przy starcie."""
     engine = get_engine()
     Base.metadata.create_all(engine)
+    _migrate_expense_deduction_pct(engine)
     return engine
+
+
+def _migrate_expense_deduction_pct(engine: Engine) -> None:
+    """Migracja: vat_deductible (bool) -> vat_deduction_pct (Numeric).
+
+    Idempotentna: jesli stara kolumna `vat_deductible` jeszcze istnieje, dodaje
+    `vat_deduction_pct` (True->100, False->0) i usuwa starą kolumne. Po wykonaniu
+    przy kolejnym wywolaniu nie robi nic.
+    """
+    inspector = inspect(engine)
+    if "expenses" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("expenses")}
+    if "vat_deductible" not in cols:
+        return  # Migracja juz wykonana
+
+    with engine.begin() as conn:
+        if "vat_deduction_pct" not in cols:
+            conn.execute(
+                text("ALTER TABLE expenses ADD COLUMN vat_deduction_pct NUMERIC(5,2) DEFAULT 100")
+            )
+        conn.execute(
+            text(
+                "UPDATE expenses SET vat_deduction_pct = "
+                "CASE WHEN vat_deductible THEN 100 ELSE 0 END"
+            )
+        )
+        # SQLite >=3.35 wspiera DROP COLUMN
+        conn.execute(text("ALTER TABLE expenses DROP COLUMN vat_deductible"))
 
 
 def get_session() -> Session:

@@ -54,7 +54,7 @@ def records_to_expenses(records):
             total_net=Decimal(str(r.total_net)),
             total_vat=Decimal(str(r.total_vat)),
             vat_rate=Decimal(str(r.vat_rate)) if r.vat_rate else Decimal("23"),
-            vat_deductible=bool(r.vat_deductible),
+            vat_deduction_pct=Decimal(str(r.vat_deduction_pct)),
             file_path=r.file_path,
             notes=r.notes,
         )
@@ -76,14 +76,10 @@ def main():
 
     total_net = sum((Decimal(str(r.total_net)) for r in invoice_records), Decimal("0"))
     total_vat = sum((Decimal(str(r.total_vat)) for r in invoice_records), Decimal("0"))
-    exp_net = sum(
-        (Decimal(str(r.total_net)) for r in expense_records if r.vat_deductible),
-        Decimal("0"),
-    )
-    exp_vat = sum(
-        (Decimal(str(r.total_vat)) for r in expense_records if r.vat_deductible),
-        Decimal("0"),
-    )
+    # Sumy spojne z JPK XML (per-faktura quantize HALF_UP w computed fields).
+    deductible = [e for e in expenses if e.vat_deduction_pct > 0]
+    exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
+    exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
 
     output_path = DATA_DIR / "jpk" / f"JPK_V7M_{args.year}_{args.month:02d}.xml"
     save_jpk_v7m(invoices, args.month, args.year, output_path, expenses=expenses)

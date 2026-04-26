@@ -108,9 +108,11 @@ def generate_jpk_v7m(
 
     total_net = sum((inv.total_net for inv in invoices), Decimal("0"))
     total_vat = sum((inv.total_vat for inv in invoices), Decimal("0"))
-    deductible = [e for e in expenses if e.vat_deductible]
-    exp_net = sum((e.total_net for e in deductible), Decimal("0"))
-    exp_vat = sum((e.total_vat for e in deductible), Decimal("0"))
+    # Tylko wpisy z dodatnim procentem odliczenia trafiaja do ewidencji zakupu.
+    # Kwoty K_42/K_43 sa proporcjonalne do vat_deduction_pct (art. 86 ust. 2 ustawy o VAT).
+    deductible = [e for e in expenses if e.vat_deduction_pct > 0]
+    exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
+    exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
     vat_to_pay = max(total_vat - exp_vat, Decimal("0"))
 
     # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote)
@@ -272,9 +274,11 @@ def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     # Choice: NrKSeF | OFF | BFK | DI (faktura papierowa/elektroniczna -> BFK)
     etree.SubElement(wiersz, _ns("BFK")).text = "1"
 
-    # K_42/K_43: nabycia krajowe inne niz ST (netto + VAT)
-    _add_decimal(wiersz, "K_42", exp.total_net)
-    _add_decimal(wiersz, "K_43", exp.total_vat)
+    # K_42/K_43: nabycia krajowe inne niz ST (netto + VAT podlegajacy odliczeniu).
+    # Dla auta osobowego mieszanego (vat_deduction_pct=50) wykazujemy 50% kwot —
+    # zgodnie z art. 86 ust. 2 ustawy o VAT i objaśnieniami MF do JPK_V7M.
+    _add_decimal(wiersz, "K_42", exp.deductible_net)
+    _add_decimal(wiersz, "K_43", exp.deductible_vat)
 
     # K_44-K_47: korekty VAT naliczonego — zawsze wymagane (0.00 gdy brak)
     for f in ("K_44", "K_45", "K_46", "K_47"):

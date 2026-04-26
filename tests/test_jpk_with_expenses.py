@@ -25,7 +25,11 @@ def _invoice(net: Decimal, vat_rate: Decimal = Decimal("23")) -> Invoice:
     )
 
 
-def _expense(net: Decimal, vat: Decimal, deductible: bool = True) -> Expense:
+def _expense(
+    net: Decimal,
+    vat: Decimal,
+    deduction_pct: Decimal = Decimal("100"),
+) -> Expense:
     return Expense(
         seller_name="Dostawca",
         seller_nip="2222222222",
@@ -35,7 +39,7 @@ def _expense(net: Decimal, vat: Decimal, deductible: bool = True) -> Expense:
         category=ExpenseCategory.USLUGI_OBCE,
         total_net=net,
         total_vat=vat,
-        vat_deductible=deductible,
+        vat_deduction_pct=deduction_pct,
     )
 
 
@@ -77,13 +81,38 @@ def test_jpk_no_zakup_section_when_no_expenses():
 
 def test_jpk_excludes_non_deductible_expenses_from_section():
     inv = _invoice(Decimal("1000"))
-    deductible = _expense(Decimal("500"), Decimal("115"), deductible=True)
-    not_deductible = _expense(Decimal("200"), Decimal("46"), deductible=False)
+    deductible = _expense(Decimal("500"), Decimal("115"))
+    not_deductible = _expense(Decimal("200"), Decimal("46"), deduction_pct=Decimal("0"))
     xml = generate_jpk_v7m([inv], month=4, year=2026, expenses=[deductible, not_deductible])
     root = etree.fromstring(xml.encode("utf-8"))
     zakup_wiersze = root.findall(f".//{_ns('ZakupWiersz')}")
     assert len(zakup_wiersze) == 1
     assert zakup_wiersze[0].find(_ns("K_42")).text == "500.00"
+
+
+def test_jpk_partial_deduction_50pct_for_passenger_car_fuel():
+    """Auto osobowe mieszane: K_42/K_43 = 50% kwot z faktury."""
+    inv = _invoice(Decimal("1000"))  # VAT nalezny: 230
+    paliwo = _expense(Decimal("147.59"), Decimal("11.81"), deduction_pct=Decimal("50"))
+    xml = generate_jpk_v7m([inv], month=4, year=2026, expenses=[paliwo])
+    root = etree.fromstring(xml.encode("utf-8"))
+
+    zakup = root.find(f".//{_ns('ZakupWiersz')}")
+    assert zakup is not None
+    # K_42 = 147.59 * 50% = 73.795 -> 73.80
+    assert zakup.find(_ns("K_42")).text == "73.80"
+    # K_43 = 11.81 * 50% = 5.905 -> 5.91
+    assert zakup.find(_ns("K_43")).text == "5.91"
+
+    # ZakupCtrl PodatekNaliczony = 5.91
+    ctrl = root.find(f".//{_ns('ZakupCtrl')}")
+    assert ctrl.find(_ns("PodatekNaliczony")).text == "5.91"
+
+    # P_43 (TKwotaC, integer) = 5.91 -> 6 zl
+    poz = root.find(f".//{_ns('PozycjeSzczegolowe')}")
+    assert poz.find(_ns("P_43")).text == "6"
+    # P_51 = 230 - 5.91 = 224.09 -> 224 zl
+    assert poz.find(_ns("P_51")).text == "224"
 
 
 def test_vat_to_pay_clamped_at_zero():

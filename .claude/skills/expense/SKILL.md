@@ -21,7 +21,10 @@ Opcjonalnie:
 - `description` — co kupiłeś
 - `category` — `uslugi_obce | materialy | media | paliwo | samochod | biuro | sprzet | szkolenia | inne`
 - `vat-rate` — stawka (domyślnie `23`)
-- `--no-vat-deductible` — flaga jeśli VAT NIE podlega odliczeniu (paliwo do auta osobowego, koszty reprezentacji)
+- `--vat-deduction-pct` — procent VAT odliczalnego (0-100, domyślnie `100`):
+  - `100` — pełne odliczenie (typowe usługi/towary firmowe)
+  - `50` — auto osobowe użytkowanie mieszane lub auto prywatne służbowo (paliwo, serwis)
+  - `0` — brak odliczenia (reprezentacja, prywatny zakup)
 - `file-path` — ścieżka do PDF/JPG zachowanego skanu
 
 Dopytaj usera jeśli czegoś brakuje, zwłaszcza NIP i kwot. Nie wymyślaj.
@@ -71,8 +74,15 @@ python3 skills/expense/scripts/list.py --month 4 --year 2026
 
 ## Po zapisaniu
 
-Pokaż userowi: sprzedawca, numer dokumentu, kwoty, czy VAT odliczalny.
-Jeśli `vat_deductible=true` — przypomnij że ten koszt zwiększy VAT do odliczenia w JPK_V7M za dany miesiąc.
+Pokaż userowi: sprzedawca, numer dokumentu, kwoty, procent odliczenia VAT.
+Jeśli `vat_deduction_pct > 0` — przypomnij że ten koszt zwiększy VAT do odliczenia w JPK_V7M za dany miesiąc o `vat × pct / 100`.
+
+## Auto osobowe — heurystyka 50%
+
+Jeśli kategoria to `paliwo` lub `samochod`, **zapytaj usera** czy auto jest:
+- prywatne używane służbowo / firmowe „mieszane" → `--vat-deduction-pct 50` (domyślny scenariusz JDG)
+- firmowe wyłącznie do działalności (VAT-26 + ewidencja przebiegu) → `--vat-deduction-pct 100`
+- prywatne bez związku z firmą → wpis w ogóle nie powinien być rejestrowany
 
 ## Uwagi
 

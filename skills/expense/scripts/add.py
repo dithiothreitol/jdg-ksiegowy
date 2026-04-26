@@ -40,9 +40,13 @@ def main():
     parser.add_argument("--vat", required=True, help="Kwota VAT")
     parser.add_argument("--vat-rate", default="23", help="Stawka VAT (procent)")
     parser.add_argument(
-        "--no-vat-deductible",
-        action="store_true",
-        help="VAT NIE podlega odliczeniu (np. paliwo do auta osobowego, reprezentacja)",
+        "--vat-deduction-pct",
+        default="100",
+        help=(
+            "Procent VAT odliczalnego (0-100). Default 100. "
+            "50 = auto osobowe mieszane / prywatne sluzbowo. "
+            "0 = brak odliczenia (reprezentacja)."
+        ),
     )
     parser.add_argument("--file-path", default=None, help="Sciezka do PDF/JPG dowodu")
     parser.add_argument("--notes", default=None)
@@ -55,6 +59,9 @@ def main():
     netto = Decimal(args.netto).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     vat = Decimal(args.vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     brutto = (netto + vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    deduction_pct = Decimal(args.vat_deduction_pct)
+    if not (Decimal("0") <= deduction_pct <= Decimal("100")):
+        parser.error("--vat-deduction-pct musi byc w zakresie 0-100")
 
     record = ExpenseRecord(
         id=f"{args.seller_nip}-{args.document_number}",
@@ -70,12 +77,15 @@ def main():
         total_vat=vat,
         total_gross=brutto,
         vat_rate=Decimal(args.vat_rate),
-        vat_deductible=not args.no_vat_deductible,
+        vat_deduction_pct=deduction_pct,
         file_path=args.file_path,
         notes=args.notes,
     )
     save_expense(record)
 
+    deductible_vat = (vat * deduction_pct / Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
     result = {
         "id": record.id,
         "seller": args.seller_name,
@@ -85,7 +95,8 @@ def main():
         "netto": str(netto),
         "vat": str(vat),
         "brutto": str(brutto),
-        "vat_deductible": not args.no_vat_deductible,
+        "vat_deduction_pct": str(deduction_pct),
+        "deductible_vat": str(deductible_vat),
         "category": args.category,
         "status": "saved",
     }

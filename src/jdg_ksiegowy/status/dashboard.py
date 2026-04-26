@@ -115,10 +115,24 @@ class Dashboard:
         filtered = [
             r
             for r in records
-            if r.receive_date.year == year and r.receive_date.month == month and r.vat_deductible
+            if r.receive_date.year == year
+            and r.receive_date.month == month
+            and Decimal(str(r.vat_deduction_pct)) > 0
         ]
-        net = sum((Decimal(str(r.total_net)) for r in filtered), Decimal("0"))
-        vat = sum((Decimal(str(r.total_vat)) for r in filtered), Decimal("0"))
+        net = sum(
+            (
+                Decimal(str(r.total_net)) * Decimal(str(r.vat_deduction_pct)) / Decimal("100")
+                for r in filtered
+            ),
+            Decimal("0"),
+        )
+        vat = sum(
+            (
+                Decimal(str(r.total_vat)) * Decimal(str(r.vat_deduction_pct)) / Decimal("100")
+                for r in filtered
+            ),
+            Decimal("0"),
+        )
         return net, vat
 
     def _build_reminders(

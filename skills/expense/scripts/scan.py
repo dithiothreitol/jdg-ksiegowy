@@ -11,6 +11,7 @@ Bez --save pokazuje wynik do akceptacji; z --save zapisuje do SQLite.
 import argparse
 import json
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
@@ -79,7 +80,7 @@ def main():
         total_vat=extracted.total_vat,
         total_gross=brutto,
         vat_rate=extracted.vat_rate,
-        vat_deductible=True,
+        vat_deduction_pct=Decimal("100"),
         file_path=str(file_path.resolve()),
     )
     save_expense(record)

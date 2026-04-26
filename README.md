@@ -73,7 +73,7 @@ Honest state per feature &mdash; see [Status](#status) below for the full pictur
 - **Email delivery** &mdash; PDF via LibreOffice-headless + SMTP, Polish body text
 
 **Expenses & OCR**
-- **Expense registry** &mdash; purchase invoices in SQLite with categories and `vat_deductible` flag
+- **Expense registry** &mdash; purchase invoices in SQLite with categories and `vat_deduction_pct` (0-100) for partial VAT deduction (e.g. 50% for personal car used for business)
 - **OCR faktur zakupu** &mdash; multimodal Pixtral 12B lokalnie (CPU inference) + Claude Haiku 4.5 fallback
 - **Input VAT deduction in JPK_V7M** &mdash; expenses feed P_42 / P_43 automatically
 

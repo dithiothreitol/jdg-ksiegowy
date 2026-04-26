@@ -34,7 +34,7 @@ def main():
                 "netto": str(r.total_net),
                 "vat": str(r.total_vat),
                 "brutto": str(r.total_gross),
-                "vat_deductible": bool(r.vat_deductible),
+                "vat_deduction_pct": str(r.vat_deduction_pct),
                 "file_path": r.file_path,
             }
             for r in records
