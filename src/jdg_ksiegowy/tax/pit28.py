@@ -11,6 +11,7 @@ PIT-28 składany do 30 kwietnia za rok poprzedni. Stawki ryczałtu:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from jdg_ksiegowy.config import settings
@@ -46,8 +47,18 @@ class PIT28Report:
         return self.annual_ryczalt.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
+def _income_date(inv: InvoiceRecord) -> date:
+    """Data uzyskania przychodu wg art. 14 ust. 1c ustawy o PIT.
+
+    Najwcześniejsza z: wykonanie usługi (sale_date) lub wystawienie faktury (issue_date).
+    Pomijamy datę zapłaty — w rejestrze trzymana jako paid_at (nullable), a dla ryczałtu
+    najwcześniejszą zwykle jest sale_date (faktura wystawiana po wykonaniu usługi).
+    """
+    return min(inv.sale_date, inv.issue_date)
+
+
 def _month_sales(invoices: list[InvoiceRecord], year: int, month: int) -> Decimal:
-    filtered = [i for i in invoices if i.issue_date.year == year and i.issue_date.month == month]
+    filtered = [i for i in invoices if (d := _income_date(i)).year == year and d.month == month]
     return sum((Decimal(str(i.total_net)) for i in filtered), Decimal("0"))
 
 
