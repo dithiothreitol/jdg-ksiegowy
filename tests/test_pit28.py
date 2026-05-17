@@ -9,15 +9,10 @@ from jdg_ksiegowy.tax.pit28 import format_pit28_text, generate_pit28_report
 
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path, monkeypatch):
-    import jdg_ksiegowy.registry.db as db_module
+def _autouse_isolated_db(isolated_db):
+    """Wymuś izolację DB dla wszystkich testów w tym pliku (conftest.isolated_db)."""
     from jdg_ksiegowy.config import settings
 
-    db_path = tmp_path / "jdg.db"
-    monkeypatch.setattr(db_module, "DB_PATH", db_path)
-    monkeypatch.setattr(db_module, "_engine", None)
-    monkeypatch.setattr(db_module, "_SessionFactory", None)
-    settings.mf.pesel = ""
     settings.seller.ryczalt_rate = Decimal("12")
 
 

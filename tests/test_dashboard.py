@@ -9,16 +9,8 @@ from jdg_ksiegowy.status.dashboard import Dashboard, ReminderLevel
 
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path, monkeypatch):
-    """Izoluj SQLite per-test zeby nie zaciagac faktur z innych testow."""
-    import jdg_ksiegowy.registry.db as db_module
-    from jdg_ksiegowy.config import settings
-
-    db_path = tmp_path / "jdg.db"
-    monkeypatch.setattr(db_module, "DB_PATH", db_path)
-    monkeypatch.setattr(db_module, "_engine", None)
-    monkeypatch.setattr(db_module, "_SessionFactory", None)
-    settings.mf.pesel = ""  # neutralize config interference
+def _autouse_isolated_db(isolated_db):
+    """Wymuś izolację DB dla wszystkich testów w tym pliku (conftest.isolated_db)."""
 
 
 def test_level_for_computes_correctly():

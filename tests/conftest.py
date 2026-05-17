@@ -28,3 +28,20 @@ os.environ["SELLER_BUSINESS_START_DATE"] = ""
 os.environ["SELLER_ZUS_SOCIAL_MODE"] = "auto"
 os.environ["SELLER_EMPLOYMENT_GROSS_ABOVE_MIN"] = "false"
 os.environ["SELLER_ZUS_VOLUNTARY_SICKNESS"] = "false"
+
+import pytest
+
+
+@pytest.fixture
+def isolated_db(tmp_path, monkeypatch):
+    """Izoluj SQLite per-test — nadpisuje settings.db_url + resetuje engine."""
+    import jdg_ksiegowy.registry.db as db_module
+    from jdg_ksiegowy.config import settings
+
+    db_path = tmp_path / "jdg.db"
+    monkeypatch.setattr(settings, "db_url", f"sqlite:///{db_path}")
+    monkeypatch.setattr(db_module, "DB_PATH", db_path)
+    monkeypatch.setattr(db_module, "_engine", None)
+    monkeypatch.setattr(db_module, "_SessionFactory", None)
+    settings.mf.pesel = ""
+    yield db_path

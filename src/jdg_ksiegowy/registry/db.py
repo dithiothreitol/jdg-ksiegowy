@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Numeric,
     String,
     create_engine,
+    event,
     inspect,
     text,
 )
@@ -24,6 +26,29 @@ from jdg_ksiegowy.config import DATA_DIR
 
 class Base(DeclarativeBase):
     pass
+
+
+class BuyerRecord(Base):
+    """Kontrahent (nabywca) — zapamiętane dane do reuse w kolejnych fakturach.
+
+    Klucz biznesowy: NIP (PL) albo eu_vat_number (zagraniczny). Auto-upsert
+    przy save_invoice() — nie trzeba przepisywać danych z poprzedniej faktury.
+    """
+
+    __tablename__ = "buyers"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    nip = Column(String, index=True)  # 10 cyfr PL; pusty dla zagranicznych
+    eu_vat_number = Column(String, index=True)  # np. "DE812871812"
+    address = Column(String)
+    email = Column(String)
+    country_code = Column(String, default="PL")
+    default_description = Column(String)  # typowy opis usługi do auto-uzupełnienia
+    default_vat_rate = Column(Numeric(5, 2), default=23)
+    notes = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+    last_used_at = Column(DateTime, default=datetime.now)
 
 
 class InvoiceRecord(Base):
@@ -118,18 +143,50 @@ class TaxPaymentRecord(Base):
 
 # --- Engine & Session (singleton) ---
 
+# Ścieżka do pliku DB jest pochodną settings.db_url, ale pozostawiamy
+# DB_PATH jako export do testów / skryptów backupu.
 DB_PATH = DATA_DIR / "jdg_ksiegowy.db"
 _engine: Engine | None = None
 _SessionFactory: sessionmaker | None = None
 
 
 def get_engine() -> Engine:
-    """Zwróć singleton engine (tworzony raz)."""
+    """Zwróć singleton engine (tworzony raz).
+
+    URL bierzemy z settings.db_url (.env), z fallbackiem na lokalny SQLite.
+    Dla SQLite włączamy WAL mode + synchronous=NORMAL — bezpieczne przy
+    współbieżnym zapisie (skill + cron heartbeat) i odporne na crash.
+    """
     global _engine
     if _engine is None:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
+        from jdg_ksiegowy.config import settings
+
+        url = settings.db_url
+        if url.startswith("sqlite:///"):
+            db_file = url.replace("sqlite:///", "", 1)
+            from pathlib import Path
+
+            Path(db_file).parent.mkdir(parents=True, exist_ok=True)
+        _engine = create_engine(url, echo=False)
+        if url.startswith("sqlite"):
+            _enable_sqlite_wal(_engine)
     return _engine
+
+
+def _enable_sqlite_wal(engine: Engine) -> None:
+    """Włącz WAL + synchronous=NORMAL na każdym connect.
+
+    WAL = Write-Ahead Log: atomowe zapisy, czytelnicy nie blokują pisarzy,
+    odporne na kill -9. synchronous=NORMAL = wystarczająco bezpieczne
+    przy WAL, znacznie szybsze niż FULL.
+    """
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _conn_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 
 def init_db() -> Engine:
@@ -181,6 +238,63 @@ def get_session() -> Session:
 
 
 def save_invoice(record: InvoiceRecord) -> InvoiceRecord:
+    with get_session() as session:
+        session.merge(record)
+        # Auto-upsert kontrahenta: zapamiętaj nabywcę po NIP do reuse
+        # przy kolejnych fakturach.
+        if record.buyer_nip:
+            _upsert_buyer_from_invoice(session, record)
+        session.commit()
+    return record
+
+
+def _upsert_buyer_from_invoice(session: Session, inv: InvoiceRecord) -> None:
+    """Zapisz/odśwież kontrahenta na bazie wystawionej faktury (idempotent)."""
+    existing = (
+        session.query(BuyerRecord).filter(BuyerRecord.nip == inv.buyer_nip).one_or_none()
+    )
+    now = datetime.now()
+    if existing is None:
+        session.add(
+            BuyerRecord(
+                id=str(uuid.uuid4()),
+                name=inv.buyer_name,
+                nip=inv.buyer_nip,
+                address=inv.buyer_address,
+                default_vat_rate=inv.vat_rate,
+                created_at=now,
+                last_used_at=now,
+            )
+        )
+    else:
+        existing.name = inv.buyer_name
+        if inv.buyer_address:
+            existing.address = inv.buyer_address
+        existing.last_used_at = now
+
+
+def find_buyer_by_nip(nip: str) -> BuyerRecord | None:
+    """Wyszukaj zapamiętanego kontrahenta po NIP."""
+    if not nip:
+        return None
+    with get_session() as session:
+        return session.query(BuyerRecord).filter(BuyerRecord.nip == nip).one_or_none()
+
+
+def find_buyer_by_name(name: str) -> BuyerRecord | None:
+    """Fuzzy-szukaj kontrahenta po nazwie (LIKE %name%)."""
+    if not name:
+        return None
+    with get_session() as session:
+        return (
+            session.query(BuyerRecord)
+            .filter(BuyerRecord.name.ilike(f"%{name}%"))
+            .order_by(BuyerRecord.last_used_at.desc())
+            .first()
+        )
+
+
+def save_buyer(record: BuyerRecord) -> BuyerRecord:
     with get_session() as session:
         session.merge(record)
         session.commit()

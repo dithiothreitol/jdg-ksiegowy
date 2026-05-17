@@ -12,3 +12,7 @@ Przy kazdym heartbeat sprawdz:
 ## Faktury cykliczne
 - Jesli dzis jest 28-31 danego miesiaca i sa aktywne kontrakty bez faktury za ten miesiac:
   uzyj skill invoice-generator zeby wygenerowac faktury, potem ksef-submit zeby wyslac do KSeF.
+
+## Backup DB
+- Raz dziennie odpal `python scripts/backup_db.py` — zapis do `data/backups/jdg_YYYYMMDD.db`,
+  retencja 30 dni. VACUUM INTO jest atomowe, bezpieczne pod obciazeniem.
