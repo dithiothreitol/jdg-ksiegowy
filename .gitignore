@@ -21,6 +21,9 @@ data/
 .coverage
 htmlcov/
 scripts/
+# ...ale skrypty skilli (OpenClaw AgentSkills) sa czescia repo (tylko .py, nie __pycache__)
+!skills/*/scripts/
+!skills/*/scripts/*.py
 
 # Generated invoices
 *.docx
