@@ -55,10 +55,16 @@ def test_jpk_includes_zakup_section_when_expenses_provided():
     assert zakup.find(_ns("K_42")).text == "500.00"
     assert zakup.find(_ns("K_43")).text == "115.00"
 
-    # P_41/P_42/P_43 w deklaracji (typ TKwotaC: integer, pelne zlote)
+    # Sprzedaz krajowa 23% -> P_19 (podstawa) / P_20 (VAT nalezny)
     poz = root.find(f".//{_ns('PozycjeSzczegolowe')}")
-    assert poz.find(_ns("P_41")).text == "500"
+    assert poz.find(_ns("P_19")).text == "1000"
+    assert poz.find(_ns("P_20")).text == "230"
+
+    # Nabycia pozostale: netto -> P_42, VAT naliczony -> P_43 (ST = P_40/P_41 = 0)
+    assert poz.find(_ns("P_42")).text == "500"
     assert poz.find(_ns("P_43")).text == "115"
+    assert poz.find(_ns("P_38")).text == "230"  # laczny VAT nalezny
+    assert poz.find(_ns("P_48")).text == "115"  # laczny VAT naliczony
 
     # P_51 (do wplaty) = VAT nalezny - VAT naliczony = 230 - 115 = 115
     assert poz.find(_ns("P_51")).text == "115"

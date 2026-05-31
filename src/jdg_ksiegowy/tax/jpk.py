@@ -67,6 +67,45 @@ def _is_eu(country_code: str) -> bool:
     return (country_code or "").upper() in EU_COUNTRIES
 
 
+# Para stawki -> pola deklaracji (podstawa, podatek). Te same numery co ewidencja K_*.
+_RATE_TO_P_FIELDS = {
+    "K_15": ("P_15", "P_16"),  # 5%
+    "K_17": ("P_17", "P_18"),  # 7/8%
+    "K_19": ("P_19", "P_20"),  # 22/23%
+}
+
+
+def _aggregate_sales(
+    invoices: list[Invoice],
+) -> tuple[Decimal, Decimal, Decimal, dict[str, list[Decimal]]]:
+    """Zsumuj sprzedaz do pozycji deklaracji: poza terytorium (P_11), 0% (P_13),
+    art. 129 (P_14) oraz pary stawek 5/8/23 (P_15-P_20).
+
+    Zwraca (p11, p13, p14, pairs) gdzie pairs[net_field] = [netto, vat].
+    """
+    p11 = p13 = p14 = Decimal("0")
+    pairs: dict[str, list[Decimal]] = {k: [Decimal("0"), Decimal("0")] for k in _RATE_TO_P_FIELDS}
+    for inv in invoices:
+        for item in inv.items:
+            code = item.vat_code
+            net, vat = item.net_value, item.vat_amount
+            if code in VAT_CODE_K11:
+                p11 += net
+            elif code in VAT_CODE_K14:
+                p14 += net
+            elif code in VAT_CODE_K13:
+                p13 += net
+            else:
+                if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
+                    raise ValueError(
+                        f"Faktura {inv.number}: nieobslugiwana stawka VAT {item.vat_rate}%"
+                    )
+                net_field = VAT_RATE_TO_K_FIELDS[item.vat_rate][0]
+                pairs[net_field][0] += net
+                pairs[net_field][1] += vat
+    return p11, p13, p14, pairs
+
+
 def _ns(tag: str) -> str:
     return f"{{{TNS}}}{tag}"
 
@@ -116,8 +155,10 @@ def generate_jpk_v7m(
 
     poz = etree.SubElement(deklaracja, _ns("PozycjeSzczegolowe"))
 
-    sales_net = sum((inv.total_net for inv in invoices), Decimal("0"))
-    sales_vat = sum((inv.total_vat for inv in invoices), Decimal("0"))
+    # Sprzedaz krajowa rozbita na pola deklaracji wg stawek (art. 28b / NP -> P_11 itd.).
+    p11, p13, p14, sales_pairs = _aggregate_sales(invoices)
+    sales_base = p11 + p13 + sum((pairs[0] for pairs in sales_pairs.values()), Decimal("0"))
+    sales_vat = sum((pairs[1] for pairs in sales_pairs.values()), Decimal("0"))
 
     # Import usług / odwrotne obciążenie: nabywca SAM nalicza VAT należny od CAŁEJ
     # kwoty (niezaleznie od odliczenia), a odlicza tylko cześć podlegajaca odliczeniu.
@@ -126,11 +167,10 @@ def generate_jpk_v7m(
     rc_vat_eu = sum((e.total_vat for e in rc if _is_eu(e.seller_country)), Decimal("0"))
     rc_net_noneu = sum((e.total_net for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
     rc_vat_noneu = sum((e.total_vat for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
-    rc_vat = rc_vat_eu + rc_vat_noneu
 
-    # VAT należny = sprzedaż krajowa + samonaliczony z importu usług.
-    total_net = sales_net + rc_net_eu + rc_net_noneu
-    total_vat = sales_vat + rc_vat
+    # P_37 = laczna podstawa, P_38 = laczny VAT nalezny (sprzedaz + samonaliczony import).
+    total_base = sales_base + rc_net_eu + rc_net_noneu
+    total_nalezny = sales_vat + rc_vat_eu + rc_vat_noneu
 
     # Tylko wpisy z dodatnim procentem odliczenia trafiaja do ewidencji zakupu.
     # Kwoty K_42/K_43 sa proporcjonalne do vat_deduction_pct (art. 86 ust. 2 ustawy o VAT).
@@ -138,26 +178,42 @@ def generate_jpk_v7m(
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
     exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
-    vat_to_pay = max(total_vat - exp_vat, Decimal("0"))
+    total_naliczony = exp_vat  # P_48 (brak srodkow trwalych i korekt)
 
-    # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote)
-    # Kolejnosc i grupowanie wg XSD JPK_V7M(3). Pola w sekwencjach min=0
-    # musza isc razem (P_40+P_41 jedna grupa, P_42+P_43 druga, itd.)
-    _add_int(poz, "P_10", sales_net)  # dostawa krajowa, opt
+    vat_to_pay = max(total_nalezny - total_naliczony, Decimal("0"))  # P_51
+    nadwyzka = max(total_naliczony - total_nalezny, Decimal("0"))  # P_62
+
+    # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote).
+    # Kolejnosc scisle rosnaca wg XSD JPK_V7M(3); pola opcjonalne (=0) pomijamy.
+    if p11:
+        _add_int(poz, "P_11", p11)  # dostawa poza terytorium kraju
+    if p13:
+        _add_int(poz, "P_13", p13)  # dostawa krajowa 0%
+    if p14:
+        _add_int(poz, "P_14", p14)  # art. 129
+    for net_field, (base, vat) in sales_pairs.items():
+        if base or vat:
+            base_p, vat_p = _RATE_TO_P_FIELDS[net_field]
+            _add_int(poz, base_p, base)  # P_15/P_17/P_19 podstawa
+            _add_int(poz, vat_p, vat)  # P_16/P_18/P_20 VAT nalezny
     if rc_net_noneu or rc_vat_noneu:
         _add_int(poz, "P_27", rc_net_noneu)  # import usług spoza art. 28b (dostawca spoza UE)
         _add_int(poz, "P_28", rc_vat_noneu)  # VAT należny od ww.
     if rc_net_eu or rc_vat_eu:
         _add_int(poz, "P_29", rc_net_eu)  # import usług art. 28b (dostawca z UE)
         _add_int(poz, "P_30", rc_vat_eu)  # VAT należny od ww.
-    _add_int(poz, "P_38", total_net)  # razem podstawa (z importem usług), REQ
-    _add_int(poz, "P_39", total_vat)  # razem VAT nalezny (z samonaliczonym)
+    _add_int(poz, "P_37", total_base)  # laczna podstawa opodatkowania
+    _add_int(poz, "P_38", total_nalezny)  # laczny podatek nalezny, REQ
     if deductible:
+        # Grupy w XSD: P_40+P_41 (srodki trwale), P_42+P_43 (pozostale nabycia).
         _add_int(poz, "P_40", Decimal("0"))  # nabycia ST netto
-        _add_int(poz, "P_41", exp_net)  # nabycia inne netto
-        _add_int(poz, "P_42", Decimal("0"))  # VAT od nabyc ST
-        _add_int(poz, "P_43", exp_vat)  # VAT od nabyc innych
-    _add_int(poz, "P_51", vat_to_pay)  # do zaplaty, REQ
+        _add_int(poz, "P_41", Decimal("0"))  # VAT naliczony od nabyc ST
+        _add_int(poz, "P_42", exp_net)  # nabycia pozostale netto
+        _add_int(poz, "P_43", exp_vat)  # VAT naliczony od nabyc pozostalych
+    _add_int(poz, "P_48", total_naliczony)  # laczny VAT naliczony do odliczenia
+    _add_int(poz, "P_51", vat_to_pay)  # podatek do wplaty, REQ
+    if nadwyzka:
+        _add_int(poz, "P_62", nadwyzka)  # nadwyzka naliczonego do przeniesienia
 
     etree.SubElement(deklaracja, _ns("Pouczenia")).text = "1"
 
@@ -173,7 +229,7 @@ def generate_jpk_v7m(
 
     ctrl_sprz = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
     etree.SubElement(ctrl_sprz, _ns("LiczbaWierszySprzedazy")).text = str(len(invoices) + len(rc))
-    _add_decimal(ctrl_sprz, "PodatekNalezny", total_vat)
+    _add_decimal(ctrl_sprz, "PodatekNalezny", total_nalezny)
 
     for lp, exp in enumerate(deductible, start=1):
         _append_zakup_wiersz(ewidencja, lp, exp)
