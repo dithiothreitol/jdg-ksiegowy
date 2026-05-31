@@ -43,6 +43,10 @@ class Expense(BaseModel):
     # Auto osobowe użytkowanie mieszane / prywatne służbowo: 50.
     # Reprezentacja, nieusprawiedliwione koszty: 0.
     vat_deduction_pct: Decimal = Field(default=Decimal("100"), ge=0, le=100)
+    # Import usług / odwrotne obciążenie (art. 17 ust. 1 pkt 4): nabywca sam nalicza
+    # VAT należny (K_27/K_28 spoza UE lub K_29/K_30 art. 28b UE) i odlicza go jako
+    # naliczony (K_42/K_43) — efekt netto zero dla działalności opodatkowanej.
+    reverse_charge: bool = False
     file_path: str | None = None  # PDF/JPG/XML dowodu
     notes: str | None = None
     ksef_number: str | None = None  # numer KSeF (faktura zakupowa z inboxu)

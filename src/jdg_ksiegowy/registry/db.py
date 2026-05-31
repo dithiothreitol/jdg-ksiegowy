@@ -120,6 +120,8 @@ class ExpenseRecord(Base):
     # Procent VAT odliczalnego: 100=pelne odliczenie, 50=auto osobowe mieszane,
     # 0=brak odliczenia (np. reprezentacja).
     vat_deduction_pct = Column(Numeric(5, 2), default=100, nullable=False)
+    # Import usług / odwrotne obciążenie — nabywca sam nalicza VAT należny i odlicza go.
+    reverse_charge = Column(Boolean, default=False, nullable=False)
     file_path = Column(String)  # PDF/JPG/XML zachowanego dowodu
     notes = Column(String)
     # Numer KSeF faktury zakupowej pobranej z inboxu — None dla wpisow recznych/OCR.
@@ -198,6 +200,7 @@ def init_db() -> Engine:
     Base.metadata.create_all(engine)
     _migrate_expense_deduction_pct(engine)
     _migrate_expense_add_ksef_number(engine)
+    _migrate_expense_add_reverse_charge(engine)
     return engine
 
 
@@ -247,6 +250,24 @@ def _migrate_expense_add_ksef_number(engine: Engine) -> None:
         conn.execute(text("ALTER TABLE expenses ADD COLUMN ksef_number VARCHAR"))
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_expenses_ksef_number ON expenses (ksef_number)")
+        )
+
+
+def _migrate_expense_add_reverse_charge(engine: Engine) -> None:
+    """Migracja: dodaj kolumne `reverse_charge` do expenses (import usług).
+
+    Idempotentna: dodaje kolumne tylko gdy jeszcze nie istnieje (default 0).
+    """
+    inspector = inspect(engine)
+    if "expenses" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("expenses")}
+    if "reverse_charge" in cols:
+        return  # Migracja juz wykonana
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE expenses ADD COLUMN reverse_charge BOOLEAN DEFAULT 0 NOT NULL")
         )
 
 

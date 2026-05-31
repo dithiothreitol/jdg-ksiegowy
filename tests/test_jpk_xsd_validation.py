@@ -103,6 +103,25 @@ def test_v7m3_mixed_rates_passes_xsd(seller_with_valid_nip, validator):
 
 
 @pytest.mark.xsd
+def test_v7m3_reverse_charge_passes_xsd(seller_with_valid_nip, validator, invoice):
+    """Import usług (dostawca spoza UE, bez NIP) — należny K_27/K_28 + naliczony K_42/K_43."""
+    rc = Expense(
+        seller_name="Anthropic PBC",
+        seller_nip="",
+        seller_country="US",
+        document_number="21F62CC2-0034",
+        issue_date=date(2026, 4, 10),
+        receive_date=date(2026, 4, 10),
+        total_net=Decimal("765.92"),
+        total_vat=Decimal("176.16"),
+        reverse_charge=True,
+    )
+    xml = generate_jpk_v7m([invoice], month=4, year=2026, expenses=[rc])
+    result = validator.validate(xml, schema="JPK_V7M_3")
+    assert result.valid, "\n".join(result.errors[:5])
+
+
+@pytest.mark.xsd
 def test_ewp4_passes_xsd(seller_with_valid_nip, validator, invoice):
     xml = generate_jpk_ewp([invoice], year=2026, ryczalt_rate=Decimal("12"))
     result = validator.validate(xml, schema="JPK_EWP_4")

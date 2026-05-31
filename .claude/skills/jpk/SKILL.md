@@ -43,6 +43,14 @@ Plik trzeba wysłać przez bramkę MF — ten skill nie wysyła automatycznie (n
 `SELLER_NIP`, `SELLER_FIRST_NAME`, `SELLER_LAST_NAME`, `SELLER_BIRTH_DATE`, `SELLER_TAX_OFFICE_CODE`.
 Jeśli skrypt rzuci błąd o braku któregoś — przerwij i powiedz userowi żeby uzupełnił `.env`.
 
+## Import usług / odwrotne obciążenie
+
+Koszty oznaczone `reverse_charge` (skill `expense --reverse-charge`) są rozliczane automatycznie:
+samonaliczony VAT należny trafia do **K_27/K_28** (dostawca spoza UE) lub **K_29/K_30**
+(dostawca z UE, art. 28b) po stronie sprzedaży, a jednocześnie do odliczenia (**K_42/K_43**) —
+więc dla działalności opodatkowanej efekt na kwotę do zapłaty (P_51) jest **zerowy**. Ta sama
+faktura pojawia się w ewidencji sprzedaży i zakupu.
+
 ## Uwagi
 
 - Skrypt liczy sumy z rejestru, nie z surowych XML — upewnij się że wszystkie faktury miesiąca zostały wygenerowane przez skill `invoice` (czyli są w SQLite).

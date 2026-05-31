@@ -96,5 +96,11 @@ Jeśli kategoria to `paliwo` lub `samochod`, **zapytaj usera** czy auto jest:
 ## Uwagi
 
 - **Ryczałt**: koszty nie zmniejszają podatku dochodowego. Jedyny powód rejestracji to (a) wymóg przechowywania dowodów (art. 15 ustawy o ryczałcie), (b) odliczenie VAT.
-- **Zagraniczny sprzedawca** (kraj UE): wpisz NIP z prefiksem kraju (np. `DE812871812`), ustaw `--seller-country DE`. Standardowy reverse charge — VAT nadal idzie do K_42/K_43, ale skomplikuje się sprawozdawczo (poza zakresem tego skilla).
+- **Zagraniczny sprzedawca / import usług** (SaaS, API, hosting): jeśli dostawca wystawił fakturę **bez VAT** (poprawne B2B), użyj `--reverse-charge`. Sam naliczasz VAT należny i odliczasz go (efekt netto 0). Ustaw `--seller-country` (UE → K_29/K_30 art. 28b; spoza UE, np. US → K_27/K_28). VAT liczony jest automatycznie z `--netto × --vat-rate`, więc `--vat` możesz pominąć.
+  ```bash
+  python3 skills/expense/scripts/add.py --seller-name "Hetzner Online GmbH" \
+    --seller-nip "DE812871812" --seller-country DE --document-number "R123" \
+    --issue-date 2026-05-10 --category uslugi_obce --netto 100 --vat-rate 23 --reverse-charge
+  ```
+  **Pułapka OSS:** jeśli zagraniczny dostawca naliczył już polski VAT przez OSS (traktując Cię jak konsumenta — brak Twojego nr VAT-UE), NIE rób reverse charge (podwójny VAT). Wtedy `--vat-deduction-pct 0` i poproś dostawcę o fakturę B2B bez VAT. Wymóg: rejestracja **VAT-UE** (VAT-R) przed pierwszym importem usług.
 - **Rabat / korekta**: dodaj jako osobny wpis z ujemnymi kwotami i tym samym `document_number` z prefiksem `KOR-`.

@@ -55,6 +55,7 @@ def records_to_expenses(records):
             total_vat=Decimal(str(r.total_vat)),
             vat_rate=Decimal(str(r.vat_rate)) if r.vat_rate else Decimal("23"),
             vat_deduction_pct=Decimal(str(r.vat_deduction_pct)),
+            reverse_charge=bool(r.reverse_charge),
             file_path=r.file_path,
             notes=r.notes,
         )

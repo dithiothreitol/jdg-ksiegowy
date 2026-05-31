@@ -56,6 +56,16 @@ MID_FIELDS = ["K_21", "K_22"]
 # Pola po parach stawek (zawsze "0.00" gdy nieaktywne).
 POST_RATE_FIELDS = ["K_33", "K_34", "K_35", "K_36", "K_360"]
 
+# Kraje UE (ISO 3166-1 alpha-2) — dostawca z UE to "podatnik podatku od wartości
+# dodanej", więc import usług art. 28b idzie do K_29/K_30; spoza UE do K_27/K_28.
+EU_COUNTRIES = frozenset(
+    "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
+)
+
+
+def _is_eu(country_code: str) -> bool:
+    return (country_code or "").upper() in EU_COUNTRIES
+
 
 def _ns(tag: str) -> str:
     return f"{{{TNS}}}{tag}"
@@ -106,10 +116,25 @@ def generate_jpk_v7m(
 
     poz = etree.SubElement(deklaracja, _ns("PozycjeSzczegolowe"))
 
-    total_net = sum((inv.total_net for inv in invoices), Decimal("0"))
-    total_vat = sum((inv.total_vat for inv in invoices), Decimal("0"))
+    sales_net = sum((inv.total_net for inv in invoices), Decimal("0"))
+    sales_vat = sum((inv.total_vat for inv in invoices), Decimal("0"))
+
+    # Import usług / odwrotne obciążenie: nabywca SAM nalicza VAT należny od CAŁEJ
+    # kwoty (niezaleznie od odliczenia), a odlicza tylko cześć podlegajaca odliczeniu.
+    rc = [e for e in expenses if e.reverse_charge]
+    rc_net_eu = sum((e.total_net for e in rc if _is_eu(e.seller_country)), Decimal("0"))
+    rc_vat_eu = sum((e.total_vat for e in rc if _is_eu(e.seller_country)), Decimal("0"))
+    rc_net_noneu = sum((e.total_net for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
+    rc_vat_noneu = sum((e.total_vat for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
+    rc_vat = rc_vat_eu + rc_vat_noneu
+
+    # VAT należny = sprzedaż krajowa + samonaliczony z importu usług.
+    total_net = sales_net + rc_net_eu + rc_net_noneu
+    total_vat = sales_vat + rc_vat
+
     # Tylko wpisy z dodatnim procentem odliczenia trafiaja do ewidencji zakupu.
     # Kwoty K_42/K_43 sa proporcjonalne do vat_deduction_pct (art. 86 ust. 2 ustawy o VAT).
+    # Reverse charge: deductible_vat jest tu juz uwzgledniony, wiec efekt netto = 0.
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
     exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
@@ -118,9 +143,15 @@ def generate_jpk_v7m(
     # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote)
     # Kolejnosc i grupowanie wg XSD JPK_V7M(3). Pola w sekwencjach min=0
     # musza isc razem (P_40+P_41 jedna grupa, P_42+P_43 druga, itd.)
-    _add_int(poz, "P_10", total_net)  # dostawa krajowa, opt
-    _add_int(poz, "P_38", total_net)  # razem podstawa, REQ
-    _add_int(poz, "P_39", total_vat)  # razem VAT nalezny
+    _add_int(poz, "P_10", sales_net)  # dostawa krajowa, opt
+    if rc_net_noneu or rc_vat_noneu:
+        _add_int(poz, "P_27", rc_net_noneu)  # import usług spoza art. 28b (dostawca spoza UE)
+        _add_int(poz, "P_28", rc_vat_noneu)  # VAT należny od ww.
+    if rc_net_eu or rc_vat_eu:
+        _add_int(poz, "P_29", rc_net_eu)  # import usług art. 28b (dostawca z UE)
+        _add_int(poz, "P_30", rc_vat_eu)  # VAT należny od ww.
+    _add_int(poz, "P_38", total_net)  # razem podstawa (z importem usług), REQ
+    _add_int(poz, "P_39", total_vat)  # razem VAT nalezny (z samonaliczonym)
     if deductible:
         _add_int(poz, "P_40", Decimal("0"))  # nabycia ST netto
         _add_int(poz, "P_41", exp_net)  # nabycia inne netto
@@ -132,11 +163,16 @@ def generate_jpk_v7m(
 
     # --- Ewidencja ---
     ewidencja = etree.SubElement(root, _ns("Ewidencja"))
+    lp = 0
     for lp, inv in enumerate(invoices, start=1):
         _append_sprzedaz_wiersz(ewidencja, lp, inv)
+    # Import usług wykazujemy też po stronie sprzedazy (samonaliczony VAT należny).
+    for exp in rc:
+        lp += 1
+        _append_import_uslug_wiersz(ewidencja, lp, exp)
 
     ctrl_sprz = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
-    etree.SubElement(ctrl_sprz, _ns("LiczbaWierszySprzedazy")).text = str(len(invoices))
+    etree.SubElement(ctrl_sprz, _ns("LiczbaWierszySprzedazy")).text = str(len(invoices) + len(rc))
     _add_decimal(ctrl_sprz, "PodatekNalezny", total_vat)
 
     for lp, exp in enumerate(deductible, start=1):
@@ -261,11 +297,43 @@ def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
         _add_decimal(wiersz, f, Decimal("0"))
 
 
+def _append_import_uslug_wiersz(ewidencja, lp: int, exp: Expense) -> None:
+    """Wiersz sprzedazy dla importu usług (samonaliczony VAT należny, odwrotne obciążenie).
+
+    Kontrahentem jest zagraniczny dostawca. Kwoty: dostawca z UE -> K_29/K_30
+    (art. 28b), spoza UE -> K_27/K_28. Pozostale pola K_* sa pomijane (minOccurs=0).
+    """
+    wiersz = etree.SubElement(ewidencja, _ns("SprzedazWiersz"))
+    etree.SubElement(wiersz, _ns("LpSprzedazy")).text = str(lp)
+    etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = exp.seller_country
+    etree.SubElement(wiersz, _ns("NrKontrahenta")).text = exp.seller_nip or "BRAK"
+    etree.SubElement(wiersz, _ns("NazwaKontrahenta")).text = exp.seller_name
+    etree.SubElement(wiersz, _ns("DowodSprzedazy")).text = exp.document_number
+    etree.SubElement(wiersz, _ns("DataWystawienia")).text = exp.issue_date.isoformat()
+    etree.SubElement(wiersz, _ns("DataSprzedazy")).text = exp.issue_date.isoformat()
+
+    # Choice: NrKSeF | OFF | BFK | DI — faktura zagraniczna jest poza KSeF -> BFK
+    etree.SubElement(wiersz, _ns("BFK")).text = "1"
+
+    # Pola w kolejnosci XSD: K_10-K_14 (0.00), nastepnie para importu usług.
+    for f in PRE_RATE_FIELDS:
+        _add_decimal(wiersz, f, Decimal("0"))
+    if _is_eu(exp.seller_country):
+        _add_decimal(wiersz, "K_29", exp.total_net)
+        _add_decimal(wiersz, "K_30", exp.total_vat)
+    else:
+        _add_decimal(wiersz, "K_27", exp.total_net)
+        _add_decimal(wiersz, "K_28", exp.total_vat)
+    for f in POST_RATE_FIELDS:
+        _add_decimal(wiersz, f, Decimal("0"))
+
+
 def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     wiersz = etree.SubElement(ewidencja, _ns("ZakupWiersz"))
     etree.SubElement(wiersz, _ns("LpZakupu")).text = str(lp)
     etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = exp.seller_country
-    etree.SubElement(wiersz, _ns("NrDostawcy")).text = exp.seller_nip
+    # Dostawca bez numeru identyfikacyjnego (np. spoza UE) -> "BRAK" (XSD: minLength 1).
+    etree.SubElement(wiersz, _ns("NrDostawcy")).text = exp.seller_nip or "BRAK"
     etree.SubElement(wiersz, _ns("NazwaDostawcy")).text = exp.seller_name
     etree.SubElement(wiersz, _ns("DowodZakupu")).text = exp.document_number
     etree.SubElement(wiersz, _ns("DataZakupu")).text = exp.issue_date.isoformat()
