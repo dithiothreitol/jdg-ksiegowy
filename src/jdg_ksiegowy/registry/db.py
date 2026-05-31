@@ -120,8 +120,11 @@ class ExpenseRecord(Base):
     # Procent VAT odliczalnego: 100=pelne odliczenie, 50=auto osobowe mieszane,
     # 0=brak odliczenia (np. reprezentacja).
     vat_deduction_pct = Column(Numeric(5, 2), default=100, nullable=False)
-    file_path = Column(String)  # PDF/JPG zachowanego dowodu
+    file_path = Column(String)  # PDF/JPG/XML zachowanego dowodu
     notes = Column(String)
+    # Numer KSeF faktury zakupowej pobranej z inboxu — None dla wpisow recznych/OCR.
+    # Klucz audytowy + pozwala ponownie pobrac XML i wykryc kolizje PK.
+    ksef_number = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.now)
 
 
@@ -194,6 +197,7 @@ def init_db() -> Engine:
     engine = get_engine()
     Base.metadata.create_all(engine)
     _migrate_expense_deduction_pct(engine)
+    _migrate_expense_add_ksef_number(engine)
     return engine
 
 
@@ -224,6 +228,26 @@ def _migrate_expense_deduction_pct(engine: Engine) -> None:
         )
         # SQLite >=3.35 wspiera DROP COLUMN
         conn.execute(text("ALTER TABLE expenses DROP COLUMN vat_deductible"))
+
+
+def _migrate_expense_add_ksef_number(engine: Engine) -> None:
+    """Migracja: dodaj kolumne `ksef_number` do expenses (faktury z inboxu KSeF).
+
+    Idempotentna: dodaje kolumne tylko gdy jeszcze nie istnieje. Indeks tworzy
+    create_all() przy nowych bazach; przy migracji starej bazy dodajemy go recznie.
+    """
+    inspector = inspect(engine)
+    if "expenses" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("expenses")}
+    if "ksef_number" in cols:
+        return  # Migracja juz wykonana
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE expenses ADD COLUMN ksef_number VARCHAR"))
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_expenses_ksef_number ON expenses (ksef_number)")
+        )
 
 
 def get_session() -> Session:

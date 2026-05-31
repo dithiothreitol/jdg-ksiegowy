@@ -66,6 +66,15 @@ python3 skills/expense/scripts/scan.py --file faktura.pdf --save
 Backend domyślny: **Pixtral 12B** przez Ollama (`http://localhost:11434`). Przy błędzie/timeout → fallback na **Claude Haiku 4.5** (wymaga `ANTHROPIC_API_KEY`).
 Konfiguracja przez `OCR_PROVIDER` (`auto` | `ollama` | `claude`) w `.env`.
 
+## Źródło z KSeF (faktury zakupowe B2B)
+
+Dla faktur, które kontrahent wystawił w KSeF (większość polskich dostawców B2B — paliwo,
+SaaS, usługi), **autorytatywnym źródłem jest inbox KSeF**, nie OCR. Jeśli user ma paragon /
+„potwierdzenie transakcji" (np. Shell) z adnotacją, że faktura trafia do KSeF — użyj skilla
+`ksef` (`skills/ksef/scripts/inbox.py`), który pobierze dokładne kwoty, NIP i numer oraz
+zapisze koszt bez przepisywania. OCR (`scan.py`) zostaw dla faktur spoza KSeF (papierowe,
+zagraniczne, PDF mailem).
+
 ## Listowanie
 
 ```bash
