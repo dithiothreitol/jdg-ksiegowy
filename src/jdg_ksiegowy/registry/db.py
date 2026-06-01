@@ -370,6 +370,31 @@ def get_invoices(
         return q.order_by(date_col.desc()).all()
 
 
+def get_invoice_by_number(number: str) -> InvoiceRecord | None:
+    """Zwróć fakturę po numerze (klucz biznesowy, unique) albo None."""
+    with get_session() as session:
+        return (
+            session.query(InvoiceRecord).filter(InvoiceRecord.number == number).one_or_none()
+        )
+
+
+def mark_sent_ksef(number: str, reference: str, sent_at: datetime | None = None) -> bool:
+    """Zapisz na fakturze numer referencyjny KSeF, czas wysyłki i status.
+
+    Zwraca True gdy fakturę znaleziono i zaktualizowano, False gdy nie ma jej
+    w rejestrze (np. XML wysłany spoza tego systemu).
+    """
+    with get_session() as session:
+        inv = session.query(InvoiceRecord).filter(InvoiceRecord.number == number).one_or_none()
+        if inv is None:
+            return False
+        inv.status = "sent_ksef"
+        inv.ksef_reference = reference
+        inv.ksef_sent_at = sent_at or datetime.now()
+        session.commit()
+    return True
+
+
 def get_next_invoice_number(month: int, year: int) -> str:
     """Generuj następny numer faktury: A{seq}/MM/RRRR."""
     with get_session() as session:
