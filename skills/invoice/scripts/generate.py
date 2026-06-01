@@ -17,7 +17,6 @@ from jdg_ksiegowy.invoice.generator_docx import generate_invoice_docx
 from jdg_ksiegowy.invoice.generator_xml import save_invoice_xml
 from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
 from jdg_ksiegowy.registry.db import (
-    BuyerRecord,
     InvoiceRecord,
     find_buyer_by_nip,
     get_next_invoice_number,
@@ -47,9 +46,7 @@ def main():
     parser.add_argument("--description", default="")
     parser.add_argument("--netto", required=True, type=str)
     parser.add_argument("--period", default="", help="DD.MM.YYYY-DD.MM.YYYY")
-    parser.add_argument(
-        "--issue-date", default="", help="YYYY-MM-DD (domyślnie: dziś)"
-    )
+    parser.add_argument("--issue-date", default="", help="YYYY-MM-DD (domyślnie: dziś)")
     parser.add_argument(
         "--sale-date",
         default="",
