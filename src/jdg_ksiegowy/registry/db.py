@@ -295,9 +295,7 @@ def save_invoice(record: InvoiceRecord) -> InvoiceRecord:
 
 def _upsert_buyer_from_invoice(session: Session, inv: InvoiceRecord) -> None:
     """Zapisz/odśwież kontrahenta na bazie wystawionej faktury (idempotent)."""
-    existing = (
-        session.query(BuyerRecord).filter(BuyerRecord.nip == inv.buyer_nip).one_or_none()
-    )
+    existing = session.query(BuyerRecord).filter(BuyerRecord.nip == inv.buyer_nip).one_or_none()
     now = datetime.now()
     if existing is None:
         session.add(
@@ -373,9 +371,7 @@ def get_invoices(
 def get_invoice_by_number(number: str) -> InvoiceRecord | None:
     """Zwróć fakturę po numerze (klucz biznesowy, unique) albo None."""
     with get_session() as session:
-        return (
-            session.query(InvoiceRecord).filter(InvoiceRecord.number == number).one_or_none()
-        )
+        return session.query(InvoiceRecord).filter(InvoiceRecord.number == number).one_or_none()
 
 
 def mark_sent_ksef(number: str, reference: str, sent_at: datetime | None = None) -> bool:

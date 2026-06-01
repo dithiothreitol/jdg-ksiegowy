@@ -120,9 +120,7 @@ def main() -> None:
     invoices = []
     saved_count = 0
     for meta in metadata:
-        record = metadata_to_record(
-            meta, category=category, vat_deduction_pct=deduction
-        )
+        record = metadata_to_record(meta, category=category, vat_deduction_pct=deduction)
         manual_reason = needs_manual_review(meta)
         already = record.id in existing_ids or meta.ksef_number in existing_ksef
 
