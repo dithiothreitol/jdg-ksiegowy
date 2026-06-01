@@ -18,6 +18,7 @@ data/
 .idea/
 .claude/settings.json
 .claude/settings.local.json
+.claude/*.lock
 .coverage
 htmlcov/
 scripts/
