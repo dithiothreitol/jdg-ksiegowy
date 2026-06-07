@@ -17,6 +17,9 @@ openclaw cron add "0 8 25 * *" "DZIS termin VAT JPK_V7M! Podaj kwote VAT i przyp
 
 # Generowanie faktur cyklicznych (28-go)
 openclaw cron add "0 9 28 * *" "Sprawdz aktywne kontrakty i wygeneruj faktury za biezacy miesiac uzywajac skill invoice-generator. Wyslij do KSeF uzywajac skill ksef-submit."
+
+# Synchronizacja terminow podatkowych z Google Calendar (codziennie 07:00)
+openclaw cron add "0 7 * * *" "Zsynchronizuj terminy podatkowe z Google Calendar uzywajac skill calendar-sync."
 ```
 
 Te komendy wystarczy wykonac raz — OpenClaw persystuje cron joby miedzy restartami.

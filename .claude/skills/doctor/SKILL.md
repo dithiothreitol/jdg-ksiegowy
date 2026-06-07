@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Preflight-check konfiguracji JDG przed wysyłką faktur / JPK do sandboxów. Sprawdza dane sprzedawcy, KSeF, bramkę MF, SMTP, OCR. Użyj gdy user pyta "czy wszystko skonfigurowane", "diagnostyka", "preflight", "co mam brak", "czy działa konfiguracja", "audyt setupu".
+description: Preflight-check konfiguracji JDG przed wysyłką faktur / JPK do sandboxów. Sprawdza dane sprzedawcy, KSeF, bramkę MF, SMTP, OCR, Google Calendar. Użyj gdy user pyta "czy wszystko skonfigurowane", "diagnostyka", "preflight", "co mam brak", "czy działa konfiguracja", "audyt setupu".
 ---
 
 # Doctor — sprawdzanie konfiguracji

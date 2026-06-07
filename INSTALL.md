@@ -197,6 +197,27 @@ ANTHROPIC_API_KEY=sk-ant-...                # Optional, pay-as-you-go only
 
 > **Warning:** Do NOT use Claude Pro/Max subscription keys with OpenClaw. Anthropic blocked subscription access for third-party agents on April 4, 2026. Use API keys only.
 
+### Google Calendar (optional — tax deadline reminders)
+
+Syncs tax deadlines (ryczałt, ZUS, VAT+JPK) and invoice reminders **with amounts** into a
+dedicated "JDG Podatki" calendar. One-time OAuth setup:
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create a project → enable
+   **Google Calendar API** → **Credentials** → create **OAuth client ID** of type **Desktop app**
+   → download the JSON.
+2. In `.env`:
+   ```env
+   GCAL_ENABLED=true
+   GCAL_CREDENTIALS_PATH=/absolute/path/credentials.json
+   ```
+3. Run the one-time consent (needs a browser):
+   ```bash
+   python3 -m jdg_ksiegowy.calendar.auth_setup
+   ```
+   This stores a refresh token in `data/gcal_token.json` — afterwards the sync runs headless.
+4. Test: `python3 skills/calendar-sync/scripts/sync.py --dry-run`, then without `--dry-run`.
+   The daily cron in `CRON.md` keeps it in sync.
+
 ---
 
 ## 7. Initialize Database

@@ -169,6 +169,34 @@ def _check_ocr(report: DoctorReport) -> None:
         report.findings.append(Finding("ok", area, details))
 
 
+def _check_calendar(report: DoctorReport) -> None:
+    c = settings.calendar
+    area = "calendar"
+    if not c.enabled:
+        report.findings.append(
+            Finding("warn", area, "GCAL_ENABLED=false — synchronizacja kalendarza nieaktywna")
+        )
+        return
+    if not c.credentials_path:
+        report.findings.append(
+            Finding("error", area, "GCAL_CREDENTIALS_PATH pusty — pobierz OAuth client z Google Cloud")
+        )
+    elif not Path(c.credentials_path).exists():
+        report.findings.append(
+            Finding("error", area, f"GCAL_CREDENTIALS_PATH nie istnieje: {c.credentials_path}")
+        )
+    if not Path(c.token_path).exists():
+        report.findings.append(
+            Finding(
+                "error",
+                area,
+                "Brak tokenu OAuth — uruchom: python -m jdg_ksiegowy.calendar.auth_setup",
+            )
+        )
+    else:
+        report.findings.append(Finding("ok", area, f"Token OAuth obecny ({c.token_path})"))
+
+
 def run_doctor() -> DoctorReport:
     """Uruchom komplet preflight-check'ów. Nie dotyka sieci."""
     report = DoctorReport()
@@ -177,13 +205,14 @@ def run_doctor() -> DoctorReport:
     _check_mf(report)
     _check_smtp(report)
     _check_ocr(report)
+    _check_calendar(report)
     return report
 
 
 def format_report(report: DoctorReport) -> str:
     """Sformatuj raport doktora jako czytelny tekst."""
     lines = ["=== Doctor JDG — preflight check ===", ""]
-    areas_order = ["seller", "ksef", "mf", "smtp", "ocr"]
+    areas_order = ["seller", "ksef", "mf", "smtp", "ocr", "calendar"]
     for area in areas_order:
         area_findings = [f for f in report.findings if f.area == area]
         if not area_findings:

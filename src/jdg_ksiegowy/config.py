@@ -147,6 +147,29 @@ class KSeFConfig(BaseSettings):
         return urls[self.env]
 
 
+class CalendarConfig(BaseSettings):
+    """Konfiguracja synchronizacji terminow podatkowych z Google Calendar."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="GCAL_",
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    enabled: bool = False
+    credentials_path: str = ""  # OAuth client secrets JSON z Google Cloud
+    token_path: str = str(DATA_DIR / "gcal_token.json")  # zapisany refresh token (auth_setup)
+    state_path: str = str(DATA_DIR / "gcal_state.json")  # persystencja calendar_id
+    calendar_id: str = ""  # puste -> utworz kalendarz "JDG Podatki" przy 1. syncu
+    calendar_name: str = "JDG Podatki"
+    reminder_days_before: int = 3
+    timezone: str = "Europe/Warsaw"
+
+    def is_configured(self) -> bool:
+        return self.enabled and bool(self.credentials_path)
+
+
 class Settings(BaseSettings):
     """Glowna konfiguracja aplikacji."""
 
@@ -161,6 +184,7 @@ class Settings(BaseSettings):
     mf: MFGatewayConfig = MFGatewayConfig()
     ocr: OCRConfig = OCRConfig()
     smtp: SMTPConfig = SMTPConfig()
+    calendar: CalendarConfig = CalendarConfig()
     anthropic_api_key: str = ""
     libreoffice_bin: str = Field(default="", alias="LIBREOFFICE_BIN")
 

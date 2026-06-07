@@ -39,6 +39,7 @@ class Reminder:
     amount: Decimal | None  # None gdy nieznana
     level: ReminderLevel
     days_until: int  # ujemne = po terminie
+    key: str = ""  # stabilny identyfikator do synchronizacji z kalendarzem
 
 
 @dataclass
@@ -94,8 +95,13 @@ class Dashboard:
         tier = get_zus_tier(annual_estimate)
         snap.estimated_zus = tier.monthly_contribution
 
+        # VAT do zaplaty za poprzedni miesiac (szacunkowo): nalezny - naliczony odliczalny.
+        _, prev_sales_vat = self._sum_invoices(invoices, prev_year, prev_month)
+        _, prev_exp_vat = self._sum_expenses(expenses, prev_year, prev_month)
+        estimated_vat = max(prev_sales_vat - prev_exp_vat, Decimal("0"))
+
         snap.reminders = self._build_reminders(
-            prev_month, prev_year, snap.estimated_ryczalt, snap.estimated_zus
+            prev_month, prev_year, snap.estimated_ryczalt, snap.estimated_zus, estimated_vat
         )
         snap.reminders.extend(self._invoice_reminders(snap.overdue_invoices, snap.unpaid_invoices))
         snap.reminders.sort(key=lambda r: r.due_date)
@@ -141,15 +147,17 @@ class Dashboard:
         prev_year: int,
         ryczalt: Decimal,
         zus: Decimal,
+        vat: Decimal | None,
     ) -> list[Reminder]:
         deadlines = get_tax_deadlines(prev_month, prev_year)
+        period = f"{prev_year}-{prev_month:02d}"
         month_name = f"{prev_month:02d}/{prev_year}"
         items = [
-            ("Ryczalt za " + month_name, deadlines["ryczalt"], ryczalt),
-            ("ZUS zdrowotne za " + month_name, deadlines["zus_health"], zus),
-            ("VAT + JPK_V7M za " + month_name, deadlines["vat_jpk"], None),
+            (f"ryczalt-{period}", "Ryczalt za " + month_name, deadlines["ryczalt"], ryczalt),
+            (f"zus-{period}", "ZUS zdrowotne za " + month_name, deadlines["zus_health"], zus),
+            (f"vat_jpk-{period}", "VAT + JPK_V7M za " + month_name, deadlines["vat_jpk"], vat),
         ]
-        return [self._make_reminder(label, due, amount) for label, due, amount in items]
+        return [self._make_reminder(key, label, due, amount) for key, label, due, amount in items]
 
     def _invoice_reminders(
         self,
@@ -166,6 +174,7 @@ class Dashboard:
                     amount=Decimal(str(inv.total_gross)),
                     level=ReminderLevel.OVERDUE,
                     days_until=days,
+                    key=f"invoice-{inv.number}",
                 )
             )
         for inv in unpaid:
@@ -178,11 +187,14 @@ class Dashboard:
                         amount=Decimal(str(inv.total_gross)),
                         level=self._level_for(days),
                         days_until=days,
+                        key=f"invoice-{inv.number}",
                     )
                 )
         return reminders
 
-    def _make_reminder(self, label: str, due: date, amount: Decimal | None) -> Reminder:
+    def _make_reminder(
+        self, key: str, label: str, due: date, amount: Decimal | None
+    ) -> Reminder:
         days = (due - self.today).days
         return Reminder(
             label=label,
@@ -190,6 +202,7 @@ class Dashboard:
             amount=amount,
             level=self._level_for(days),
             days_until=days,
+            key=key,
         )
 
     @staticmethod

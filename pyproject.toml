@@ -17,6 +17,9 @@ dependencies = [
     "anthropic>=0.96",
     "pillow>=12.2",
     "pypdf>=6.10",
+    "google-api-python-client>=2.197",
+    "google-auth>=2.38",
+    "google-auth-oauthlib>=1.4",
 ]
 
 [project.optional-dependencies]
