@@ -32,7 +32,7 @@ Complete step-by-step guide to deploying JDG Ksiegowy on your own server.
 | Disk | 10 GB | 30 GB |
 | CPU | 1 vCPU | 4 ARM cores |
 | Python | 3.12+ | 3.12+ |
-| Node.js | 18+ | 22 LTS |
+| Node.js | 20+ | 24 LTS |
 | Docker | 24+ | Latest |
 
 **If RAM < 4 GB:** Skip Ollama, use Claude API as primary model (~$0.50/month for 3 invoices).
