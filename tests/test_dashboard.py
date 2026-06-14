@@ -126,6 +126,37 @@ def test_upcoming_invoice_within_7_days_is_warn():
     assert reminders_for_inv[0].level is ReminderLevel.WARN
 
 
+def test_vat_reminder_uses_sale_date_not_issue_date():
+    """Usługa z maja wystawiona 1 czerwca liczy się do VAT za MAJ (art. 19a), nie czerwiec."""
+    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+
+    init_db()
+    save_invoice(
+        InvoiceRecord(
+            id="i-may-service",
+            number="A1/06/2026",
+            issue_date=date(2026, 6, 1),
+            sale_date=date(2026, 5, 31),
+            payment_due=date(2026, 6, 10),
+            buyer_name="GPF",
+            buyer_nip="6211837525",
+            total_net=Decimal("21000"),
+            total_vat=Decimal("4830"),
+            total_gross=Decimal("25830"),
+            vat_rate=Decimal("23"),
+        )
+    )
+
+    # Dashboard na 14 czerwca: poprzedni miesiac = maj. VAT reminder ma zlapac 4830.
+    snap = Dashboard(today=date(2026, 6, 14)).snapshot()
+    vat_rem = [r for r in snap.reminders if "VAT + JPK_V7M za 05/2026" in r.label]
+    assert len(vat_rem) == 1
+    assert vat_rem[0].amount == Decimal("4830")
+    # Ryczalt majowy OBEJMUJE te fakture: przychod = data wykonania uslugi 31.05
+    # (art. 14 ust. 1c — wczesniejsza niz wystawienie 1.06). 21000 * 12% = 2520.
+    assert snap.estimated_ryczalt == Decimal("2520.00")
+
+
 def test_estimated_ryczalt_uses_previous_month():
     from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
 

@@ -36,11 +36,31 @@ async def submit(xml_path: str) -> dict:
     xml_content = path.read_text(encoding="utf-8")
     number = _invoice_number(xml_content)
 
-    # Guard przed dublem: jeśli faktura jest już w rejestrze z numerem KSeF,
-    # nie wysyłaj jej drugi raz (KSeF nadałby kolejny numer tej samej fakturze).
     init_db()
-    existing = get_invoice_by_number(number) if number else None
-    if existing is not None and existing.ksef_reference:
+    if not number:
+        return {
+            "success": False,
+            "error": "Nie udało się odczytać numeru faktury (P_2) z XML FA(3).",
+        }
+    existing = get_invoice_by_number(number)
+
+    # Faktura musi być w rejestrze PRZED wysyłką. Wysyłka do KSeF z pominięciem
+    # rejestru sprawia, że nie trafia do JPK_V7M ani /jdg-status — wypada z
+    # rozliczenia VAT (mark_sent_ksef tylko AKTUALIZUJE istniejący wiersz).
+    if existing is None:
+        return {
+            "success": False,
+            "number": number,
+            "error": (
+                f"Faktura {number} nie istnieje w rejestrze SQLite — wystaw ją "
+                "najpierw skillem `invoice`. Wysyłka spoza rejestru pominęłaby "
+                "JPK_V7M i /jdg-status (faktura wypadłaby z rozliczenia VAT)."
+            ),
+        }
+
+    # Guard przed dublem: faktura z numerem KSeF nie jest wysyłana ponownie
+    # (KSeF nadałby kolejny numer tej samej fakturze).
+    if existing.ksef_reference:
         return {
             "success": False,
             "number": number,
