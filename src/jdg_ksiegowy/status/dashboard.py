@@ -192,9 +192,7 @@ class Dashboard:
                 )
         return reminders
 
-    def _make_reminder(
-        self, key: str, label: str, due: date, amount: Decimal | None
-    ) -> Reminder:
+    def _make_reminder(self, key: str, label: str, due: date, amount: Decimal | None) -> Reminder:
         days = (due - self.today).days
         return Reminder(
             label=label,

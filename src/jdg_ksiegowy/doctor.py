@@ -179,7 +179,9 @@ def _check_calendar(report: DoctorReport) -> None:
         return
     if not c.credentials_path:
         report.findings.append(
-            Finding("error", area, "GCAL_CREDENTIALS_PATH pusty — pobierz OAuth client z Google Cloud")
+            Finding(
+                "error", area, "GCAL_CREDENTIALS_PATH pusty — pobierz OAuth client z Google Cloud"
+            )
         )
     elif not Path(c.credentials_path).exists():
         report.findings.append(
