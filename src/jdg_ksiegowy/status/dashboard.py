@@ -20,6 +20,7 @@ from jdg_ksiegowy.registry.db import (
     get_invoices,
     init_db,
 )
+from jdg_ksiegowy.tax.income import income_date
 from jdg_ksiegowy.tax.zus import get_zus_tier
 
 
@@ -78,14 +79,15 @@ class Dashboard:
             i for i in invoices if not i.paid_at and i.payment_due < self.today
         ]
         snap.month_sales_net, snap.month_sales_vat = self._sum_invoices(
-            invoices, self.today.year, self.today.month
+            invoices, self.today.year, self.today.month, by="sale_date"
         )
         snap.month_expenses_net, snap.month_expenses_vat = self._sum_expenses(
             expenses, self.today.year, self.today.month
         )
 
-        # Ryczalt za poprzedni miesiac (platne do 20-go obecnego)
-        prev_sales_net, _ = self._sum_invoices(invoices, prev_year, prev_month)
+        # Ryczalt za poprzedni miesiac (platne do 20-go obecnego) — przychod ryczaltowca
+        # wg daty uzyskania przychodu (art. 14 ust. 1c, jak PIT-28): min(sale_date, issue_date).
+        prev_sales_net, _ = self._sum_invoices(invoices, prev_year, prev_month, by="income")
         snap.estimated_ryczalt = (prev_sales_net * settings.seller.ryczalt_rate / 100).quantize(
             Decimal("0.01")
         )
@@ -96,7 +98,8 @@ class Dashboard:
         snap.estimated_zus = tier.monthly_contribution
 
         # VAT do zaplaty za poprzedni miesiac (szacunkowo): nalezny - naliczony odliczalny.
-        _, prev_sales_vat = self._sum_invoices(invoices, prev_year, prev_month)
+        # Okres VAT wg daty sprzedazy (moment obowiazku podatkowego, art. 19a) — jak JPK_V7M.
+        _, prev_sales_vat = self._sum_invoices(invoices, prev_year, prev_month, by="sale_date")
         _, prev_exp_vat = self._sum_expenses(expenses, prev_year, prev_month)
         estimated_vat = max(prev_sales_vat - prev_exp_vat, Decimal("0"))
 
@@ -108,9 +111,17 @@ class Dashboard:
         return snap
 
     def _sum_invoices(
-        self, records: list[InvoiceRecord], year: int, month: int
+        self, records: list[InvoiceRecord], year: int, month: int, *, by: str
     ) -> tuple[Decimal, Decimal]:
-        filtered = [r for r in records if r.issue_date.year == year and r.issue_date.month == month]
+        """Zsumuj netto/VAT faktur danego miesiaca wg wybranej daty granicznej.
+
+        `by="sale_date"` — okres VAT/JPK (moment obowiazku podatkowego, art. 19a);
+        `by="income"`    — okres przychodu ryczaltowego (art. 14 ust. 1c, jak PIT-28).
+        Faktura za usluge z miesiaca M wystawiona w M+1: VAT trafia do M (sale_date),
+        a przychod ryczaltowy rowniez do M (data wykonania uslugi wczesniejsza niz wystawienie).
+        """
+        period_date = income_date if by == "income" else (lambda r: r.sale_date)
+        filtered = [r for r in records if (d := period_date(r)).year == year and d.month == month]
         net = sum((Decimal(str(r.total_net)) for r in filtered), Decimal("0"))
         vat = sum((Decimal(str(r.total_vat)) for r in filtered), Decimal("0"))
         return net, vat

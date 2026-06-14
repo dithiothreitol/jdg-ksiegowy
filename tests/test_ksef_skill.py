@@ -129,14 +129,18 @@ def test_submit_refuses_already_sent_invoice(tmp_path, monkeypatch, isolated_db)
     assert called is False, "Nie wolno wysyłać faktury z istniejącym numerem KSeF"
 
 
-def test_submit_succeeds_when_invoice_not_in_registry(tmp_path, monkeypatch, isolated_db):
-    """XML spoza rejestru wysyła się, ale registered=False (nie ma czego oznaczyć)."""
+def test_submit_refuses_invoice_not_in_registry(tmp_path, monkeypatch, isolated_db):
+    """XML spoza rejestru NIE jest wysyłany — inaczej faktura wypadłaby z JPK/VAT."""
     from jdg_ksiegowy.registry.db import init_db
 
     _configure_ksef(monkeypatch)
     init_db()
 
+    called = False
+
     async def fake_send(self, xml_content):
+        nonlocal called
+        called = True
         return KSeFResult(success=True, reference_number="REF-XYZ", details={"env": "test"})
 
     monkeypatch.setattr(ksef_submit.KSeFClient, "send_invoice", fake_send)
@@ -146,5 +150,6 @@ def test_submit_succeeds_when_invoice_not_in_registry(tmp_path, monkeypatch, iso
 
     result = asyncio.run(ksef_submit.submit(str(xml_file)))
 
-    assert result["success"] is True
-    assert result["registered"] is False
+    assert result["success"] is False
+    assert "rejestrze" in result["error"].lower()
+    assert called is False, "Nie wolno wysyłać faktury spoza rejestru"
