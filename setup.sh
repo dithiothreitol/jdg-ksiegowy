@@ -74,7 +74,7 @@ else
     warn "You will need an Anthropic API key (pay-as-you-go)"
     warn "Get one at: https://console.anthropic.com/settings/keys"
     OPENCLAW_PROVIDER="anthropic"
-    OPENCLAW_MODEL="claude-sonnet-4-20250514"
+    OPENCLAW_MODEL="claude-sonnet-4-6"
 fi
 
 # --- 4. Install OpenClaw ---

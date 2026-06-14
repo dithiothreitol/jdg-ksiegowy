@@ -101,7 +101,9 @@ def test_sync_creates_tax_reminders_on_empty_calendar(isolated_db):
 def test_sync_idempotent(isolated_db):
     snap = Dashboard(today=TODAY).snapshot()
     desired = reminders_to_events(snap.reminders)
-    existing = [_event(d.key, d.summary, d.day.isoformat(), f"ev{i}") for i, d in enumerate(desired)]
+    existing = [
+        _event(d.key, d.summary, d.day.isoformat(), f"ev{i}") for i, d in enumerate(desired)
+    ]
     fake = FakeGCal(existing=existing)
 
     result = sync_reminders(today=TODAY, client=fake)

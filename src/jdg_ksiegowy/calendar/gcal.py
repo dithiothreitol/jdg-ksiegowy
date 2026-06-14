@@ -93,9 +93,11 @@ class GCalClient:
             if not page_token:
                 break
 
-        created = service.calendars().insert(
-            body={"summary": name, "timeZone": self.cfg.timezone}
-        ).execute()
+        created = (
+            service.calendars()
+            .insert(body={"summary": name, "timeZone": self.cfg.timezone})
+            .execute()
+        )
         self._write_state(created["id"])
         return created["id"]
 
