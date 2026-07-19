@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
+from typing import Literal
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
@@ -21,6 +22,7 @@ from jdg_ksiegowy.registry.db import (
     init_db,
 )
 from jdg_ksiegowy.tax.income import income_date
+from jdg_ksiegowy.tax.jpk import settle_vat
 from jdg_ksiegowy.tax.zus import get_zus_tier
 
 
@@ -89,7 +91,7 @@ class Dashboard:
         # wg daty uzyskania przychodu (art. 14 ust. 1c, jak PIT-28): min(sale_date, issue_date).
         prev_sales_net, _ = self._sum_invoices(invoices, prev_year, prev_month, by="income")
         snap.estimated_ryczalt = (prev_sales_net * settings.seller.ryczalt_rate / 100).quantize(
-            Decimal("0.01")
+            Decimal("0.01"), rounding=ROUND_HALF_UP
         )
 
         # ZUS zdrowotne — biezacy miesiac (platne do 20-go nastepnego miesiaca)
@@ -97,11 +99,16 @@ class Dashboard:
         tier = get_zus_tier(annual_estimate)
         snap.estimated_zus = tier.monthly_contribution
 
-        # VAT do zaplaty za poprzedni miesiac (szacunkowo): nalezny - naliczony odliczalny.
-        # Okres VAT wg daty sprzedazy (moment obowiazku podatkowego, art. 19a) — jak JPK_V7M.
+        # VAT do zaplaty za poprzedni miesiac (szacunkowo) — ta sama logika co JPK_V7M
+        # (P_51), zeby przypomnienie nie rozjechalo sie ze zlozona deklaracja.
+        # Okres VAT wg daty sprzedazy (moment obowiazku podatkowego, art. 19a).
         _, prev_sales_vat = self._sum_invoices(invoices, prev_year, prev_month, by="sale_date")
-        _, prev_exp_vat = self._sum_expenses(expenses, prev_year, prev_month)
-        estimated_vat = max(prev_sales_vat - prev_exp_vat, Decimal("0"))
+        prev_expenses = [
+            e
+            for e in expenses
+            if e.receive_date.year == prev_year and e.receive_date.month == prev_month
+        ]
+        estimated_vat = settle_vat(prev_sales_vat, prev_expenses).to_pay
 
         snap.reminders = self._build_reminders(
             prev_month, prev_year, snap.estimated_ryczalt, snap.estimated_zus, estimated_vat
@@ -111,7 +118,12 @@ class Dashboard:
         return snap
 
     def _sum_invoices(
-        self, records: list[InvoiceRecord], year: int, month: int, *, by: str
+        self,
+        records: list[InvoiceRecord],
+        year: int,
+        month: int,
+        *,
+        by: Literal["sale_date", "income"],
     ) -> tuple[Decimal, Decimal]:
         """Zsumuj netto/VAT faktur danego miesiaca wg wybranej daty granicznej.
 

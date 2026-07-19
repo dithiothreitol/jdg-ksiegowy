@@ -15,10 +15,10 @@ from jdg_ksiegowy.ksef.client import KSeFClient
 from jdg_ksiegowy.registry.db import get_invoice_by_number, init_db, mark_sent_ksef
 
 
-def _invoice_number(xml_content: str) -> str | None:
-    """Wyciągnij numer faktury (P_2) z FA(3) — niezależnie od wersji namespace."""
+def _parse_invoice(xml_content: str) -> tuple[str | None, str | None]:
+    """Zwróć (numer faktury P_2, RodzajFaktury) z FA(3) — niezależnie od namespace."""
     root = etree.fromstring(xml_content.encode("utf-8"))
-    return root.findtext(".//{*}P_2")
+    return root.findtext(".//{*}P_2"), root.findtext(".//{*}RodzajFaktury")
 
 
 async def submit(xml_path: str) -> dict:
@@ -34,7 +34,10 @@ async def submit(xml_path: str) -> dict:
         }
 
     xml_content = path.read_text(encoding="utf-8")
-    number = _invoice_number(xml_content)
+    try:
+        number, kind = _parse_invoice(xml_content)
+    except etree.XMLSyntaxError as e:
+        return {"success": False, "error": f"Niepoprawny XML FA(3): {e}"}
 
     init_db()
     if not number:
@@ -47,7 +50,10 @@ async def submit(xml_path: str) -> dict:
     # Faktura musi być w rejestrze PRZED wysyłką. Wysyłka do KSeF z pominięciem
     # rejestru sprawia, że nie trafia do JPK_V7M ani /jdg-status — wypada z
     # rozliczenia VAT (mark_sent_ksef tylko AKTUALIZUJE istniejący wiersz).
-    if existing is None:
+    # Korekty (KOR/KOR_ZAL/KOR_ROZ) nie mają własnego wiersza w rejestrze, a ich
+    # wysyłka do KSeF jest obowiązkowa — dlatego guard ich nie obejmuje.
+    is_correction = (kind or "").upper().startswith("KOR")
+    if existing is None and not is_correction:
         return {
             "success": False,
             "number": number,
@@ -60,7 +66,7 @@ async def submit(xml_path: str) -> dict:
 
     # Guard przed dublem: faktura z numerem KSeF nie jest wysyłana ponownie
     # (KSeF nadałby kolejny numer tej samej fakturze).
-    if existing.ksef_reference:
+    if existing is not None and existing.ksef_reference:
         return {
             "success": False,
             "number": number,

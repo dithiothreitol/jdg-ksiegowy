@@ -21,6 +21,7 @@ from lxml import etree
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.tax.income import income_date
 
 TNS = "http://jpk.mf.gov.pl/wzor/2024/10/30/10301/"
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/01/05/eD/DefinicjeTypy/"
@@ -109,7 +110,7 @@ def generate_jpk_ewp(
     # (= podatnik nie rozlicza metoda kasowa)
 
     # --- EWPWiersze (per faktura) ---
-    sorted_inv = sorted(invoices, key=lambda i: i.issue_date)
+    sorted_inv = sorted(invoices, key=income_date)
     total_revenue = Decimal("0")
     rate_str = _stawka_str(rate)
 
@@ -117,7 +118,8 @@ def generate_jpk_ewp(
         wiersz = etree.SubElement(root, _ns("EWPWiersz"))
         etree.SubElement(wiersz, _ns("K_1")).text = str(lp)
         etree.SubElement(wiersz, _ns("K_2")).text = inv.issue_date.isoformat()
-        etree.SubElement(wiersz, _ns("K_3")).text = inv.sale_date.isoformat()
+        # K_3 = data uzyskania przychodu (art. 14 ust. 1c) — ta sama regula co PIT-28.
+        etree.SubElement(wiersz, _ns("K_3")).text = income_date(inv).isoformat()
         etree.SubElement(wiersz, _ns("K_4")).text = inv.number
         if inv.ksef_reference:
             etree.SubElement(wiersz, _ns("K_5")).text = inv.ksef_reference

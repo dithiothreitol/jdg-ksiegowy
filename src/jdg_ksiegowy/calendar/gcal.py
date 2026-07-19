@@ -55,24 +55,31 @@ class GCalClient:
 
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
         if not creds.valid:
-            if creds.expired and creds.refresh_token:
+            reauth = GCalError(
+                "Token OAuth niewazny/odwolany — uruchom ponownie "
+                "python -m jdg_ksiegowy.calendar.auth_setup"
+            )
+            if not (creds.expired and creds.refresh_token):
+                raise reauth
+            from google.auth.exceptions import RefreshError
+
+            # Klient OAuth w trybie "Testing" traci refresh token po 7 dniach.
+            try:
                 creds.refresh(Request())
-                token_path.write_text(creds.to_json(), encoding="utf-8")
-            else:
-                raise GCalError(
-                    "Token OAuth niewazny/odwolany — uruchom ponownie "
-                    "python -m jdg_ksiegowy.calendar.auth_setup"
-                )
+            except RefreshError as e:
+                raise reauth from e
+            token_path.write_text(creds.to_json(), encoding="utf-8")
         self._service = build("calendar", "v3", credentials=creds, cache_discovery=False)
         return self._service
 
     # --- kalendarz ---
 
-    def ensure_calendar(self) -> str:
+    def ensure_calendar(self, *, create: bool = True) -> str:
         """Zwroc id kalendarza `GCAL_CALENDAR_NAME`; utworz jesli nie istnieje.
 
         Kolejnosc zrodel id: config.calendar_id -> data/gcal_state.json -> wyszukanie
         po nazwie -> utworzenie. Wynik persystowany do state_path.
+        `create=False` (dry-run) nie tworzy kalendarza ani nie zapisuje stanu.
         """
         if self.cfg.calendar_id:
             return self.cfg.calendar_id
@@ -87,12 +94,17 @@ class GCalClient:
             resp = service.calendarList().list(pageToken=page_token).execute()
             for item in resp.get("items", []):
                 if item.get("summary") == name:
-                    self._write_state(item["id"])
+                    if create:
+                        self._write_state(item["id"])
                     return item["id"]
             page_token = resp.get("nextPageToken")
             if not page_token:
                 break
 
+        if not create:
+            raise GCalError(
+                f"Kalendarz '{name}' nie istnieje. Uruchom sync bez --dry-run, zeby go utworzyc."
+            )
         created = (
             service.calendars()
             .insert(body={"summary": name, "timeZone": self.cfg.timezone})
@@ -103,17 +115,29 @@ class GCalClient:
 
     @staticmethod
     def _calendar_exists(service, calendar_id: str) -> bool:
+        """Czy kalendarz o tym id istnieje. Blad inny niz 403/404 propagujemy —
+        potraktowanie awarii API jako "brak kalendarza" tworzy duplikat i osierocilo
+        by dotychczasowe wydarzenia."""
+        from googleapiclient.errors import HttpError
+
         try:
             service.calendars().get(calendarId=calendar_id).execute()
             return True
-        except Exception:
-            return False
+        except HttpError as e:
+            if e.resp.status in (403, 404):
+                return False
+            raise
 
     def _read_state(self) -> dict:
         p = Path(self.cfg.state_path)
         if not p.exists():
             return {}
-        return json.loads(p.read_text(encoding="utf-8"))
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise GCalError(
+                f"Uszkodzony plik stanu {p}: {e}. Usun go, zeby odtworzyc powiazanie z kalendarzem."
+            ) from e
 
     def _write_state(self, calendar_id: str) -> None:
         p = Path(self.cfg.state_path)

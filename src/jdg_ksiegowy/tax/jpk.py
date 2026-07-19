@@ -9,15 +9,32 @@ Zrodlo XSD: https://www.podatki.gov.pl/media/qord0r0j/schemat_jpk_v7m-3-_v1-0e.x
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from typing import Protocol
 
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.models import Invoice
+
+
+class ExpenseLike(Protocol):
+    """Koszt na potrzeby rozliczenia VAT — domenowy Expense albo ExpenseRecord."""
+
+    total_vat: Decimal
+    vat_deduction_pct: Decimal
+    reverse_charge: bool
+
+
+def _dec(value: object) -> Decimal:
+    """Kwota z rejestru (SQLite oddaje float) -> Decimal bez utraty groszy."""
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
 
 TNS = "http://crd.gov.pl/wzor/2025/12/19/14090/"  # CRWDE 19.12.2025, obowiązuje od 01.02.2026
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/09/13/eD/DefinicjeTypy/"
@@ -65,6 +82,47 @@ EU_COUNTRIES = frozenset(
 
 def _is_eu(country_code: str) -> bool:
     return (country_code or "").upper() in EU_COUNTRIES
+
+
+@dataclass(frozen=True)
+class VatSettlement:
+    """Rozliczenie VAT za okres — pola deklaracji P_38 / P_48 / P_51 / P_62."""
+
+    nalezny: Decimal  # P_38
+    naliczony: Decimal  # P_48
+    to_pay: Decimal  # P_51
+    nadwyzka: Decimal  # P_62
+
+
+def settle_vat(sales_vat: Decimal, expenses: Iterable[ExpenseLike]) -> VatSettlement:
+    """Policz VAT nalezny/naliczony/do zaplaty ze sprzedazy i kosztow okresu.
+
+    Reverse charge (import uslug, art. 17 ust. 1 pkt 4): nabywca sam nalicza VAT
+    nalezny od CALEJ kwoty, a odlicza tylko czesc podlegajaca odliczeniu — pominiecie
+    strony naleznej zaniza zobowiazanie. Przyjmuje zarowno domenowy Expense, jak i
+    ExpenseRecord z rejestru, bo obie strony maja te same trzy pola.
+    """
+    rc_vat = sum(
+        (_dec(e.total_vat) for e in expenses if e.reverse_charge),
+        Decimal("0"),
+    )
+    naliczony = sum(
+        (
+            (_dec(e.total_vat) * _dec(e.vat_deduction_pct) / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            for e in expenses
+            if _dec(e.vat_deduction_pct) > 0
+        ),
+        Decimal("0"),
+    )
+    nalezny = sales_vat + rc_vat
+    return VatSettlement(
+        nalezny=nalezny,
+        naliczony=naliczony,
+        to_pay=max(nalezny - naliczony, Decimal("0")),
+        nadwyzka=max(naliczony - nalezny, Decimal("0")),
+    )
 
 
 # Para stawki -> pola deklaracji (podstawa, podatek). Te same numery co ewidencja K_*.
@@ -170,18 +228,19 @@ def generate_jpk_v7m(
 
     # P_37 = laczna podstawa, P_38 = laczny VAT nalezny (sprzedaz + samonaliczony import).
     total_base = sales_base + rc_net_eu + rc_net_noneu
-    total_nalezny = sales_vat + rc_vat_eu + rc_vat_noneu
 
     # Tylko wpisy z dodatnim procentem odliczenia trafiaja do ewidencji zakupu.
     # Kwoty K_42/K_43 sa proporcjonalne do vat_deduction_pct (art. 86 ust. 2 ustawy o VAT).
     # Reverse charge: deductible_vat jest tu juz uwzgledniony, wiec efekt netto = 0.
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
-    exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
-    total_naliczony = exp_vat  # P_48 (brak srodkow trwalych i korekt)
 
-    vat_to_pay = max(total_nalezny - total_naliczony, Decimal("0"))  # P_51
-    nadwyzka = max(total_naliczony - total_nalezny, Decimal("0"))  # P_62
+    settlement = settle_vat(sales_vat, expenses)
+    total_nalezny = settlement.nalezny  # P_38
+    total_naliczony = settlement.naliczony  # P_48 (brak srodkow trwalych i korekt)
+    exp_vat = total_naliczony
+    vat_to_pay = settlement.to_pay  # P_51
+    nadwyzka = settlement.nadwyzka  # P_62
 
     # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote).
     # Kolejnosc scisle rosnaca wg XSD JPK_V7M(3); pola opcjonalne (=0) pomijamy.
