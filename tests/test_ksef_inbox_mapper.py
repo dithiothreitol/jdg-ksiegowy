@@ -39,6 +39,45 @@ def _meta(**over):
     return SimpleNamespace(**base)
 
 
+# --- kontrola spojnosci kwot (faktury walutowe) ---
+
+
+def test_inconsistent_amounts_flagged_for_manual_review():
+    """Faktura EUR: KSeF podaje VAT juz w PLN (P_14_1W), netto/brutto w walucie.
+
+    Bez kontroli netto+VAT==brutto ten rozjazd (efektywna stawka ~97%) przechodzil
+    dalej i pokazywal sie userowi jako spojny zestaw kwot.
+    """
+    reason = needs_manual_review(
+        _meta(net_amount=64.15, vat_amount=62.42, gross_amount=78.90, currency="EUR")
+    )
+    assert reason is not None
+    assert "EUR" in reason
+
+    # Ten sam rozjazd, ale waluta zgloszona jako PLN — guard walutowy nie zadziala,
+    # wiec musi go zlapac kontrola arytmetyczna.
+    reason_pln = needs_manual_review(
+        _meta(net_amount=64.15, vat_amount=62.42, gross_amount=78.90, currency="PLN")
+    )
+    assert reason_pln is not None
+    assert "niespojne kwoty" in reason_pln
+
+
+def test_unusual_vat_rate_blocks_autosave():
+    reason = needs_manual_review(_meta(net_amount=100.0, vat_amount=17.0, gross_amount=117.0))
+    assert reason is not None
+    assert "nietypowa stawka VAT" in reason
+
+
+def test_consistent_invoice_passes():
+    assert needs_manual_review(_meta()) is None
+
+
+def test_zero_net_invoice_passes():
+    """Faktura zaliczkowa 0/0/0 nie jest anomalia."""
+    assert needs_manual_review(_meta(net_amount=0.0, vat_amount=0.0, gross_amount=0.0)) is None
+
+
 # --- mapper: kwoty, daty, stawka ---
 
 

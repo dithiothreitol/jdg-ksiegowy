@@ -21,6 +21,16 @@ from jdg_ksiegowy.calendar.sync import sync_reminders
 from jdg_ksiegowy.config import settings
 
 
+def _catchable() -> tuple[type[BaseException], ...]:
+    """Wyjatki do zlapania. Biblioteki Google sa opcjonalne — gdy ich brak,
+    gcal.py sam zglasza GCalError, wiec importujemy leniwie."""
+    try:
+        from googleapiclient.errors import HttpError
+    except ImportError:
+        return (GCalError,)
+    return (GCalError, HttpError)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synchronizacja terminow z Google Calendar")
     parser.add_argument(
@@ -48,7 +58,8 @@ def main() -> None:
     today = date.fromisoformat(args.today) if args.today else None
     try:
         result = sync_reminders(today=today, dry_run=args.dry_run)
-    except GCalError as e:
+    except _catchable() as e:
+        # Kontrakt skilla to JSON na stdout — awaria API Google nie moze wyleciec tracebackiem.
         print(json.dumps({"success": False, "error": str(e)}, ensure_ascii=False))
         sys.exit(1)
 

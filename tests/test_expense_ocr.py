@@ -75,10 +75,12 @@ def test_ollama_posts_to_correct_endpoint(tmp_path, respx_mock):
     fake_img = tmp_path / "f.jpg"
     fake_img.write_bytes(b"fake-jpeg")
 
+    # URL i model wstrzykniete wprost — inaczej test zalezy od .env dewelopera
+    # (np. OCR_OLLAMA_URL=http://host.docker.internal:11434).
     route = respx_mock.post("http://localhost:11434/api/generate").mock(
         return_value=httpx.Response(200, json={"response": VALID_JSON})
     )
-    ocr = OllamaOCR()
+    ocr = OllamaOCR(base_url="http://localhost:11434", model="pixtral:12b")
     result = ocr.extract(fake_img)
 
     assert route.called

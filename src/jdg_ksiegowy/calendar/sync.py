@@ -83,7 +83,7 @@ def sync_reminders(
     client = client or GCalClient()
     result = SyncResult(dry_run=dry_run)
 
-    cal_id = client.ensure_calendar()
+    cal_id = client.ensure_calendar(create=not dry_run)
     by_key: dict[str, dict] = {}
     for ev in client.list_managed_events(cal_id):
         k = ev.get("extendedProperties", {}).get("private", {}).get(KEY_PROP)

@@ -62,7 +62,29 @@ def needs_manual_review(meta: InvoiceMetadata) -> str | None:
         return f"waluta {meta.currency} (wymaga przeliczenia na PLN)"
     if meta.is_self_invoicing:
         return "samofakturowanie (czy to koszt?)"
+
+    # Kontrola arytmetyczna: netto + VAT musi dac brutto. Rozjazd oznacza, ze
+    # agregaty nie sa w jednej jednostce — KSeF przy fakturach walutowych podaje
+    # vatAmount juz przeliczony na PLN (P_14_1W), a netto/brutto w walucie faktury.
+    net, vat, gross = _dec(meta.net_amount), _dec(meta.vat_amount), _dec(meta.gross_amount)
+    if abs(net + vat - gross) > _CENT:
+        return (
+            f"niespojne kwoty: netto {net} + VAT {vat} != brutto {gross} "
+            "(mozliwe kwoty w roznych walutach — sprawdz XML)"
+        )
+    if net > 0 and _effective_vat_rate(net, vat) not in _KNOWN_VAT_RATES:
+        return (
+            f"nietypowa stawka VAT {_effective_vat_rate(net, vat)}% "
+            "(faktura wielostawkowa? — zweryfikuj XML)"
+        )
     return None
+
+
+def _effective_vat_rate(net: Decimal, vat: Decimal) -> Decimal:
+    """Stawka wyliczona z agregatow; 0 dla faktury zerowej (np. zaliczkowej)."""
+    if net == 0:
+        return Decimal("0")
+    return (vat / net * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 def metadata_to_record(
@@ -76,13 +98,7 @@ def metadata_to_record(
     net = _dec(meta.net_amount)
     vat = _dec(meta.vat_amount)
     gross = _dec(meta.gross_amount)
-
-    # Efektywna stawka z agregatow; guard na fakture zerowa (np. zaliczkowa 0 netto).
-    vat_rate = (
-        Decimal("0")
-        if net == 0
-        else (vat / net * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    )
+    vat_rate = _effective_vat_rate(net, vat)
 
     cat = category if category is not None else _infer_category(meta.seller.name or "")
     seller_nip = meta.seller.nip or ""

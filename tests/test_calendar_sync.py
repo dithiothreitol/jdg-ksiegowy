@@ -23,9 +23,12 @@ class FakeGCal:
         self.updated: list[str] = []
         self.deleted: list[str] = []
         self.calendar_ensured = False
+        self.calendar_created = False
 
-    def ensure_calendar(self) -> str:
+    def ensure_calendar(self, *, create: bool = True) -> str:
         self.calendar_ensured = True
+        if create:
+            self.calendar_created = True
         return "cal1"
 
     def list_managed_events(self, calendar_id: str) -> list[dict]:
@@ -141,6 +144,8 @@ def test_dry_run_writes_nothing(isolated_db):
     assert result.dry_run is True
     assert len(result.created) == 3
     assert fake.created == []
+    # Sam podglad nie moze zalozyc kalendarza ani zapisac stanu.
+    assert fake.calendar_created is False
 
 
 # --- kwota VAT liczona (nie None) ---

@@ -13,7 +13,7 @@ from jdg_ksiegowy.config import DATA_DIR
 from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
 from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
 from jdg_ksiegowy.registry.db import get_expenses, get_invoices, init_db
-from jdg_ksiegowy.tax.jpk import save_jpk_v7m
+from jdg_ksiegowy.tax.jpk import save_jpk_v7m, settle_vat
 
 
 def records_to_invoices(records):
@@ -80,7 +80,8 @@ def main():
     # Sumy spojne z JPK XML (per-faktura quantize HALF_UP w computed fields).
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
-    exp_vat = sum((e.deductible_vat for e in deductible), Decimal("0"))
+    # Ta sama funkcja co generator XML — inaczej raport klamie wzgledem P_51.
+    settlement = settle_vat(total_vat, expenses)
 
     output_path = DATA_DIR / "jpk" / f"JPK_V7M_{args.year}_{args.month:02d}.xml"
     save_jpk_v7m(invoices, args.month, args.year, output_path, expenses=expenses)
@@ -92,8 +93,9 @@ def main():
         "sales_total_net": f"{total_net:.2f}",
         "sales_total_vat": f"{total_vat:.2f}",
         "expenses_deductible_net": f"{exp_net:.2f}",
-        "expenses_deductible_vat": f"{exp_vat:.2f}",
-        "vat_to_pay": f"{max(total_vat - exp_vat, Decimal('0')):.2f}",
+        "expenses_deductible_vat": f"{settlement.naliczony:.2f}",
+        "vat_due": f"{settlement.nalezny:.2f}",
+        "vat_to_pay": f"{settlement.to_pay:.2f}",
         "file_path": str(output_path),
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))

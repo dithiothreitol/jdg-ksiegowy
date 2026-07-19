@@ -13,6 +13,7 @@ from jdg_ksiegowy.config import DATA_DIR
 from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
 from jdg_ksiegowy.registry.db import get_invoices, init_db
 from jdg_ksiegowy.tax.ewp import save_jpk_ewp
+from jdg_ksiegowy.tax.income import income_date
 
 
 def records_to_invoices(records):
@@ -48,9 +49,11 @@ def main():
     args = parser.parse_args()
 
     init_db()
-    invoices = []
-    for month in range(1, 13):
-        invoices.extend(records_to_invoices(get_invoices(month, args.year)))
+    # Rok wg daty uzyskania przychodu (art. 14 ust. 1c) — ta sama regula co PIT-28,
+    # inaczej faktura zaliczkowa na przelomie roku trafia do innego roku niz zeznanie.
+    invoices = [
+        inv for inv in records_to_invoices(get_invoices()) if income_date(inv).year == args.year
+    ]
 
     rate = Decimal(args.ryczalt_rate) if args.ryczalt_rate else None
     output_path = DATA_DIR / "jpk" / f"JPK_EWP_{args.year}.xml"
