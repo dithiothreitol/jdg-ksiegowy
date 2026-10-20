@@ -126,3 +126,17 @@ def test_ewp4_passes_xsd(seller_with_valid_nip, validator, invoice):
     xml = generate_jpk_ewp([invoice], year=2026, ryczalt_rate=Decimal("12"))
     result = validator.validate(xml, schema="JPK_EWP_4")
     assert result.valid, "\n".join(result.errors[:5])
+
+
+@pytest.mark.xsd
+def test_v7m3_correction_with_ordzu_passes_xsd(seller_with_valid_nip, validator, invoice, expense):
+    xml = generate_jpk_v7m(
+        [invoice],
+        month=4,
+        year=2026,
+        correction=1,
+        expenses=[expense],
+        correction_reason="Korekta po omyłkowej deklaracji zerowej pełnomocnika.",
+    )
+    result = validator.validate(xml, schema="JPK_V7M_3")
+    assert result.valid, "\n".join(result.errors[:5])

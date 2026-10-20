@@ -179,6 +179,7 @@ def generate_jpk_v7m(
     year: int,
     correction: int = 0,
     expenses: list[Expense] | None = None,
+    correction_reason: str | None = None,
 ) -> str:
     """Wygeneruj JPK_V7M(3) XML za dany miesiac.
 
@@ -186,8 +187,10 @@ def generate_jpk_v7m(
         invoices: Faktury sprzedazowe za miesiac
         month: 1-12
         year: Rok
-        correction: 0 = pierwotny, 1+ = korekta
+        correction: 0 = pierwotny, 1+ = numer kolejnej korekty (w XML zawsze CelZlozenia=2)
         expenses: Faktury zakupu (koszty). VAT naliczony idzie do odliczenia.
+        correction_reason: Uzasadnienie korekty -> P_ORDZU (opcjonalne; ORD-ZU nie jest
+            wymagane od 2016 r., ale tekst trafia do akt sprawy w US).
     """
     expenses = expenses or []
     seller = settings.seller
@@ -273,6 +276,9 @@ def generate_jpk_v7m(
     _add_int(poz, "P_51", vat_to_pay)  # podatek do wplaty, REQ
     if nadwyzka:
         _add_int(poz, "P_62", nadwyzka)  # nadwyzka naliczonego do przeniesienia
+    if correction_reason:
+        # P_ORDZU: ostatni element PozycjeSzczegolowe wg XSD (po P_69), tekst dowolny.
+        etree.SubElement(poz, _ns("P_ORDZU")).text = correction_reason
 
     etree.SubElement(deklaracja, _ns("Pouczenia")).text = "1"
 
@@ -326,7 +332,9 @@ def _append_naglowek(root, seller, now, month, year, correction) -> None:
     etree.SubElement(naglowek, _ns("NazwaSystemu")).text = "JDG-Ksiegowy/1.0"
 
     cel = etree.SubElement(naglowek, _ns("CelZlozenia"))
-    cel.text = str(correction + 1)
+    # XSD JPK_V7M(3): TCelZlozenia to enum {1, 2} — 1 = zlozenie, 2 = korekta.
+    # Numer kolejnej korekty nie jest raportowany (inaczej niz w starym JPK_VAT(3)).
+    cel.text = "2" if correction else "1"
     cel.set("poz", "P_7")
 
     etree.SubElement(naglowek, _ns("KodUrzedu")).text = seller.tax_office_code
@@ -487,9 +495,12 @@ def save_jpk_v7m(
     output_path: Path,
     correction: int = 0,
     expenses: list[Expense] | None = None,
+    correction_reason: str | None = None,
 ) -> Path:
     """Wygeneruj i zapisz JPK_V7M(3) do pliku."""
-    xml = generate_jpk_v7m(invoices, month, year, correction, expenses=expenses)
+    xml = generate_jpk_v7m(
+        invoices, month, year, correction, expenses=expenses, correction_reason=correction_reason
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(xml, encoding="utf-8")
     return output_path

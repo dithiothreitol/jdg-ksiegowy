@@ -5,7 +5,7 @@ description: Generuje miesięczną deklarację VAT JPK_V7M (Jednolity Plik Kontr
 
 # Generator JPK_V7M
 
-Generuje miesięczną deklarację VAT (`JPK_V7M(2)`) na podstawie faktur zapisanych w `data/registry.sqlite`.
+Generuje miesięczną deklarację VAT (`JPK_V7M(3)`) na podstawie faktur zapisanych w `data/jdg_ksiegowy.db`.
 Plik wynikowy: `data/jpk/JPK_V7M_YYYY_MM.xml` — gotowy do wysyłki przez bramkę MF lub e-Mikrofirma.
 
 ## Wymagane dane
@@ -32,11 +32,17 @@ Zwraca JSON:
 }
 ```
 
+## Korekta złożonego JPK
+
+`--correction` (+ opcjonalnie `--reason "..."`) generuje korektę z `CelZlozenia=2` do osobnego pliku
+`data/jpk/JPK_V7M_YYYY_MM_K1.xml` (oryginał zostaje jako dowód). Pełny przebieg — skill `jpk-korekta`.
+
 ## Po wygenerowaniu
 
 Pokaż userowi: okres, liczbę faktur, sumę netto + VAT, ścieżkę pliku (jako klikalny markdown link).
 Przypomnij: termin wysyłki JPK_V7M to **25-ty następnego miesiąca**.
-Plik trzeba wysłać przez bramkę MF — ten skill nie wysyła automatycznie (na razie).
+Przed wysyłką zwaliduj XSD: `python3 skills/jpk/scripts/validate_jpk.py --xml-path <plik>`
+(bramka nie waliduje lokalnie). Wysyłka — skill `jpk-submit`.
 
 ## Wymagane dane sprzedawcy (z .env)
 

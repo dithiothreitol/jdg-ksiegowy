@@ -16,15 +16,19 @@ metadata:
 
 # Generator JPK_V7M
 
-Generuje miesieczna deklaracje VAT w formacie XML zgodnym ze schematem JPK_V7M(2).
+Generuje miesieczna deklaracje VAT w formacie XML zgodnym ze schematem JPK_V7M(3).
 
 ## Uzycie
 
 ```bash
 python3 scripts/generate_jpk.py --month <1-12> --year <YYYY>
+python3 scripts/generate_jpk.py --month <1-12> --year <YYYY> --correction [--reason "..."]
+python3 scripts/validate_jpk.py --xml-path data/jpk/JPK_V7M_YYYY_MM.xml
 ```
 
 Tworzy plik `data/jpk/JPK_V7M_YYYY_MM.xml` i zwraca JSON z podsumowaniem.
+Korekta (`CelZlozenia=2`, uzasadnienie w `P_ORDZU`) trafia do `JPK_V7M_YYYY_MM_K<n>.xml`,
+oryginal zostaje. `validate_jpk.py` sprawdza plik wzgledem XSD MF przed wysylka.
 
 ## Przyklady
 

@@ -160,3 +160,36 @@ def test_jpk_mixed_rates_within_single_invoice():
     assert wiersz.find(_ns("K_20")).text == "230.00"
     assert wiersz.find(_ns("K_15")).text == "100.00"
     assert wiersz.find(_ns("K_16")).text == "5.00"
+
+
+def _single_invoice(number: str = "F/04/2026") -> Invoice:
+    return _make_invoice(
+        number, [LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("23"))]
+    )
+
+
+def test_jpk_original_has_cel_zlozenia_1_and_no_ordzu():
+    xml = generate_jpk_v7m([_single_invoice()], month=4, year=2026)
+    root = etree.fromstring(xml.encode("utf-8"))
+    assert root.find(f".//{_ns('CelZlozenia')}").text == "1"
+    assert root.find(f".//{_ns('P_ORDZU')}") is None
+
+
+@pytest.mark.parametrize("correction", [1, 2])
+def test_jpk_correction_always_uses_cel_zlozenia_2(correction):
+    """XSD JPK_V7M(3): CelZlozenia to enum {1, 2} — druga korekta to nadal '2', nie '3'."""
+    xml = generate_jpk_v7m([_single_invoice()], month=4, year=2026, correction=correction)
+    root = etree.fromstring(xml.encode("utf-8"))
+    assert root.find(f".//{_ns('CelZlozenia')}").text == "2"
+
+
+def test_jpk_correction_reason_goes_to_p_ordzu_as_last_pozycja():
+    reason = "Pełnomocnik omyłkowo złożył deklarację zerową."
+    xml = generate_jpk_v7m(
+        [_single_invoice()], month=4, year=2026, correction=1, correction_reason=reason
+    )
+    root = etree.fromstring(xml.encode("utf-8"))
+    poz = root.find(f".//{_ns('PozycjeSzczegolowe')}")
+    # XSD: P_ORDZU to ostatni element sekwencji PozycjeSzczegolowe (tuz przed Pouczenia).
+    assert poz[-1].tag == _ns("P_ORDZU")
+    assert poz[-1].text == reason

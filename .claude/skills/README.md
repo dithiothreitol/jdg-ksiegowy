@@ -10,6 +10,7 @@ Zestaw skilli dla [Claude Code](https://docs.claude.com/en/docs/claude-code/over
 | `tax-calculator` | Liczy VAT, ryczałt 12%, ZUS zdrowotne, terminy | "ile podatku z...", "co mam zapłacić" |
 | `ksef` | Wysyła XML FA(3) do KSeF (test/demo/prod) | "wyślij do KSeF" |
 | `jpk` | Generuje JPK_V7M za miesiąc z rejestru | "JPK za marzec" |
+| `jpk-korekta` | Korekta złożonego JPK_V7M (CelZlozenia=2 + P_ORDZU), walidacja XSD, wysyłka | "skoryguj JPK", "biuro wysłało zerową deklarację" |
 
 ## Jak to działa
 
