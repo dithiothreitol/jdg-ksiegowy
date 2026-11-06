@@ -72,10 +72,10 @@ class TestCorrectionXML:
         assert dane.find(_fa3("NrFaKorygowanej")).text == "A1/04/2026"
 
     def test_ksef_reference_in_fa_korygowana(self):
-        c = _correction(original_ksef_reference="KSEF-2026-04-01-ABC")
+        c = _correction(original_ksef_reference="5261040567-20260401-ABCDEF-012345-AB")
         root = self._root(c)
         dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
-        assert dane.find(_fa3("NrKSeFFaKorygowanej")).text == "KSEF-2026-04-01-ABC"
+        assert dane.find(_fa3("NrKSeFFaKorygowanej")).text == "5261040567-20260401-ABCDEF-012345-AB"
 
     def test_no_ksef_reference_skips_element(self):
         root = self._root(_correction(original_ksef_reference=None))
