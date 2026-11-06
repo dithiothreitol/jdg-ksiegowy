@@ -26,6 +26,7 @@ from decimal import Decimal
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.tax.deadlines import next_working_day
 from jdg_ksiegowy.tax.zus import (
     ZUSSocialMode,
     get_current_social_mode,
@@ -146,7 +147,7 @@ def generate_dra_xml(req: DRARequest) -> DRAResult:
 
 
 def dra_deadline(month: int, year: int) -> date:
-    """Termin płatności/złożenia DRA: do 20-tego następnego miesiąca."""
+    """Termin DRA: 20-ty następnego miesiąca, a gdy to dzień wolny, następny dzień roboczy."""
     next_m = month + 1 if month < 12 else 1
     next_y = year if month < 12 else year + 1
-    return date(next_y, next_m, 20)
+    return next_working_day(date(next_y, next_m, 20))

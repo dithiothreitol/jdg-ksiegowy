@@ -9,6 +9,7 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from jdg_ksiegowy.invoice.models import InvoiceCalc
+from jdg_ksiegowy.tax.deadlines import next_working_day
 
 
 def calculate_invoice(
@@ -38,7 +39,7 @@ def get_tax_deadlines(invoice_month: int, invoice_year: int) -> dict[str, date]:
     next_year = invoice_year if invoice_month < 12 else invoice_year + 1
 
     return {
-        "ryczalt": date(next_year, next_month, 20),
-        "zus_health": date(next_year, next_month, 20),
-        "vat_jpk": date(next_year, next_month, 25),
+        "ryczalt": next_working_day(date(next_year, next_month, 20)),
+        "zus_health": next_working_day(date(next_year, next_month, 20)),
+        "vat_jpk": next_working_day(date(next_year, next_month, 25)),
     }
