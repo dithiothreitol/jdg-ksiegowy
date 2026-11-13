@@ -93,7 +93,7 @@ def test_check_extraction_flags_problems():
         source="x",
     )
     problems = " | ".join(check_extraction(bad, today=date(2026, 5, 1)))
-    for fragment in ("NIP", "brutto", "stawki", "przyszlosci", "numeru"):
+    for fragment in ("NIP", "brutto", "stawki", "przyszłości", "numeru"):
         assert fragment in problems
 
 
@@ -253,4 +253,4 @@ def test_scan_refuses_to_save_when_checks_fail(isolated_db, monkeypatch, tmp_pat
     good = to_expense(_extraction(), source="ollama")
     monkeypatch.setattr(app, "build_default_ocr", lambda: _StubOCR(good))
     assert app.scan_expense(invoice, save=True).saved
-    assert "juz w rejestrze" in " ".join(app.scan_expense(invoice).problems)
+    assert "już w rejestrze" in " ".join(app.scan_expense(invoice).problems)

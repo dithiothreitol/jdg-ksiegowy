@@ -16,11 +16,11 @@ from jdg_ksiegowy.cli.params import day, money
 from jdg_ksiegowy.registry.repository import PeriodBy
 
 invoice = typer.Typer(
-    help="Faktury sprzedazy: wystawianie, lista, wysylka mailem.", no_args_is_help=True
+    help="Faktury sprzedaży: wystawianie, lista, wysyłka mailem.", no_args_is_help=True
 )
-buyer = typer.Typer(help="Kontrahenci: dane z Bialej listy MF.", no_args_is_help=True)
+buyer = typer.Typer(help="Kontrahenci: dane z Białej listy MF.", no_args_is_help=True)
 payment = typer.Typer(
-    help="Platnosci: oznaczanie zaplaty, import wyciagu z banku.", no_args_is_help=True
+    help="Płatności: oznaczanie zapłaty, import wyciągu z banku.", no_args_is_help=True
 )
 
 Money = Annotated[Decimal, typer.Option(parser=money, help="Kwota netto (PLN).")]
@@ -30,7 +30,7 @@ def _item(value: str) -> app.ItemInput:
     """'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' — stawka liczbowa albo kod np/zw/0/0_wdt/0_exp."""
     parts = [p.strip() for p in value.split(";")]
     if len(parts) not in (5, 6):
-        raise typer.BadParameter("format: 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]'")
+        raise typer.BadParameter("format: 'opis;ilość;jm;cena netto;stawka[;GTU_xx]'")
     description, quantity, unit, price, rate = parts[:5]
     is_code = not rate.replace(".", "", 1).isdigit()
     return app.ItemInput(
@@ -48,7 +48,7 @@ ItemOption = Annotated[
     list[str] | None,
     typer.Option(
         "--item",
-        help="Pozycja 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). "
+        help="Pozycja 'opis;ilość;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). "
         "Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
     ),
 ]
@@ -61,27 +61,27 @@ def issue(
         Decimal | None, typer.Option(parser=money, help="Netto jednej pozycji (zamiast --item).")
     ] = None,
     item: ItemOption = None,
-    buyer_name: Annotated[str | None, typer.Option(help="Nazwa (domyslnie z rejestru).")] = None,
+    buyer_name: Annotated[str | None, typer.Option(help="Nazwa (domyślnie z rejestru).")] = None,
     buyer_address: Annotated[str | None, typer.Option(help="Adres nabywcy.")] = None,
-    buyer_email: Annotated[str | None, typer.Option(help="E-mail do wysylki faktury.")] = None,
+    buyer_email: Annotated[str | None, typer.Option(help="E-mail do wysyłki faktury.")] = None,
     buyer_country: Annotated[str, typer.Option(help="Kod kraju nabywcy (ISO).")] = "PL",
     buyer_eu_vat: Annotated[str | None, typer.Option(help="Numer VAT-UE nabywcy z UE.")] = None,
-    description: Annotated[str | None, typer.Option(help="Opis uslugi (z --net).")] = None,
+    description: Annotated[str | None, typer.Option(help="Opis usługi (z --net).")] = None,
     issue_date: Annotated[date | None, typer.Option(parser=day, help="Data wystawienia.")] = None,
     sale_date: Annotated[
-        date | None, typer.Option(parser=day, help="Data sprzedazy — okres JPK.")
+        date | None, typer.Option(parser=day, help="Data sprzedaży — okres JPK.")
     ] = None,
-    payment_due: Annotated[date | None, typer.Option(parser=day, help="Termin platnosci.")] = None,
+    payment_due: Annotated[date | None, typer.Option(parser=day, help="Termin płatności.")] = None,
     period_from: Annotated[
-        date | None, typer.Option(parser=day, help="Okres uslugi od (P_6 okres na fakturze).")
+        date | None, typer.Option(parser=day, help="Okres usługi od (P_6 okres na fakturze).")
     ] = None,
-    period_to: Annotated[date | None, typer.Option(parser=day, help="Okres uslugi do.")] = None,
+    period_to: Annotated[date | None, typer.Option(parser=day, help="Okres usługi do.")] = None,
     lookup: Annotated[
-        bool, typer.Option(help="Nowy nabywca bez nazwy: dane z Bialej listy MF.")
+        bool, typer.Option(help="Nowy nabywca bez nazwy: dane z Białej listy MF.")
     ] = True,
-    dry_run: Annotated[bool, typer.Option(help="Pokaz fakture bez zapisu.")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Pokaż fakturę bez zapisu.")] = False,
 ) -> app.InvoiceView:
-    """Wystaw fakture VAT: XML FA(3) + DOCX + wpis w rejestrze (bez wysylki do KSeF)."""
+    """Wystaw fakturę VAT: XML FA(3) + DOCX + wpis w rejestrze (bez wysyłki do KSeF)."""
     return app.issue_invoice(
         app.IssueInvoiceInput(
             buyer_nip=buyer_nip,
@@ -112,9 +112,9 @@ def correct(
     issue_date: Annotated[
         date | None, typer.Option(parser=day, help="Data wystawienia korekty.")
     ] = None,
-    dry_run: Annotated[bool, typer.Option(help="Pokaz korekte bez zapisu.")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Pokaż korektę bez zapisu.")] = False,
 ) -> app.InvoiceView:
-    """Faktura korygujaca: pozycje roznicowe (ujemna cena = zmniejszenie)."""
+    """Faktura korygująca: pozycje różnicowe (ujemna cena = zmniejszenie)."""
     return app.correct_invoice(
         number,
         [_item(i) for i in item or []],
@@ -127,11 +127,11 @@ def correct(
 @command(invoice, "list", output=app.InvoiceList, prefix="invoice", read_only=True)
 def list_(
     year: Annotated[int | None, typer.Option(help="Rok.")] = None,
-    month: Annotated[int | None, typer.Option(min=1, max=12, help="Miesiac (z --year).")] = None,
+    month: Annotated[int | None, typer.Option(min=1, max=12, help="Miesiąc (z --year).")] = None,
     by: Annotated[str, typer.Option(help="sale_date | issue_date | income")] = "sale_date",
-    unpaid: Annotated[bool, typer.Option(help="Tylko niezaplacone.")] = False,
+    unpaid: Annotated[bool, typer.Option(help="Tylko niezapłacone.")] = False,
 ) -> app.InvoiceList:
-    """Lista faktur z okresu (domyslnie wg daty sprzedazy, jak w JPK)."""
+    """Lista faktur z okresu (domyślnie wg daty sprzedaży, jak w JPK)."""
     if by not in ("sale_date", "issue_date", "income"):
         raise typer.BadParameter("dozwolone: sale_date, issue_date, income", param_hint="--by")
     period_by: PeriodBy = by  # type: ignore[assignment]
@@ -142,41 +142,41 @@ def list_(
 def show(
     number: Annotated[str, typer.Argument(help="Numer faktury, np. A1/11/2026.")],
 ) -> app.InvoiceView:
-    """Szczegoly faktury z rejestru."""
+    """Szczegóły faktury z rejestru."""
     return app.show_invoice(number)
 
 
 @command(invoice, "mail", output=app.MailResult, prefix="invoice", confirmable=True)
 def mail(
     number: Annotated[str, typer.Argument(help="Numer faktury.")],
-    to: Annotated[str | None, typer.Option(help="Adresat (domyslnie e-mail nabywcy).")] = None,
-    cc: Annotated[list[str] | None, typer.Option(help="Kopia (mozna powtorzyc).")] = None,
+    to: Annotated[str | None, typer.Option(help="Adresat (domyślnie e-mail nabywcy).")] = None,
+    cc: Annotated[list[str] | None, typer.Option(help="Kopia (można powtórzyć).")] = None,
     confirm: Annotated[str | None, typer.Option(help="Token z podsumowania.")] = None,
 ) -> app.MailResult:
-    """Wyslij fakture PDF mailem (wymaga potwierdzenia)."""
+    """Wyślij fakturę PDF mailem (wymaga potwierdzenia)."""
     return app.mail_invoice(number, to=to, cc=cc, confirm=confirm)
 
 
 @command(payment, "mark", output=app.InvoiceView, prefix="payment")
 def mark(
     number: Annotated[str, typer.Argument(help="Numer faktury.")],
-    paid_on: Annotated[date | None, typer.Option(parser=day, help="Data zaplaty.")] = None,
+    paid_on: Annotated[date | None, typer.Option(parser=day, help="Data zapłaty.")] = None,
 ) -> app.InvoiceView:
-    """Oznacz fakture jako zaplacona."""
+    """Oznacz fakturę jako zapłaconą."""
     paid_at = datetime.combine(paid_on, datetime.min.time()) if paid_on else None
     return app.mark_paid(number, paid_at)
 
 
 @command(payment, "import", output=contracts_app.PaymentImport, prefix="payment")
 def import_csv(
-    csv_path: Annotated[Path, typer.Argument(help="Wyciag CSV z banku (mBank lub generyczny).")],
-    auto_mark: Annotated[bool, typer.Option(help="Oznacz dopasowane jako zaplacone.")] = False,
+    csv_path: Annotated[Path, typer.Argument(help="Wyciąg CSV z banku (mBank lub generyczny).")],
+    auto_mark: Annotated[bool, typer.Option(help="Oznacz dopasowane jako zapłacone.")] = False,
 ) -> contracts_app.PaymentImport:
-    """Dopasuj wplywy z wyciagu do niezaplaconych faktur."""
+    """Dopasuj wpływy z wyciągu do niezapłaconych faktur."""
     return contracts_app.import_bank_csv(csv_path, auto_mark=auto_mark)
 
 
 @command(buyer, "lookup", output=app.BuyerLookup, prefix="buyer", read_only=True)
 def buyer_lookup(nip: Annotated[str, typer.Argument(help="NIP kontrahenta.")]) -> app.BuyerLookup:
-    """Status VAT, nazwa, adres i rachunki kontrahenta z Bialej listy MF."""
+    """Status VAT, nazwa, adres i rachunki kontrahenta z Białej listy MF."""
     return app.lookup_buyer(nip)

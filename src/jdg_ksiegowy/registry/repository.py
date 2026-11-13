@@ -249,7 +249,7 @@ class InvoiceRepository:
         with self._session() as s:
             r = self._require(s, number)
             if r.paid_at is not None:
-                raise ValueError(f"Faktura {number!r} jest juz zaplacona ({r.paid_at:%Y-%m-%d})")
+                raise ValueError(f"Faktura {number!r} jest już zapłacona ({r.paid_at:%Y-%m-%d})")
             r.paid_at = paid_at
             r.status = InvoiceStatus.PAID.value
             s.commit()

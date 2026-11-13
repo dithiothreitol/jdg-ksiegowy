@@ -51,7 +51,7 @@ class TestMarkPaid:
 
     def test_already_paid_raises(self):
         _inv("A2/04/2026", Decimal("1230"), date(2026, 4, 30), paid=True)
-        with pytest.raises(ValueError, match="zaplacona"):
+        with pytest.raises(ValueError, match="zapłacona"):
             InvoiceRepository().mark_paid("A2/04/2026", datetime.now())
 
 

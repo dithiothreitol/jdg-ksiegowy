@@ -129,7 +129,7 @@ def check_extraction(e: ExtractedExpense, today: date | None = None) -> list[str
     """Deterministyczne kontrole odczytu; pusta lista = brak zastrzezen."""
     problems = []
     if e.seller_country == "PL" and not validate_nip(e.seller_nip):
-        problems.append(f"NIP sprzedawcy {e.seller_nip!r} ma nieprawidlowa sume kontrolna")
+        problems.append(f"NIP sprzedawcy {e.seller_nip!r} ma nieprawidłową sumę kontrolną")
     if e.total_gross is not None and abs(e.total_net + e.total_vat - e.total_gross) > Decimal(
         "0.01"
     ):
@@ -141,7 +141,7 @@ def check_extraction(e: ExtractedExpense, today: date | None = None) -> list[str
             f"{expected_vat}) — faktura wielostawkowa?"
         )
     if e.issue_date > (today or date.today()):
-        problems.append(f"Data wystawienia {e.issue_date} jest w przyszlosci")
+        problems.append(f"Data wystawienia {e.issue_date} jest w przyszłości")
     if not e.document_number:
         problems.append("Brak numeru faktury")
     return problems
@@ -205,7 +205,7 @@ class OllamaOCR:
         try:
             extraction = InvoiceExtraction.model_validate_json(resp.json().get("response", ""))
         except ValidationError as e:
-            raise OCRError(f"OCR (ollama): odpowiedz niezgodna ze schematem: {e}") from e
+            raise OCRError(f"OCR (ollama): odpowiedź niezgodna ze schematem: {e}") from e
         return to_expense(extraction, source="ollama")
 
 
@@ -217,7 +217,7 @@ class ClaudeOCR:
 
         key = api_key or settings.anthropic_api_key
         if not key:
-            raise OCRError("ANTHROPIC_API_KEY nie ustawiony w .env — ClaudeOCR niedostepny")
+            raise OCRError("ANTHROPIC_API_KEY nie ustawiony w .env — ClaudeOCR niedostępny")
         self._client = Anthropic(api_key=key)
         self.model = model or settings.ocr.claude_model
         self.max_tokens = settings.ocr.claude_max_tokens
@@ -259,9 +259,9 @@ class FallbackOCR:
         try:
             return self.primary.extract(file_path)
         except Exception as e:  # dowolna awaria lokalnego modelu -> fallback
-            logger.warning("OCR %s nie powiodl sie: %s", type(self.primary).__name__, e)
+            logger.warning("OCR %s nie powiódł się: %s", type(self.primary).__name__, e)
             if self.secondary is None:
-                raise OCRError(f"OCR nie powiodl sie, brak fallbacku: {e}") from e
+                raise OCRError(f"OCR nie powiódł się, brak fallbacku: {e}") from e
             return self.secondary.extract(file_path)
 
 
@@ -276,7 +276,7 @@ def build_default_ocr() -> ExpenseOCR:
         try:
             claude: ExpenseOCR | None = ClaudeOCR()
         except OCRError:
-            logger.info("Fallback Claude niedostepny (brak ANTHROPIC_API_KEY) — tylko Ollama")
+            logger.info("Fallback Claude niedostępny (brak ANTHROPIC_API_KEY) — tylko Ollama")
             claude = None
         return FallbackOCR(primary=OllamaOCR(), secondary=claude)
     raise ValueError(f"Nieznany OCR_PROVIDER: {provider!r}")

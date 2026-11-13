@@ -67,7 +67,7 @@ def load_mf_public_key(cert_path: Path | str) -> RSAPublicKey:
     else:
         key = serialization.load_der_public_key(raw)
     if not isinstance(key, RSAPublicKey):
-        raise ValueError("Klucz publiczny MF musi byc RSA")
+        raise ValueError("Klucz publiczny MF musi być RSA")
     return key
 
 

@@ -55,7 +55,7 @@ def reminders_to_events(reminders: list[Reminder]) -> list[DesiredEvent]:
         desc = [f"Termin: {r.due_date.isoformat()}"]
         if r.amount is not None:
             desc.insert(0, f"Kwota (szacunkowo): {_fmt_amount(r.amount)}")
-        desc.append("Wygenerowano automatycznie przez JDG-Ksiegowy.")
+        desc.append("Wygenerowano automatycznie przez JDG Księgowy.")
         events.append(
             DesiredEvent(
                 key=r.key, summary=_summary(r), day=r.due_date, description="\n".join(desc)

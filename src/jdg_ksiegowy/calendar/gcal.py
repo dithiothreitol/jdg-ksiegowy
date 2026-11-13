@@ -56,7 +56,7 @@ class GCalClient:
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
         if not creds.valid:
             reauth = GCalError(
-                "Token OAuth niewazny/odwolany — uruchom ponownie "
+                "Token OAuth nieważny/odwołany — uruchom ponownie "
                 "python -m jdg_ksiegowy.calendar.auth_setup"
             )
             if not (creds.expired and creds.refresh_token):
@@ -103,7 +103,7 @@ class GCalClient:
 
         if not create:
             raise GCalError(
-                f"Kalendarz '{name}' nie istnieje. Uruchom sync bez --dry-run, zeby go utworzyc."
+                f"Kalendarz '{name}' nie istnieje. Uruchom sync bez --dry-run, żeby go utworzyć."
             )
         created = (
             service.calendars()
@@ -136,7 +136,7 @@ class GCalClient:
             return json.loads(p.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
             raise GCalError(
-                f"Uszkodzony plik stanu {p}: {e}. Usun go, zeby odtworzyc powiazanie z kalendarzem."
+                f"Uszkodzony plik stanu {p}: {e}. Usuń go, żeby odtworzyć powiązanie z kalendarzem."
             ) from e
 
     def _write_state(self, calendar_id: str) -> None:

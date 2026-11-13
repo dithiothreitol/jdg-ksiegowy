@@ -75,8 +75,8 @@ class ConfirmationRequiredError(AppError):
     def __init__(self, *, action: str, token: str, summary: dict[str, Any], stale: bool = False):
         reason = "Token potwierdzenia nieaktualny. " if stale else ""
         super().__init__(
-            f"{reason}Czynnosc '{action}' wymaga potwierdzenia przez czlowieka.",
-            hint=f"Pokaz podsumowanie uzytkownikowi; po akceptacji powtorz z --confirm {token}",
+            f"{reason}Czynność '{action}' wymaga potwierdzenia przez człowieka.",
+            hint=f"Pokaż podsumowanie użytkownikowi; po akceptacji powtórz z --confirm {token}",
             details={"action": action, "token": token, "summary": summary},
         )
         self.action = action

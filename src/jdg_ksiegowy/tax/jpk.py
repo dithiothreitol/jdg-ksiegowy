@@ -138,14 +138,14 @@ def classify_item(item: LineItem, buyer_country: str) -> dict[str, Decimal]:
     if code:
         field = VAT_CODE_FIELD.get(code)
         if field is None:
-            raise ValueError(f"Nieobslugiwany kod VAT {item.vat_code!r} (znane: {VAT_CODE_FIELD})")
+            raise ValueError(f"Nieobsługiwany kod VAT {item.vat_code!r} (znane: {VAT_CODE_FIELD})")
         out = {field: item.net_value}
         if code == "NP" and is_article_100_service(buyer_country):
             out["K_12"] = item.net_value  # uslugi art. 100 ust. 1 pkt 4 (VAT-UE), FA(3) "np II"
         return out
     if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
         raise ValueError(
-            f"Nieobslugiwana stawka VAT {item.vat_rate}% (dozwolone: "
+            f"Nieobsługiwana stawka VAT {item.vat_rate}% (dozwolone: "
             f"{sorted(VAT_RATE_TO_K_FIELDS)} albo kod {sorted(VAT_CODE_FIELD)})"
         )
     net_field, vat_field = VAT_RATE_TO_K_FIELDS[item.vat_rate]

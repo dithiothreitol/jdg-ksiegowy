@@ -46,7 +46,7 @@ class AuthorizationData:
 
     def __post_init__(self) -> None:
         if self.pesel and not validate_pesel(self.pesel):
-            raise ValueError(f"Nieprawidlowy PESEL: {self.pesel!r}")
+            raise ValueError(f"Nieprawidłowy PESEL: {self.pesel!r}")
 
     def fingerprint(self) -> str:
         """Skrot do logow (nie wycieka PESEL/kwoty)."""

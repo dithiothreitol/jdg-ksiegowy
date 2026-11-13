@@ -17,7 +17,7 @@ _PL = "2521"  # P=25, L=21 (IBAN)
 def microaccount(nip: str) -> str:
     """26 cyfr mikrorachunku dla NIP (bez spacji)."""
     if not validate_nip(nip):
-        raise ValueError(f"Nieprawidlowy NIP: {nip!r}")
+        raise ValueError(f"Nieprawidłowy NIP: {nip!r}")
     bban = f"{_FIXED}{_NIP_MARKER}{nip}00"
     check = 98 - int(bban + _PL + "00") % 97
     return f"{check:02d}{bban}"

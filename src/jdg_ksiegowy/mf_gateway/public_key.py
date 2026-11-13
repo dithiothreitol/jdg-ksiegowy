@@ -147,7 +147,7 @@ def _warn_if_expiring_soon(not_after: datetime | None) -> None:
     remaining = not_after - datetime.now(tz=UTC)
     if remaining < ROTATION_WARNING_WINDOW:
         logger.warning(
-            "Klucz publiczny MF wygasa %s (za %s). Sprawdz komunikaty techniczne "
+            "Klucz publiczny MF wygasa %s (za %s). Sprawdź komunikaty techniczne "
             "podatki.gov.pl i zaktualizuj MF_CERT_URL.",
             not_after.isoformat(),
             remaining,
@@ -176,7 +176,7 @@ def _parse_public_key(raw: bytes, source_url: str) -> PublicKeyInfo:
             public_key = serialization.load_der_public_key(raw)
 
     if not isinstance(public_key, RSAPublicKey):
-        raise ValueError("Klucz publiczny MF musi byc RSA")
+        raise ValueError("Klucz publiczny MF musi być RSA")
     key = public_key
 
     return PublicKeyInfo(

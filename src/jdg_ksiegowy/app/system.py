@@ -182,7 +182,7 @@ def _backup_dir() -> Path:
 def _db_file() -> Path:
     url = settings.db_url
     if not url.startswith("sqlite:///"):
-        raise InvalidInputError("Backup obsluguje tylko baze SQLite")
+        raise InvalidInputError("Backup obsługuje tylko bazę SQLite")
     return Path(url.removeprefix("sqlite:///"))
 
 
@@ -236,13 +236,13 @@ def backup(
             "Brak BACKUP_KEY",
             hint=(
                 'Wygeneruj klucz: python -c "from cryptography.fernet import Fernet; '
-                'print(Fernet.generate_key().decode())" — dopisz do .env i do menedzera hasel.'
+                'print(Fernet.generate_key().decode())" — dopisz do .env i do menedżera haseł.'
             ),
         )
     try:
         fernet = Fernet(settings.backup_key.encode())
     except (ValueError, InvalidToken) as e:
-        raise ConfigMissingError(f"Nieprawidlowy BACKUP_KEY: {e}") from e
+        raise ConfigMissingError(f"Nieprawidłowy BACKUP_KEY: {e}") from e
     archive = _archive()
     blob = fernet.encrypt(archive)
     out_dir = (output_dir or _backup_dir()).resolve()

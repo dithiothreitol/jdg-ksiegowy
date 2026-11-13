@@ -102,7 +102,7 @@ def is_ksef_number(value: str) -> bool:
 def check_ksef_number(value: str | None) -> str | None:
     """Walidator pol `ksef_number` — None przepuszcza, zly format odrzuca."""
     if value is not None and not is_ksef_number(value):
-        raise ValueError(f"Nieprawidlowy numer KSeF: {value!r}")
+        raise ValueError(f"Nieprawidłowy numer KSeF: {value!r}")
     return value
 
 
@@ -110,5 +110,5 @@ def normalize_nip(nip: str) -> str:
     """Usuń separatory, zwróć 10 cyfr lub rzuć ValueError."""
     digits = re.sub(r"[\s\-]", "", nip)
     if not re.fullmatch(r"\d{10}", digits):
-        raise ValueError(f"NIP musi miec 10 cyfr: {nip!r}")
+        raise ValueError(f"NIP musi mieć 10 cyfr: {nip!r}")
     return digits

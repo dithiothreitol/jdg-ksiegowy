@@ -149,7 +149,7 @@ def _bundled_cert_finding(env: str) -> Finding:
             f"Wbudowany certyfikat MF wygasa {expires:%Y-%m-%d} — ustaw MF_CERT_PATH/URL "
             "z komunikatu MF (podatki.gov.pl, komunikaty techniczne)",
         )
-    return Finding("ok", "mf", f"Certyfikat MF wbudowany (wazny do {expires:%Y-%m-%d})")
+    return Finding("ok", "mf", f"Certyfikat MF wbudowany (ważny do {expires:%Y-%m-%d})")
 
 
 def _check_smtp(report: DoctorReport) -> None:
@@ -241,7 +241,7 @@ def _check_tax_params(report: DoctorReport) -> None:
             Finding(
                 "warn",
                 "tax",
-                f"Brak parametrow ZUS na {year} — dopisz je w tax/zus.py po publikacji GUS/ZUS",
+                f"Brak parametrów ZUS na {year} — dopisz je w tax/zus.py po publikacji GUS/ZUS",
             )
         )
 

@@ -90,9 +90,9 @@ def emit_error(err: AppError) -> None:
         stderr.print(_summary_panel(err))
         stderr.print(f"[yellow]{err.message}[/]\nPotwierdzenie: [bold]--confirm {err.token}[/]")
         return
-    stderr.print(f"[bold red]Blad ({err.code}):[/] {err.message}")
+    stderr.print(f"[bold red]Błąd ({err.code}):[/] {err.message}")
     if err.hint:
-        stderr.print(f"[dim]Podpowiedz:[/] {err.hint}")
+        stderr.print(f"[dim]Podpowiedź:[/] {err.hint}")
     for key, value in err.details.items():
         stderr.print(f"[dim]{key}:[/] {value}")
 
@@ -152,7 +152,7 @@ def render(result: BaseModel) -> None:
 _JSON_OPTION = inspect.Parameter(
     "json_output",
     inspect.Parameter.KEYWORD_ONLY,
-    default=typer.Option(None, "--json/--human", help="Wymus format wyjscia (domyslnie: auto)."),
+    default=typer.Option(None, "--json/--human", help="Wymuś format wyjścia (domyślnie: auto)."),
     annotation=bool | None,
 )
 
@@ -210,6 +210,6 @@ def _run(fn: Callable[..., BaseModel | None], kwargs: dict[str, Any], confirmabl
         if not (confirmable and interactive()):
             raise
         stderr.print(_summary_panel(err))
-        if not typer.confirm("Wykonac?", default=False, err=True):
+        if not typer.confirm("Wykonać?", default=False, err=True):
             raise typer.Exit(ExitCode.CONFIRMATION) from None
         return fn(**{**kwargs, "confirm": err.token})

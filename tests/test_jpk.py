@@ -168,7 +168,7 @@ def test_jpk_rejects_unsupported_vat_rate():
             LineItem(description="x", unit_price_net=Decimal("100"), vat_rate=Decimal("13")),
         ],
     )
-    with pytest.raises(ValueError, match="Nieobslugiwana stawka VAT"):
+    with pytest.raises(ValueError, match="Nieobsługiwana stawka VAT"):
         generate_jpk_v7m([inv], month=4, year=2026)
 
 

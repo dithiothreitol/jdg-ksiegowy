@@ -2,6 +2,8 @@
 
 import json
 import os
+import subprocess
+import sys
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -118,8 +120,13 @@ def test_parity_status(parity):
         ]
 
     # 1.0: przypomnienie VAT = P_51 deklaracji (pelne zlote); 0.x: kwota z groszami.
+    # 1.0.1: etykiety z polskimi znakami; 0.x pisal "Ryczalt za ...".
     expected = [
-        (label, due, round_pln(amount) if label.startswith("VAT") else amount)
+        (
+            label.replace("Ryczalt", "Ryczałt"),
+            due,
+            round_pln(amount) if label.startswith("VAT") else amount,
+        )
         for label, due, amount in rows(g["reminders"], True)
     ]
     assert rows(d["reminders"], True) == expected
@@ -226,6 +233,18 @@ def test_human_mode_renders_tables(isolated_db):
     assert result.exit_code == 0
     assert "A1/11/2026" in result.stdout and "1 230.00" in result.stdout
     assert not result.stdout.lstrip().startswith("{")
+
+
+def test_entrypoint_writes_utf8_into_pipe():
+    """Potok do agenta dostaje UTF-8 takze przy innym kodowaniu (Windows: cp1250/cp1252)."""
+    result = subprocess.run(
+        [sys.executable, "-c", "from jdg_ksiegowy.cli.main import main; main()", "--help"],
+        capture_output=True,
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    assert "księgowy" in result.stdout.decode("utf-8")
 
 
 def test_dry_run_issue_writes_nothing(isolated_db):

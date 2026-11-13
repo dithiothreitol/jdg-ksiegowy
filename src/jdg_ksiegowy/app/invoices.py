@@ -188,11 +188,11 @@ def _resolve_buyer(inp: IssueInvoiceInput, warnings: list[str]) -> tuple[Buyer, 
             raise ExternalServiceError(str(e), hint="Podaj --buyer-name i --buyer-address.") from e
         if subject is None:
             raise InvalidInputError(
-                f"NIP {inp.buyer_nip} nie figuruje w wykazie podatnikow VAT",
-                hint="Sprawdz NIP albo podaj --buyer-name i --buyer-address recznie.",
+                f"NIP {inp.buyer_nip} nie figuruje w wykazie podatników VAT",
+                hint="Sprawdź NIP albo podaj --buyer-name i --buyer-address ręcznie.",
             )
         name, address = subject.name, address or subject.address
-        warnings.append(f"Dane nabywcy z Bialej listy MF (status VAT: {subject.vat_status}).")
+        warnings.append(f"Dane nabywcy z Białej listy MF (status VAT: {subject.vat_status}).")
         if subject.vat_status != "Czynny":
             warnings.append(f"Nabywca nie jest czynnym podatnikiem VAT ({subject.vat_status}).")
     if not name:
@@ -221,8 +221,8 @@ def _items(inp: IssueInvoiceInput, default_description: str | None) -> list[Line
     description = inp.description or default_description
     if not description:
         raise InvalidInputError(
-            "Brak opisu uslugi",
-            hint="Podaj --description (zapamietamy go jako domyslny dla kontrahenta).",
+            "Brak opisu usługi",
+            hint="Podaj --description (zapamiętamy go jako domyślny dla kontrahenta).",
         )
     return [ItemInput(description=description, unit_price_net=inp.net).to_line()]
 
@@ -270,9 +270,9 @@ def correct_invoice(
     """
     original = get_invoice(number)
     if original.kind is InvoiceKind.KOR:
-        raise InvalidInputError("Koryguje sie fakture pierwotna, nie korekte", hint=f"{number}")
+        raise InvalidInputError("Koryguje się fakturę pierwotną, nie korektę", hint=f"{number}")
     if not items:
-        raise InvalidInputError("Korekta wymaga pozycji roznicowych (--item)")
+        raise InvalidInputError("Korekta wymaga pozycji różnicowych (--item)")
     issue = issue_date or date.today()
     lines = [i.to_line() for i in items]
     decrease = sum((li.net_value for li in lines), Decimal("0")) < 0
@@ -292,7 +292,7 @@ def correct_invoice(
     )
     warnings = []
     if original.issue_date >= KSEF_MANDATORY_FROM and not original.ksef_number:
-        warnings.append("Faktura korygowana nie ma numeru KSeF — wyslij ja najpierw do KSeF.")
+        warnings.append("Faktura korygowana nie ma numeru KSeF — wyślij ją najpierw do KSeF.")
     if dry_run:
         return InvoiceView.of(correction, warnings)
     return InvoiceView.of(store_new(correction), warnings)
@@ -324,7 +324,7 @@ def get_invoice(number: str) -> Invoice:
     inv = InvoiceRepository().get(number)
     if inv is None:
         raise NotFoundError(
-            f"Faktura {number} nie istnieje w rejestrze", hint="Sprawdz `jdg invoice list`."
+            f"Faktura {number} nie istnieje w rejestrze", hint="Sprawdź `jdg invoice list`."
         )
     return inv
 
@@ -401,7 +401,7 @@ def mail_invoice(
     try:
         pdf = docx_to_pdf(Path(inv.docx_path))
     except PDFConversionError as e:
-        raise ExternalServiceError(f"Konwersja do PDF nie powiodla sie: {e}") from e
+        raise ExternalServiceError(f"Konwersja do PDF nie powiodła się: {e}") from e
     result = send_invoice_email(
         to=recipient,
         pdf_path=pdf,
@@ -412,7 +412,7 @@ def mail_invoice(
     )
     if not result.success:
         audit("invoice.mail", number, "error", {"to": recipient, "error": result.error})
-        raise ExternalServiceError(f"Wysylka e-mail nie powiodla sie: {result.error}")
+        raise ExternalServiceError(f"Wysyłka e-mail nie powiodła się: {result.error}")
     audit("invoice.mail", number, "ok", {"to": recipient, "cc": cc or []})
     return MailResult(
         number=number, to=recipient, subject=result.subject, pdf_path=str(pdf), status="sent"
@@ -435,7 +435,7 @@ def lookup_buyer(nip: str) -> BuyerLookup:
     except WhiteListError as e:
         raise ExternalServiceError(str(e)) from e
     if subject is None:
-        raise NotFoundError(f"NIP {nip} nie figuruje w wykazie podatnikow VAT")
+        raise NotFoundError(f"NIP {nip} nie figuruje w wykazie podatników VAT")
     return BuyerLookup(
         nip=subject.nip,
         name=subject.name,

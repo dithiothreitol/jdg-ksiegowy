@@ -14,7 +14,7 @@ from jdg_ksiegowy.cli.params import day, money
 from jdg_ksiegowy.expenses.models import ExpenseCategory
 
 ksef = typer.Typer(
-    help="KSeF: wysylka faktur, faktury zakupowe, numery KSeF.", no_args_is_help=True
+    help="KSeF: wysyłka faktur, faktury zakupowe, numery KSeF.", no_args_is_help=True
 )
 
 
@@ -23,7 +23,7 @@ def send(
     number: Annotated[str, typer.Argument(help="Numer faktury z rejestru.")],
     confirm: Annotated[str | None, typer.Option(help="Token z podsumowania.")] = None,
 ) -> app.KsefSendResult:
-    """Wyslij fakture do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO."""
+    """Wyślij fakturę do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO."""
     return app.send_invoice(number, confirm=confirm)
 
 
@@ -31,9 +31,9 @@ def send(
 def inbox(
     year: Annotated[int | None, typer.Option(help="Rok (z --month).")] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12)] = None,
-    date_from: Annotated[date | None, typer.Option(parser=day, help="Poczatek zakresu.")] = None,
+    date_from: Annotated[date | None, typer.Option(parser=day, help="Początek zakresu.")] = None,
     date_to: Annotated[date | None, typer.Option(parser=day, help="Koniec zakresu.")] = None,
-    role: Annotated[str, typer.Option(help="buyer (zakupy) | seller (sprzedaz)")] = "buyer",
+    role: Annotated[str, typer.Option(help="buyer (zakupy) | seller (sprzedaż)")] = "buyer",
     include_corrections: Annotated[bool, typer.Option()] = False,
     seller_nip: Annotated[str | None, typer.Option(help="Filtr po NIP sprzedawcy.")] = None,
     category: Annotated[ExpenseCategory | None, typer.Option()] = None,
@@ -42,7 +42,7 @@ def inbox(
     ] = Decimal("100"),
     save: Annotated[bool, typer.Option(help="Zapisz nowe faktury jako koszty.")] = False,
 ) -> app.InboxResult:
-    """Faktury z KSeF (domyslnie zakupowe, biezacy miesiac); bez --save tylko podglad."""
+    """Faktury z KSeF (domyślnie zakupowe, bieżący miesiąc); bez --save tylko podgląd."""
     if role not in ("buyer", "seller"):
         raise typer.BadParameter("dozwolone: buyer, seller", param_hint="--role")
     start, end = _range(year, month, date_from, date_to)
@@ -63,7 +63,7 @@ def _range(
 ) -> tuple[date, date]:
     if date_from and date_to:
         if date_from > date_to:
-            raise typer.BadParameter("--date-from jest pozniejsze niz --date-to")
+            raise typer.BadParameter("--date-from jest późniejsze niż --date-to")
         return date_from, date_to
     today = date.today()
     y, m = year or today.year, month or today.month
@@ -73,7 +73,7 @@ def _range(
 
 @command(ksef, "backfill", output=app.BackfillView, prefix="ksef")
 def backfill(
-    apply: Annotated[bool, typer.Option(help="Zapisz numery (domyslnie podglad).")] = False,
+    apply: Annotated[bool, typer.Option(help="Zapisz numery (domyślnie podgląd).")] = False,
 ) -> app.BackfillView:
-    """Uzupelnij numery KSeF faktur wyslanych przed wersja 1.0."""
+    """Uzupełnij numery KSeF faktur wysłanych przed wersją 1.0."""
     return app.backfill(apply=apply)

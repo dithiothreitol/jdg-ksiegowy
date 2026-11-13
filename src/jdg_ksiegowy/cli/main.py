@@ -7,7 +7,9 @@ stale kody wyjscia, `jdg schema` z opisem wszystkich komend.
 
 from __future__ import annotations
 
+import io
 import logging
+import sys
 from datetime import date
 from enum import Enum, StrEnum
 from pathlib import Path
@@ -31,12 +33,12 @@ from jdg_ksiegowy.cli.tax import contract, tax
 
 cli = typer.Typer(
     name="jdg",
-    help="Asystent ksiegowy JDG: faktury, KSeF, JPK, podatki.",
+    help="Asystent księgowy JDG: faktury, KSeF, JPK, podatki.",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
 )
 calendar = typer.Typer(help="Terminy podatkowe w Google Calendar.", no_args_is_help=True)
-mcp = typer.Typer(help="Serwer MCP: komendy jdg jako narzedzia agenta.", no_args_is_help=True)
+mcp = typer.Typer(help="Serwer MCP: komendy jdg jako narzędzia agenta.", no_args_is_help=True)
 
 for group, name in (
     (invoice, "invoice"),
@@ -62,7 +64,7 @@ def _version(value: bool) -> None:
 @cli.callback()
 def root(
     json_output: Annotated[
-        bool | None, typer.Option("--json/--human", help="Format wyjscia (domyslnie: auto).")
+        bool | None, typer.Option("--json/--human", help="Format wyjścia (domyślnie: auto).")
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Logi na stderr.")] = False,
     version: Annotated[
@@ -80,9 +82,9 @@ def root(
 
 @command(cli, "status", output=app.StatusView, prefix="", read_only=True)
 def status(
-    on: Annotated[date | None, typer.Option(parser=day, help="Dzien odniesienia.")] = None,
+    on: Annotated[date | None, typer.Option(parser=day, help="Dzień odniesienia.")] = None,
 ) -> app.StatusView:
-    """Terminy, niezaplacone faktury i podsumowanie miesiaca."""
+    """Terminy, niezapłacone faktury i podsumowanie miesiąca."""
     return app.status(on)
 
 
@@ -98,7 +100,7 @@ def backup(
     keep_days: Annotated[int, typer.Option(min=1)] = 30,
     keep_monthly: Annotated[int, typer.Option(min=1)] = 12,
 ) -> app.BackupView:
-    """Szyfrowany backup bazy i dokumentow (weryfikowany po zapisie)."""
+    """Szyfrowany backup bazy i dokumentów (weryfikowany po zapisie)."""
     return app.backup(output_dir=output_dir, keep_days=keep_days, keep_monthly=keep_monthly)
 
 
@@ -122,7 +124,7 @@ class AuditList(BaseModel):
 
 @command(cli, "audit", output=AuditList, prefix="", read_only=True)
 def audit(limit: Annotated[int, typer.Option(min=1, max=1000)] = 30) -> AuditList:
-    """Ostatnie wpisy dziennika czynnosci."""
+    """Ostatnie wpisy dziennika czynności."""
     return AuditList(
         entries=[
             AuditEntry(
@@ -139,7 +141,7 @@ def audit(limit: Annotated[int, typer.Option(min=1, max=1000)] = 30) -> AuditLis
 
 @command(calendar, "sync", output=app.CalendarSyncView, prefix="calendar")
 def calendar_sync(
-    dry_run: Annotated[bool, typer.Option(help="Pokaz roznice bez zapisu.")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Pokaż różnice bez zapisu.")] = False,
     on: Annotated[date | None, typer.Option(parser=day)] = None,
 ) -> app.CalendarSyncView:
     """Uzgodnij terminy podatkowe z kalendarzem Google 'JDG Podatki'."""
@@ -159,10 +161,10 @@ def mcp_serve(
     transport: Annotated[
         Transport, typer.Option(help="stdio (Claude Code, Codex) albo http (docker compose).")
     ] = Transport.STDIO,
-    host: Annotated[str, typer.Option(help="Adres nasluchu dla http.")] = "127.0.0.1",
+    host: Annotated[str, typer.Option(help="Adres nasłuchu dla http.")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Port dla http.")] = 8765,
 ) -> None:
-    """Uruchom serwer MCP; narzedzia = komendy z `jdg schema` (ta sama koperta wyniku)."""
+    """Uruchom serwer MCP; narzędzia = komendy z `jdg schema` (ta sama koperta wyniku)."""
     from jdg_ksiegowy.cli import mcp_server
     from jdg_ksiegowy.config import settings
 
@@ -174,7 +176,7 @@ def mcp_serve(
             ConfigMissingError(
                 "Brak JDG_MCP_TOKEN",
                 hint="Serwer HTTP wymaga tokenu Bearer: ustaw JDG_MCP_TOKEN (np. `openssl rand "
-                "-hex 32`) w .env i ten sam naglowek w kliencie MCP.",
+                "-hex 32`) w .env i ten sam nagłówek w kliencie MCP.",
             )
         )
         raise typer.Exit(ExitCode.CONFIG)
@@ -261,9 +263,21 @@ def build_schema() -> Schema:
 
 @cli.command("schema")
 def schema() -> None:
-    """Opis wszystkich komend (parametry, wyjscie, kody bledow) jako JSON."""
+    """Opis wszystkich komend (parametry, wyjście, kody błędów) jako JSON."""
     print(build_schema().model_dump_json(indent=2))
 
 
+def _utf8_stdio() -> None:
+    """Wyjscie w UTF-8 takze w potoku do agenta.
+
+    Na Windows Python < 3.15 koduje potok w cp1250/cp1252, przez co polskie znaki
+    docieraly do agenta jako bledne bajty albo konczyly sie UnicodeEncodeError.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8", errors=stream.errors)
+
+
 def main() -> None:
+    _utf8_stdio()
     cli()

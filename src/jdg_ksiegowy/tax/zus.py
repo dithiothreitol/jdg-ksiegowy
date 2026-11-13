@@ -57,8 +57,8 @@ PARAMS: dict[int, YearParams] = {
     2026: YearParams(
         year=2026,
         source=(
-            "Przecietne wynagrodzenie IV kw. 2025: 9228.64 zl (GUS, 22.01.2026); "
-            "prognozowane 2026: 9420 zl; placa minimalna 2026: 4806 zl"
+            "Przeciętne wynagrodzenie IV kw. 2025: 9228.64 zł (GUS, 22.01.2026); "
+            "prognozowane 2026: 9420 zł; płaca minimalna 2026: 4806 zł"
         ),
         health_tiers=(
             ZUSHealthTier(
@@ -72,7 +72,7 @@ PARAMS: dict[int, YearParams] = {
                 "60 001 - 300 000 PLN",
             ),
             ZUSHealthTier(
-                _UNLIMITED, 180, Decimal("16611.55"), Decimal("1495.04"), "powyzej 300 000 PLN"
+                _UNLIMITED, 180, Decimal("16611.55"), Decimal("1495.04"), "powyżej 300 000 PLN"
             ),
         ),  # fmt: skip
         social={
@@ -80,7 +80,7 @@ PARAMS: dict[int, YearParams] = {
                 ZUSSocialMode.START_RELIEF,
                 Decimal("0.00"),
                 Decimal("0.00"),
-                "Ulga na start (6 mies, 0 PLN spolecznych)",
+                "Ulga na start (6 mies, 0 PLN społecznych)",
                 "0540",
             ),
             ZUSSocialMode.SMALL_ZUS: ZUSSocialTier(
@@ -101,7 +101,7 @@ PARAMS: dict[int, YearParams] = {
                 ZUSSocialMode.FULL,
                 Decimal("1788.29"),
                 Decimal("138.47"),
-                "Pelne (60% prognozowanego przecietnego)",
+                "Pełne (60% prognozowanego przeciętnego)",
                 "0510",
             ),
         },  # fmt: skip
@@ -119,7 +119,7 @@ def params_for(year: int) -> YearParams:
     except KeyError:
         known = ", ".join(map(str, sorted(PARAMS)))
         raise MissingTaxParamsError(
-            f"Brak parametrow ZUS na {year} (znane lata: {known}). Dopisz je w "
+            f"Brak parametrów ZUS na {year} (znane lata: {known}). Dopisz je w "
             "jdg_ksiegowy/tax/zus.py po publikacji przez GUS/ZUS."
         ) from None
 

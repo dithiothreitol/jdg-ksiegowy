@@ -253,12 +253,12 @@ def test_jpk_submit_full_flow_and_duplicate_guards():
     assert Path(filing["upo_path"]).read_text(encoding="utf-8") == "<UPO>REF1</UPO>"
 
     code, payload = jdg("jpk", "submit", str(path), "--confirm", token)
-    assert code == ExitCode.DOMAIN and "juz wyslany" in payload["error"]["message"]
+    assert code == ExitCode.DOMAIN and "już wysłany" in payload["error"]["message"]
 
     rebuilt = _build_jpk()  # nowy plik zlozenia za ten sam okres
     code, payload = jdg("jpk", "submit", str(rebuilt))
     assert code == ExitCode.DOMAIN
-    assert "korekte" in payload["error"]["hint"]
+    assert "korektę" in payload["error"]["hint"]
 
 
 def test_jpk_status_resumes_after_timeout():

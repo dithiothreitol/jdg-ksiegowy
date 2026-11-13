@@ -32,10 +32,10 @@ def lookup(nip: str, on: date, *, timeout: float = 10.0) -> WhiteListSubject | N
     try:
         resp = httpx.get(WL_API.format(nip=nip), params={"date": on.isoformat()}, timeout=timeout)
     except httpx.HTTPError as e:
-        raise WhiteListError(f"Biala lista niedostepna: {e}") from e
+        raise WhiteListError(f"Biała lista niedostępna: {e}") from e
     if resp.status_code != 200:
         message = resp.json().get("message") if resp.content else resp.reason_phrase
-        raise WhiteListError(f"Biala lista: HTTP {resp.status_code} — {message}")
+        raise WhiteListError(f"Biała lista: HTTP {resp.status_code} — {message}")
     subject = resp.json().get("result", {}).get("subject")
     if not subject:
         return None

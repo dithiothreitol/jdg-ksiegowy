@@ -72,7 +72,7 @@ def generate_jpk_ewp(
     rate = ryczalt_rate if ryczalt_rate is not None else seller.ryczalt_rate
     if rate not in RYCZALT_STAWKI:
         raise ValueError(
-            f"Stawka ryczaltu {rate}% nie jest w slowniku MF (dozwolone: {sorted(RYCZALT_STAWKI)})"
+            f"Stawka ryczałtu {rate}% nie jest w słowniku MF (dozwolone: {sorted(RYCZALT_STAWKI)})"
         )
     if not seller.first_name or not seller.last_name:
         raise SellerDataMissingError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")

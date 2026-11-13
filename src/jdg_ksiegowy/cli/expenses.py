@@ -14,7 +14,7 @@ from jdg_ksiegowy.cli.output import command
 from jdg_ksiegowy.cli.params import day, money
 from jdg_ksiegowy.expenses.models import ExpenseCategory
 
-expense = typer.Typer(help="Koszty: faktury zakupu (recznie, OCR), lista.", no_args_is_help=True)
+expense = typer.Typer(help="Koszty: faktury zakupu (ręcznie, OCR), lista.", no_args_is_help=True)
 
 
 @command(expense, "add", output=app.ExpenseView, prefix="expense")
@@ -27,20 +27,20 @@ def add(
     vat: Annotated[Decimal | None, typer.Option(parser=money, help="Kwota VAT.")] = None,
     vat_rate: Annotated[Decimal, typer.Option(parser=money)] = Decimal("23"),
     receive_date: Annotated[
-        date | None, typer.Option(parser=day, help="Data wplywu — okres odliczenia.")
+        date | None, typer.Option(parser=day, help="Data wpływu — okres odliczenia.")
     ] = None,
     seller_country: Annotated[str, typer.Option()] = "PL",
     description: Annotated[str, typer.Option()] = "",
     category: Annotated[ExpenseCategory, typer.Option()] = ExpenseCategory.INNE,
     vat_deduction_pct: Annotated[Decimal, typer.Option(parser=money)] = Decimal("100"),
     reverse_charge: Annotated[
-        bool, typer.Option(help="Import uslug: VAT nalezny i naliczony po stronie nabywcy.")
+        bool, typer.Option(help="Import usług: VAT należny i naliczony po stronie nabywcy.")
     ] = False,
-    file_path: Annotated[str | None, typer.Option(help="Dowod (PDF/JPG/XML).")] = None,
+    file_path: Annotated[str | None, typer.Option(help="Dowód (PDF/JPG/XML).")] = None,
     notes: Annotated[str | None, typer.Option()] = None,
     dry_run: Annotated[bool, typer.Option()] = False,
 ) -> app.ExpenseView:
-    """Zarejestruj fakture zakupu."""
+    """Zarejestruj fakturę zakupu."""
     return app.add_expense(
         app.AddExpenseInput(
             seller_name=seller_name,
@@ -66,9 +66,9 @@ def add(
 @command(expense, "scan", output=app.ScanResult, prefix="expense")
 def scan(
     file: Annotated[Path, typer.Argument(help="Faktura PDF/JPG/PNG.")],
-    save: Annotated[bool, typer.Option(help="Zapisz (domyslnie podglad do akceptacji).")] = False,
+    save: Annotated[bool, typer.Option(help="Zapisz (domyślnie podgląd do akceptacji).")] = False,
 ) -> app.ScanResult:
-    """Odczytaj fakture zakupu przez OCR (lokalny model, fallback Claude)."""
+    """Odczytaj fakturę zakupu przez OCR (lokalny model, fallback Claude)."""
     return app.scan_expense(file, save=save)
 
 
@@ -77,5 +77,5 @@ def list_(
     year: Annotated[int | None, typer.Option()] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12)] = None,
 ) -> app.ExpenseList:
-    """Koszty wg miesiaca wplywu."""
+    """Koszty wg miesiąca wpływu."""
     return app.list_expenses(year=year, month=month)

@@ -60,7 +60,7 @@ def test_inconsistent_amounts_flagged_for_manual_review():
         _meta(net_amount=64.15, vat_amount=62.42, gross_amount=78.90, currency="PLN")
     )
     assert reason_pln is not None
-    assert "niespojne kwoty" in reason_pln
+    assert "niespójne kwoty" in reason_pln
 
 
 def test_unusual_vat_rate_blocks_autosave():

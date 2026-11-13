@@ -61,7 +61,7 @@ def test_ewp_aggregates_all_year():
 
 def test_ewp_rejects_unknown_rate():
     inv = _invoice(4, Decimal("1000"))
-    with pytest.raises(ValueError, match="nie jest w slowniku"):
+    with pytest.raises(ValueError, match="nie jest w słowniku"):
         generate_jpk_ewp([inv], year=2026, ryczalt_rate=Decimal("13"))
 
 

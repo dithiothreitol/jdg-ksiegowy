@@ -34,7 +34,7 @@ PaymentKind = Literal["ryczalt", "vat", "zus_health", "zus_social"]
 
 
 def _params_error(e: MissingTaxParamsError) -> ConfigMissingError:
-    return ConfigMissingError(str(e), hint="Parametry ZUS publikuje GUS/ZUS na poczatku roku.")
+    return ConfigMissingError(str(e), hint="Parametry ZUS publikuje GUS/ZUS na początku roku.")
 
 
 def tax_microaccount() -> str | None:
@@ -200,7 +200,7 @@ def zus(month: int, year: int) -> ZusView:
         social=c.social,
         total=c.total,
         deadline=monthly_deadlines(month, year)["zus"],
-        how_to_file="Deklaracja DRA w PUE/eZUS (lub Platnik); skladki na rachunek ZUS.",
+        how_to_file="Deklaracja DRA w PUE/eZUS (lub Płatnik); składki na rachunek ZUS.",
     )
 
 
@@ -228,7 +228,7 @@ def record_payment(
 ) -> PaymentView:
     """Zapisz zaplate podatku/skladki — gasi przypomnienie i wchodzi do odliczen."""
     if amount <= 0:
-        raise InvalidInputError("Kwota zaplaty musi byc dodatnia")
+        raise InvalidInputError("Kwota zapłaty musi być dodatnia")
     due_key = "zus" if kind.startswith("zus") else ("vat_jpk" if kind == "vat" else "ryczalt")
     payment = TaxPayment(
         type=kind,

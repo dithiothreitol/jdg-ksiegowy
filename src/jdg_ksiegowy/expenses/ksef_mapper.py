@@ -56,7 +56,7 @@ def needs_manual_review(meta: InvoiceMetadata) -> str | None:
     samofakturowanie wymagaja swiadomej decyzji uzytkownika.
     """
     if meta.invoice_type.startswith("kor"):
-        return "korekta (rezim okresu in minus — obsluz recznie)"
+        return "korekta (reżim okresu in minus — obsłuż ręcznie)"
     if (meta.currency or "PLN") != "PLN":
         return f"waluta {meta.currency} (wymaga przeliczenia na PLN)"
     if meta.is_self_invoicing:
@@ -68,8 +68,8 @@ def needs_manual_review(meta: InvoiceMetadata) -> str | None:
     net, vat, gross = _dec(meta.net_amount), _dec(meta.vat_amount), _dec(meta.gross_amount)
     if abs(net + vat - gross) > _CENT:
         return (
-            f"niespojne kwoty: netto {net} + VAT {vat} != brutto {gross} "
-            "(mozliwe kwoty w roznych walutach — sprawdz XML)"
+            f"niespójne kwoty: netto {net} + VAT {vat} != brutto {gross} "
+            "(możliwe kwoty w różnych walutach — sprawdź XML)"
         )
     if net > 0 and _effective_vat_rate(net, vat) not in _KNOWN_VAT_RATES:
         return (
@@ -107,7 +107,7 @@ def metadata_to_expense(
     if cat in (ExpenseCategory.PALIWO, ExpenseCategory.SAMOCHOD) and vat_deduction_pct == Decimal(
         "100"
     ):
-        notes.append("auto osobowe? rozwaz --vat-deduction-pct 50")
+        notes.append("auto osobowe? rozważ --vat-deduction-pct 50")
 
     # id wg konwencji add.py; fallback na ksef_number gdy sprzedawca bez NIP (zagraniczny).
     record_id = f"{seller_nip}-{meta.invoice_number}" if seller_nip else meta.ksef_number

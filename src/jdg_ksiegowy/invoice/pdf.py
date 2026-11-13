@@ -74,6 +74,6 @@ def docx_to_pdf(docx_path: Path, output_dir: Path | None = None) -> Path:
     pdf_path = output_dir / (docx_path.stem + ".pdf")
     if not pdf_path.exists():
         raise PDFConversionError(
-            f"soffice nie utworzyl PDF-a w {output_dir} (oczekiwano {pdf_path.name})"
+            f"soffice nie utworzył PDF-a w {output_dir} (oczekiwano {pdf_path.name})"
         )
     return pdf_path

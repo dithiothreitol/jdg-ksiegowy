@@ -5,7 +5,7 @@
     {
       "name": "audit",
       "title": "jdg audit",
-      "description": "Ostatnie wpisy dziennika czynnosci.",
+      "description": "Ostatnie wpisy dziennika czynności.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -28,7 +28,7 @@
     {
       "name": "backup",
       "title": "jdg backup",
-      "description": "Szyfrowany backup bazy i dokumentow (weryfikowany po zapisie).",
+      "description": "Szyfrowany backup bazy i dokumentów (weryfikowany po zapisie).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -70,7 +70,7 @@
     {
       "name": "buyer_lookup",
       "title": "jdg buyer lookup",
-      "description": "Status VAT, nazwa, adres i rachunki kontrahenta z Bialej listy MF.",
+      "description": "Status VAT, nazwa, adres i rachunki kontrahenta z Białej listy MF.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -100,7 +100,7 @@
         "properties": {
           "dry_run": {
             "default": false,
-            "description": "Pokaz roznice bez zapisu.",
+            "description": "Pokaż różnice bez zapisu.",
             "title": "Dry Run",
             "type": "boolean"
           },
@@ -161,7 +161,7 @@
             "type": "string"
           },
           "description": {
-            "description": "Opis uslugi na fakturze.",
+            "description": "Opis usługi na fakturze.",
             "title": "Description",
             "type": "string"
           },
@@ -202,7 +202,7 @@
           },
           "day_of_month": {
             "default": -1,
-            "description": "-1 = ostatni dzien roboczy.",
+            "description": "-1 = ostatni dzień roboczy.",
             "maximum": 28,
             "minimum": -1,
             "title": "Day Of Month",
@@ -242,7 +242,7 @@
     {
       "name": "contract_run",
       "title": "jdg contract run",
-      "description": "Wystaw faktury z kontraktow wymagalnych danego dnia (idempotentne).",
+      "description": "Wystaw faktury z kontraktów wymagalnych danego dnia (idempotentne).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -257,7 +257,7 @@
               }
             ],
             "default": null,
-            "description": "Dzien (domyslnie dzis).",
+            "description": "Dzień (domyślnie dziś).",
             "title": "On"
           }
         },
@@ -287,7 +287,7 @@
     {
       "name": "expense_add",
       "title": "jdg expense add",
-      "description": "Zarejestruj fakture zakupu.",
+      "description": "Zarejestruj fakturę zakupu.",
       "inputSchema": {
         "$defs": {
           "ExpenseCategory": {
@@ -378,7 +378,7 @@
               }
             ],
             "default": null,
-            "description": "Data wplywu — okres odliczenia.",
+            "description": "Data wpływu — okres odliczenia.",
             "title": "Receive Date"
           },
           "seller_country": {
@@ -409,7 +409,7 @@
           },
           "reverse_charge": {
             "default": false,
-            "description": "Import uslug: VAT nalezny i naliczony po stronie nabywcy.",
+            "description": "Import usług: VAT należny i naliczony po stronie nabywcy.",
             "title": "Reverse Charge",
             "type": "boolean"
           },
@@ -423,7 +423,7 @@
               }
             ],
             "default": null,
-            "description": "Dowod (PDF/JPG/XML).",
+            "description": "Dowód (PDF/JPG/XML).",
             "title": "File Path"
           },
           "notes": {
@@ -462,7 +462,7 @@
     {
       "name": "expense_list",
       "title": "jdg expense list",
-      "description": "Koszty wg miesiaca wplywu.",
+      "description": "Koszty wg miesiąca wpływu.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -504,7 +504,7 @@
     {
       "name": "expense_scan",
       "title": "jdg expense scan",
-      "description": "Odczytaj fakture zakupu przez OCR (lokalny model, fallback Claude).",
+      "description": "Odczytaj fakturę zakupu przez OCR (lokalny model, fallback Claude).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -516,7 +516,7 @@
           },
           "save": {
             "default": false,
-            "description": "Zapisz (domyslnie podglad do akceptacji).",
+            "description": "Zapisz (domyślnie podgląd do akceptacji).",
             "title": "Save",
             "type": "boolean"
           }
@@ -535,7 +535,7 @@
     {
       "name": "invoice_correct",
       "title": "jdg invoice correct",
-      "description": "Faktura korygujaca: pozycje roznicowe (ujemna cena = zmniejszenie).",
+      "description": "Faktura korygująca: pozycje różnicowe (ujemna cena = zmniejszenie).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -556,7 +556,7 @@
                 "type": "null"
               }
             ],
-            "description": "Pozycja 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
+            "description": "Pozycja 'opis;ilość;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
             "title": "Item"
           },
           "reason": {
@@ -580,7 +580,7 @@
           },
           "dry_run": {
             "default": false,
-            "description": "Pokaz korekte bez zapisu.",
+            "description": "Pokaż korektę bez zapisu.",
             "title": "Dry Run",
             "type": "boolean"
           }
@@ -601,7 +601,7 @@
     {
       "name": "invoice_issue",
       "title": "jdg invoice issue",
-      "description": "Wystaw fakture VAT: XML FA(3) + DOCX + wpis w rejestrze (bez wysylki do KSeF).",
+      "description": "Wystaw fakturę VAT: XML FA(3) + DOCX + wpis w rejestrze (bez wysyłki do KSeF).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -640,7 +640,7 @@
               }
             ],
             "default": null,
-            "description": "Pozycja 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
+            "description": "Pozycja 'opis;ilość;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
             "title": "Item"
           },
           "buyer_name": {
@@ -653,7 +653,7 @@
               }
             ],
             "default": null,
-            "description": "Nazwa (domyslnie z rejestru).",
+            "description": "Nazwa (domyślnie z rejestru).",
             "title": "Buyer Name"
           },
           "buyer_address": {
@@ -679,7 +679,7 @@
               }
             ],
             "default": null,
-            "description": "E-mail do wysylki faktury.",
+            "description": "E-mail do wysyłki faktury.",
             "title": "Buyer Email"
           },
           "buyer_country": {
@@ -711,7 +711,7 @@
               }
             ],
             "default": null,
-            "description": "Opis uslugi (z --net).",
+            "description": "Opis usługi (z --net).",
             "title": "Description"
           },
           "issue_date": {
@@ -739,7 +739,7 @@
               }
             ],
             "default": null,
-            "description": "Data sprzedazy — okres JPK.",
+            "description": "Data sprzedaży — okres JPK.",
             "title": "Sale Date"
           },
           "payment_due": {
@@ -753,7 +753,7 @@
               }
             ],
             "default": null,
-            "description": "Termin platnosci.",
+            "description": "Termin płatności.",
             "title": "Payment Due"
           },
           "period_from": {
@@ -767,7 +767,7 @@
               }
             ],
             "default": null,
-            "description": "Okres uslugi od (P_6 okres na fakturze).",
+            "description": "Okres usługi od (P_6 okres na fakturze).",
             "title": "Period From"
           },
           "period_to": {
@@ -781,18 +781,18 @@
               }
             ],
             "default": null,
-            "description": "Okres uslugi do.",
+            "description": "Okres usługi do.",
             "title": "Period To"
           },
           "lookup": {
             "default": true,
-            "description": "Nowy nabywca bez nazwy: dane z Bialej listy MF.",
+            "description": "Nowy nabywca bez nazwy: dane z Białej listy MF.",
             "title": "Lookup",
             "type": "boolean"
           },
           "dry_run": {
             "default": false,
-            "description": "Pokaz fakture bez zapisu.",
+            "description": "Pokaż fakturę bez zapisu.",
             "title": "Dry Run",
             "type": "boolean"
           }
@@ -808,7 +808,7 @@
     {
       "name": "invoice_list",
       "title": "jdg invoice list",
-      "description": "Lista faktur z okresu (domyslnie wg daty sprzedazy, jak w JPK).",
+      "description": "Lista faktur z okresu (domyślnie wg daty sprzedaży, jak w JPK).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -837,7 +837,7 @@
               }
             ],
             "default": null,
-            "description": "Miesiac (z --year).",
+            "description": "Miesiąc (z --year).",
             "title": "Month"
           },
           "by": {
@@ -848,7 +848,7 @@
           },
           "unpaid": {
             "default": false,
-            "description": "Tylko niezaplacone.",
+            "description": "Tylko niezapłacone.",
             "title": "Unpaid",
             "type": "boolean"
           }
@@ -864,7 +864,7 @@
     {
       "name": "invoice_mail",
       "title": "jdg invoice mail",
-      "description": "Wyslij fakture PDF mailem (wymaga potwierdzenia).\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "description": "Wyślij fakturę PDF mailem (wymaga potwierdzenia).\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -883,7 +883,7 @@
               }
             ],
             "default": null,
-            "description": "Adresat (domyslnie e-mail nabywcy).",
+            "description": "Adresat (domyślnie e-mail nabywcy).",
             "title": "To"
           },
           "cc": {
@@ -899,7 +899,7 @@
               }
             ],
             "default": null,
-            "description": "Kopia (mozna powtorzyc).",
+            "description": "Kopia (można powtórzyć).",
             "title": "Cc"
           },
           "confirm": {
@@ -930,7 +930,7 @@
     {
       "name": "invoice_show",
       "title": "jdg invoice show",
-      "description": "Szczegoly faktury z rejestru.",
+      "description": "Szczegóły faktury z rejestru.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -954,7 +954,7 @@
     {
       "name": "jpk_build",
       "title": "jdg jpk build",
-      "description": "Zbuduj JPK_V7M za miesiac z rejestru i zwaliduj XSD.",
+      "description": "Zbuduj JPK_V7M za miesiąc z rejestru i zwaliduj XSD.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -968,7 +968,7 @@
               }
             ],
             "default": null,
-            "description": "Rok (domyslnie poprzedni miesiac).",
+            "description": "Rok (domyślnie poprzedni miesiąc).",
             "title": "Year"
           },
           "month": {
@@ -1016,7 +1016,7 @@
     {
       "name": "jpk_build_ewp",
       "title": "jdg jpk build-ewp",
-      "description": "Zbuduj roczna ewidencje przychodow JPK_EWP (sklada sie do 30.04).",
+      "description": "Zbuduj roczną ewidencję przychodów JPK_EWP (składa się do 30.04).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1038,7 +1038,7 @@
               }
             ],
             "default": null,
-            "description": "Stawka (domyslnie z .env).",
+            "description": "Stawka (domyślnie z .env).",
             "title": "Ryczalt Rate"
           },
           "correction": {
@@ -1061,7 +1061,7 @@
     {
       "name": "jpk_status",
       "title": "jdg jpk status",
-      "description": "Zlozone deklaracje; niezakonczone dopytuje w bramce MF.",
+      "description": "Złożone deklaracje; niezakończone dopytuje w bramce MF.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1122,12 +1122,12 @@
     {
       "name": "jpk_submit",
       "title": "jdg jpk submit",
-      "description": "Wyslij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "description": "Wyślij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "path": {
-            "description": "Plik JPK do wyslania.",
+            "description": "Plik JPK do wysłania.",
             "format": "path",
             "title": "Path",
             "type": "string"
@@ -1147,7 +1147,7 @@
           },
           "wait": {
             "default": 600,
-            "description": "Ile sekund czekac na UPO.",
+            "description": "Ile sekund czekać na UPO.",
             "title": "Wait",
             "type": "integer"
           }
@@ -1166,7 +1166,7 @@
     {
       "name": "jpk_validate",
       "title": "jdg jpk validate",
-      "description": "Walidacja XSD offline (schemat z naglowka pliku).",
+      "description": "Walidacja XSD offline (schemat z nagłówka pliku).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1191,13 +1191,13 @@
     {
       "name": "ksef_backfill",
       "title": "jdg ksef backfill",
-      "description": "Uzupelnij numery KSeF faktur wyslanych przed wersja 1.0.",
+      "description": "Uzupełnij numery KSeF faktur wysłanych przed wersją 1.0.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "apply": {
             "default": false,
-            "description": "Zapisz numery (domyslnie podglad).",
+            "description": "Zapisz numery (domyślnie podgląd).",
             "title": "Apply",
             "type": "boolean"
           }
@@ -1213,7 +1213,7 @@
     {
       "name": "ksef_inbox",
       "title": "jdg ksef inbox",
-      "description": "Faktury z KSeF (domyslnie zakupowe, biezacy miesiac); bez --save tylko podglad.",
+      "description": "Faktury z KSeF (domyślnie zakupowe, bieżący miesiąc); bez --save tylko podgląd.",
       "inputSchema": {
         "$defs": {
           "ExpenseCategory": {
@@ -1273,7 +1273,7 @@
               }
             ],
             "default": null,
-            "description": "Poczatek zakresu.",
+            "description": "Początek zakresu.",
             "title": "Date From"
           },
           "date_to": {
@@ -1292,7 +1292,7 @@
           },
           "role": {
             "default": "buyer",
-            "description": "buyer (zakupy) | seller (sprzedaz)",
+            "description": "buyer (zakupy) | seller (sprzedaż)",
             "title": "Role",
             "type": "string"
           },
@@ -1356,7 +1356,7 @@
     {
       "name": "ksef_send",
       "title": "jdg ksef send",
-      "description": "Wyslij fakture do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "description": "Wyślij fakturę do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1393,19 +1393,19 @@
     {
       "name": "payment_import",
       "title": "jdg payment import",
-      "description": "Dopasuj wplywy z wyciagu do niezaplaconych faktur.",
+      "description": "Dopasuj wpływy z wyciągu do niezapłaconych faktur.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "csv_path": {
-            "description": "Wyciag CSV z banku (mBank lub generyczny).",
+            "description": "Wyciąg CSV z banku (mBank lub generyczny).",
             "format": "path",
             "title": "Csv Path",
             "type": "string"
           },
           "auto_mark": {
             "default": false,
-            "description": "Oznacz dopasowane jako zaplacone.",
+            "description": "Oznacz dopasowane jako zapłacone.",
             "title": "Auto Mark",
             "type": "boolean"
           }
@@ -1424,7 +1424,7 @@
     {
       "name": "payment_mark",
       "title": "jdg payment mark",
-      "description": "Oznacz fakture jako zaplacona.",
+      "description": "Oznacz fakturę jako zapłaconą.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1444,7 +1444,7 @@
               }
             ],
             "default": null,
-            "description": "Data zaplaty.",
+            "description": "Data zapłaty.",
             "title": "Paid On"
           }
         },
@@ -1462,7 +1462,7 @@
     {
       "name": "status",
       "title": "jdg status",
-      "description": "Terminy, niezaplacone faktury i podsumowanie miesiaca.",
+      "description": "Terminy, niezapłacone faktury i podsumowanie miesiąca.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1477,7 +1477,7 @@
               }
             ],
             "default": null,
-            "description": "Dzien odniesienia.",
+            "description": "Dzień odniesienia.",
             "title": "On"
           }
         },
@@ -1492,7 +1492,7 @@
     {
       "name": "tax_calc",
       "title": "jdg tax calc",
-      "description": "VAT, ryczalt, ZUS i terminy dla kwoty netto.",
+      "description": "VAT, ryczałt, ZUS i terminy dla kwoty netto.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1577,7 +1577,7 @@
               }
             ],
             "default": null,
-            "description": "Roczny przychod (prog zdrowotnej).",
+            "description": "Roczny przychód (próg zdrowotnej).",
             "title": "Annual Revenue"
           }
         },
@@ -1595,7 +1595,7 @@
     {
       "name": "tax_deadlines",
       "title": "jdg tax deadlines",
-      "description": "Terminy ryczaltu, ZUS i VAT za miesiac.",
+      "description": "Terminy ryczałtu, ZUS i VAT za miesiąc.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1623,7 +1623,7 @@
               }
             ],
             "default": null,
-            "description": "Miesiac rozliczeniowy.",
+            "description": "Miesiąc rozliczeniowy.",
             "title": "Month"
           }
         },
@@ -1638,7 +1638,7 @@
     {
       "name": "tax_pay",
       "title": "jdg tax pay",
-      "description": "Zapisz zaplate podatku lub skladki (gasi przypomnienie, wchodzi do odliczen).",
+      "description": "Zapisz zapłatę podatku lub składki (gasi przypomnienie, wchodzi do odliczeń).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1656,16 +1656,16 @@
                 "type": "string"
               }
             ],
-            "description": "Zaplacona kwota.",
+            "description": "Zapłacona kwota.",
             "title": "Amount"
           },
           "year": {
-            "description": "Rok okresu, ktorego dotyczy zaplata.",
+            "description": "Rok okresu, którego dotyczy zapłata.",
             "title": "Year",
             "type": "integer"
           },
           "month": {
-            "description": "Miesiac okresu.",
+            "description": "Miesiąc okresu.",
             "maximum": 12,
             "minimum": 1,
             "title": "Month",
@@ -1682,7 +1682,7 @@
               }
             ],
             "default": null,
-            "description": "Data zaplaty.",
+            "description": "Data zapłaty.",
             "title": "Paid On"
           }
         },
@@ -1703,7 +1703,7 @@
     {
       "name": "tax_payments",
       "title": "jdg tax payments",
-      "description": "Ewidencja zaplat podatkow i skladek.",
+      "description": "Ewidencja zapłat podatków i składek.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1731,7 +1731,7 @@
     {
       "name": "tax_pit28",
       "title": "jdg tax pit28",
-      "description": "Podsumowanie roczne ryczaltu (PIT-28) z rejestru.",
+      "description": "Podsumowanie roczne ryczałtu (PIT-28) z rejestru.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1755,7 +1755,7 @@
     {
       "name": "tax_zus",
       "title": "jdg tax zus",
-      "description": "Skladki ZUS za miesiac: zdrowotna wg przychodu narastajaco + spoleczne.",
+      "description": "Składki ZUS za miesiąc: zdrowotna wg przychodu narastająco + społeczne.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1769,7 +1769,7 @@
               }
             ],
             "default": null,
-            "description": "Rok (domyslnie poprzedni miesiac).",
+            "description": "Rok (domyślnie poprzedni miesiąc).",
             "title": "Year"
           },
           "month": {

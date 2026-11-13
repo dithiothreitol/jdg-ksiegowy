@@ -29,8 +29,8 @@ def decision(event: dict) -> dict | None:
             "hookEventName": "PreToolUse",
             "permissionDecision": "ask",
             "permissionDecisionReason": (
-                "jdg: czynnosc nieodwracalna (KSeF / urzad skarbowy / e-mail do klienta). "
-                f"Zatwierdz tylko, jesli widziales podsumowanie i sie zgadzasz: {target}"
+                "jdg: czynność nieodwracalna (KSeF / urząd skarbowy / e-mail do klienta). "
+                f"Zatwierdź tylko po przeczytaniu podsumowania, jeśli się z nim zgadzasz: {target}"
             ),
         }
     }

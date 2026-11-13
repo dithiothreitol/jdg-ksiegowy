@@ -138,7 +138,7 @@ def _domain_errors() -> Iterator[None]:
     try:
         yield
     except SellerDataMissingError as e:
-        raise ConfigMissingError(str(e), hint="Uzupelnij dane podatnika SELLER_* w .env.") from e
+        raise ConfigMissingError(str(e), hint="Uzupełnij dane podatnika SELLER_* w .env.") from e
     except ValueError as e:
         raise InvalidInputError(str(e)) from e
 
@@ -279,8 +279,8 @@ def _authorization() -> AuthorizationData:
     ]
     if missing:
         raise ConfigMissingError(
-            f"Brak danych autoryzujacych bramki MF: {', '.join(missing)}",
-            hint="Uzupelnij .env; MF_PRIOR_INCOME = przychod z PIT za rok N-2 (0 gdy brak).",
+            f"Brak danych autoryzujących bramki MF: {', '.join(missing)}",
+            hint="Uzupełnij .env; MF_PRIOR_INCOME = przychód z PIT za rok N-2 (0 gdy brak).",
         )
     return AuthorizationData(
         nip=s.nip,
@@ -319,7 +319,7 @@ def submit(
     check = validate_file(path)
     if not check.valid:
         raise InvalidInputError(
-            f"{path.name} nie przechodzi walidacji XSD — bramka MF odrzucilaby plik",
+            f"{path.name} nie przechodzi walidacji XSD — bramka MF odrzuciłaby plik",
             details={"errors": check.errors},
         )
     xml = path.read_bytes()
@@ -332,12 +332,12 @@ def submit(
     ]
     if any(f.sha256 == digest and f.status in ("submitted", "accepted") for f in previous):
         raise ConflictError(
-            f"Ten plik ({path.name}) zostal juz wyslany", hint="Sprawdz `jdg jpk status`."
+            f"Ten plik ({path.name}) został już wysłany", hint="Sprawdź `jdg jpk status`."
         )
     if facts.purpose == 1 and any(f.status == "accepted" for f in previous):
         raise ConflictError(
-            "Deklaracja za ten okres zostala juz przyjeta przez MF",
-            hint="Zbuduj korekte: `jdg jpk build ... --correction --reason ...`.",
+            "Deklaracja za ten okres została już przyjęta przez MF",
+            hint="Zbuduj korektę: `jdg jpk build ... --correction --reason ...`.",
         )
     auth = _authorization()
 
@@ -349,7 +349,7 @@ def submit(
         summary={
             "formularz": facts.form,
             "okres": f"{facts.year}-{facts.month:02d}" if facts.month else str(facts.year),
-            "cel": "korekta" if facts.purpose == 2 else "zlozenie",
+            "cel": "korekta" if facts.purpose == 2 else "złożenie",
             **facts.totals,
             "plik": str(path),
         },
@@ -375,7 +375,7 @@ def submit(
         )
         audit("jpk.submit", path.name, "error", {"env": env, "error": uploaded.error})
         raise ExternalServiceError(
-            f"Wysylka do bramki MF nie powiodla sie: {uploaded.error}",
+            f"Wysyłka do bramki MF nie powiodła się: {uploaded.error}",
             details={"filing_id": filing.id},
         )
     filing = repo.update(filing.id, status="submitted", reference_number=uploaded.reference_number)

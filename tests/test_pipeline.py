@@ -146,7 +146,7 @@ def test_cannot_correct_a_correction():
         reason="x",
         issue_date=date(2026, 11, 5),
     )
-    with pytest.raises(InvalidInputError, match="pierwotna"):
+    with pytest.raises(InvalidInputError, match="pierwotną"):
         app.correct_invoice(
             kor.number, [app.ItemInput(description="y", unit_price_net=1)], reason="y"
         )
@@ -194,7 +194,7 @@ def test_whitelist_lookup_fills_new_buyer(monkeypatch):
             )
         )
     assert view.buyer_name == "ACME SP. Z O.O."
-    assert any("Bialej listy" in w for w in view.warnings)
+    assert any("Białej listy" in w for w in view.warnings)
 
 
 def test_vat_surplus_carries_over_from_registry_and_declared_filing(tmp_path):

@@ -114,7 +114,7 @@ class Dashboard:
         name = f"{month:02d}/{year}"
         paid = {p.type for p in payments if (p.year, p.month) == (year, month) and p.paid_at}
         items = [
-            (f"ryczalt-{period}", f"Ryczalt za {name}", deadlines["ryczalt"], ryczalt, "ryczalt"),
+            (f"ryczalt-{period}", f"Ryczałt za {name}", deadlines["ryczalt"], ryczalt, "ryczalt"),
             (f"zus-{period}", f"ZUS za {name}", deadlines["zus"], zus, "zus_health"),
             (f"vat_jpk-{period}", f"VAT + JPK_V7M za {name}", deadlines["vat_jpk"], vat, "vat"),
         ]

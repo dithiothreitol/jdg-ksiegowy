@@ -43,15 +43,15 @@ class XSDValidationError(Exception):
         self.errors = errors
         summary = "; ".join(errors[:3])
         if len(errors) > 3:
-            summary += f" (+{len(errors) - 3} wiecej)"
-        super().__init__(f"XSD validation failed: {summary}")
+            summary += f" (+{len(errors) - 3} więcej)"
+        super().__init__(f"Walidacja XSD nie powiodła się: {summary}")
 
 
 @cache
 def _schema(name: str) -> xmlschema.XMLSchema:
     directory = SCHEMA_DIRS.get(name)
     if directory is None:
-        raise ValueError(f"Nieznany schemat JPK: {name!r} (dostepne: {sorted(SCHEMA_DIRS)})")
+        raise ValueError(f"Nieznany schemat JPK: {name!r} (dostępne: {sorted(SCHEMA_DIRS)})")
     return xmlschema.XMLSchema(str(SCHEMAS_DIR / directory / "schemat.xsd"), allow="local")
 
 

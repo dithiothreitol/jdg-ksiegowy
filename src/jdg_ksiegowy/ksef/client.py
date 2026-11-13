@@ -72,7 +72,7 @@ def _download_upo(submission: InvoiceSubmission) -> bytes | None:
     try:
         return submission.download_upo()
     except KSeFException as e:
-        logger.warning("UPO jeszcze niedostepne (%s) — numer KSeF jest juz nadany", e)
+        logger.warning("UPO jeszcze niedostępne (%s) — numer KSeF jest już nadany", e)
         return None
 
 
@@ -119,12 +119,12 @@ class KSeFClient:
                 status = submission.wait(timeout=_SUBMIT_TIMEOUT_SEC)
                 upo = _download_upo(submission)
         except KSeFInvoiceRejectedError as e:
-            logger.error("KSeF odrzucil fakture: %s", e)
+            logger.error("KSeF odrzucił fakturę: %s", e)
             return KSeFResult(
                 success=False, env=self.env, reference_number=reference, rejected=True, error=str(e)
             )
         except KSeFException as e:  # blad API/sieci albo przekroczony czas przetwarzania
-            logger.error("Blad wysylki do KSeF: %s", e)
+            logger.error("Błąd wysyłki do KSeF: %s", e)
             return KSeFResult(success=False, env=self.env, reference_number=reference, error=str(e))
 
         if not status.ksef_number:
@@ -132,9 +132,9 @@ class KSeFClient:
                 success=False,
                 env=self.env,
                 reference_number=reference,
-                error="KSeF nie nadal jeszcze numeru (faktura w toku)",
+                error="KSeF nie nadał jeszcze numeru (faktura w toku)",
             )
-        logger.info("Faktura przyjeta w KSeF: %s", status.ksef_number)
+        logger.info("Faktura przyjęta w KSeF: %s", status.ksef_number)
         return KSeFResult(
             success=True,
             env=self.env,

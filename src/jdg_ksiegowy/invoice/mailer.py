@@ -26,10 +26,10 @@ class SendResult:
 
 
 DEFAULT_SUBJECT = "Faktura {number}"
-DEFAULT_BODY = """Dzien dobry,
+DEFAULT_BODY = """Dzień dobry,
 
-W zalaczeniu przesylam fakture {number} na kwote {gross} PLN brutto,
-z terminem platnosci {due}.
+W załączeniu przesyłam fakturę {number} na kwotę {gross} PLN brutto,
+z terminem płatności {due}.
 
 Pozdrawiam,
 {seller_name}

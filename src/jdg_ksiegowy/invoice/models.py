@@ -55,7 +55,7 @@ class Buyer(BaseModel):
 
         digits = re.sub(r"[\s\-]", "", v)
         if re.fullmatch(r"\d{10}", digits) and not validate_nip(digits):
-            raise ValueError(f"Nieprawidlowy NIP: {v!r}")
+            raise ValueError(f"Nieprawidłowy NIP: {v!r}")
         return digits
 
     def identifier_for_xml(self) -> tuple[str, str]:
@@ -111,7 +111,7 @@ class LineItem(BaseModel):
                 raise ValueError(f"Nieznany kod VAT {self.vat_code!r} (dozwolone: {VAT_CODES})")
             self.vat_rate = Decimal("0")
         if self.gtu and not re.fullmatch(r"GTU_(0[1-9]|1[0-3])", self.gtu):
-            raise ValueError(f"Nieprawidlowe oznaczenie GTU: {self.gtu!r} (GTU_01..GTU_13)")
+            raise ValueError(f"Nieprawidłowe oznaczenie GTU: {self.gtu!r} (GTU_01..GTU_13)")
         return self
 
     @computed_field
