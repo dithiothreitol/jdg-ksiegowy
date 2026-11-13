@@ -2,6 +2,27 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), wersje: [SemVer](https://semver.org/lang/pl/).
 
+## [1.0.2] — 2026-11-13
+
+### Dodane
+
+- `jdg jpk submit`: podsumowanie zgody porownuje plik z obowiazujaca deklaracja (pole
+  `poprzednio`): przy zlozeniu z deklaracja za poprzedni okres, przy korekcie z korygowana.
+  Kazde pole (P_38, P_48, P_51, P_62; w JPK_EWP suma przychodow) ma wartosc poprzednia i zmiane,
+  np. "230 (zmiana -115)". Brak przyjetej deklaracji do porownania jest podany wprost.
+- Ostrzezenie `uwaga` w podsumowaniu JPK_V7M, gdy kwoty pliku roznia sie od rejestru za okres,
+  np. deklaracja zerowa mimo faktur w rejestrze albo plik zbudowany przed dopisaniem faktury.
+- `jdg ksef send`: podsumowanie zgody zawiera ostatnia wczesniejsza fakture tego samego nabywcy
+  (`poprzednia_faktura`: numer, data, brutto ze zmiana, opis), dzieki czemu przy fakturach
+  cyklicznych widac nietypowa kwote lub opis.
+
+### Zmienione
+
+- Panel zgody w terminalu pokazuje porownanie jako wciete wiersze, a liste adresow jako kolejne
+  linie; wartosci nie sa interpretowane jako znaczniki Rich.
+- Opis protokolu zgody narzedzi MCP oraz skille `faktury` i `vat-jpk` wymagaja pokazania
+  porownania i ostrzezenia przed pytaniem o zgode.
+
 ## [1.0.1] — 2026-11-13
 
 ### Zmienione
