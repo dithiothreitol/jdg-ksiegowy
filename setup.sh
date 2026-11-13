@@ -90,8 +90,12 @@ ok "OpenClaw $(openclaw --version 2>&1 || echo 'installed')"
 echo ""
 echo "Step 5/7: Installing Python dependencies..."
 
-pip install -e . --quiet 2>/dev/null || pip install -e .
-ok "Python library installed"
+command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --frozen --no-dev
+# `jdg` w PATH: CLI dla skilli OpenClaw i serwer MCP dla wtyczek Claude Code / Codex.
+# Instalacja edytowalna wskazuje JDG_HOME na to repozytorium (.env + data/).
+uv tool install --editable . --force
+ok "jdg $(jdg --version) w PATH"
 
 # --- 6. Configure .env ---
 echo ""
@@ -131,7 +135,7 @@ fi
 echo ""
 echo "Step 7/7: Initializing database..."
 
-python3 -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
+jdg doctor --human || warn "Uzupelnij .env wg wskazowek doctor (mozna pozniej)"
 ok "Database: data/jdg_ksiegowy.db"
 
 # --- 8. OpenClaw onboarding ---
@@ -148,29 +152,22 @@ echo ""
 
 openclaw onboard
 
+# Narzedzia jdg dla agenta OpenClaw: serwer MCP po stdio (te same komendy co CLI).
+openclaw mcp add jdg --command jdg --arg mcp --arg serve &&   ok "MCP: jdg (34 narzedzia)" || warn "Rejestracja MCP nie powiodla sie — openclaw mcp add jdg --command jdg --arg mcp --arg serve"
+
 # --- 9. Register cron jobs ---
+# Harmonogram jest deterministyczny: cron uruchamia `jdg`, a agent tylko powiadamia.
+# Czynnosci nieodwracalne (KSeF, bramka MF) nigdy nie sa wykonywane z crona.
 echo ""
-echo "Registering cron jobs..."
+echo "Registering cron jobs (see CRON.md)..."
 
 openclaw cron add "0 9 17 * *" \
-  "Oblicz i przypomnij o ryczalcie i ZUS za poprzedni miesiac. Uzyj skill tax-calculator." 2>/dev/null && \
+  "Uruchom \`jdg status\` i przypomnij o ryczalcie i ZUS (termin 20.) z kwotami." 2>/dev/null && \
   ok "Cron: ryczalt+ZUS reminder (17th)" || warn "Cron registration failed — add manually (see CRON.md)"
 
-openclaw cron add "0 8 20 * *" \
-  "DZIS termin ryczaltu i ZUS! Podaj kwoty i mikrorachunek." 2>/dev/null && \
-  ok "Cron: ryczalt+ZUS deadline (20th)" || true
-
 openclaw cron add "0 9 22 * *" \
-  "Wygeneruj JPK_V7M uzywajac skill jpk-generator. Przypomnij o VAT za 3 dni." 2>/dev/null && \
-  ok "Cron: JPK+VAT reminder (22nd)" || true
-
-openclaw cron add "0 8 25 * *" \
-  "DZIS termin VAT JPK_V7M! Podaj kwote i przypomnij o e-Deklaracje." 2>/dev/null && \
-  ok "Cron: VAT deadline (25th)" || true
-
-openclaw cron add "0 9 28 * *" \
-  "Wygeneruj faktury za miesiac uzywajac skill invoice-generator, wyslij do KSeF uzywajac skill ksef-submit." 2>/dev/null && \
-  ok "Cron: monthly invoices (28th)" || true
+  "Uruchom \`jdg jpk build\`, pokaz P_51 i zapytaj, czy wyslac JPK (skill vat-jpk)." 2>/dev/null && \
+  ok "Cron: JPK build + VAT reminder (22nd)" || true
 
 # --- Done ---
 echo ""
@@ -188,6 +185,10 @@ echo "  Useful commands:"
 echo "    openclaw logs          — View agent logs"
 echo "    openclaw cron list     — List scheduled jobs"
 echo "    openclaw skills list   — List loaded skills"
+echo ""
+echo "  Claude Code / Codex (ta sama wtyczka, wymaga jdg w PATH):"
+echo "    claude plugin marketplace add $(pwd) && claude plugin install jdg-ksiegowy@jdg-ksiegowy"
+echo "    codex plugin marketplace add $(pwd) && codex plugin add jdg-ksiegowy@jdg-ksiegowy"
 echo ""
 echo "  Documentation:"
 echo "    INSTALL.md             — Full installation guide"

@@ -15,14 +15,13 @@ OpenClaw Gateway
   +-- HEARTBEAT.md          # Checklist co 30 min (platnosci, terminy)
   +-- Cron Jobs              # Miesieczne: faktury, JPK, przypomnienia
   |
-  +-- skills/                # AgentSkills (deterministyczna logika Python)
-  |   +-- tax-calculator/    # VAT, ryczalt, ZUS (importuje z tax/zus.py)
-  |   +-- invoice/           # DOCX + XML FA(3) + zapis do SQLite
-  |   +-- ksef/              # Wyslka do KSeF via ksef2 SDK
-  |   +-- jpk/               # JPK_V7M generator
+  +-- plugins/jdg-ksiegowy/skills/   # Skille agenta: faktury, koszty, vat-jpk, podatki,
+  |                                  # administracja — wolaja CLI `jdg`
   |
   +-- src/jdg_ksiegowy/      # Biblioteka Python (rdzen logiki)
-  |   +-- config.py          # Pydantic Settings z .env
+  |   +-- app/               # Przypadki uzycia (typowane wejscie/wyjscie, potwierdzenia, audyt)
+  |   +-- cli/               # CLI `jdg` (Typer + Rich; JSON dla agentow, `jdg schema`)
+  |   +-- config.py          # Pydantic Settings z .env (JDG_HOME)
   |   +-- invoice/           # Modele, generator DOCX, generator XML
   |   +-- ksef/              # KSeF API client (ksef2)
   |   +-- tax/               # JPK, ZUS (single source of truth)
@@ -50,14 +49,28 @@ Uzywaj TYLKO API key (pay-as-you-go) lub Ollama.
 
 # Reczny setup:
 cp .env.example .env && nano .env    # Dane sprzedawcy
-pip install -e .                      # Python deps
+uv sync                               # Python deps z uv.lock (venv w .venv/)
 ollama pull qwen3.5:35b               # Model AI (MoE 35B-A3B, ~24 GB; na słabszym hoście: qwen3.5:9b)
 openclaw onboard                      # Gateway + kanaly
 docker compose up -d                  # Uruchom
 
-# Test skills:
-python3 skills/tax-calculator/scripts/calculate.py --netto 10500
-python3 skills/invoice/scripts/generate.py --buyer-name "Firma" --buyer-nip 1234567890 --netto 10500
+# Testy i jakosc (bramka kazdego etapu):
+uv run pytest -q                      # + walidacja XSD offline
+uv run pytest -m sandbox              # e2e na srodowisku testowym KSeF (siec)
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+
+# Migracje bazy (Alembic) uruchamiaja sie same przy init_db();
+# nowa migracja: uv run alembic revision --autogenerate -m "opis"
+
+# CLI (to samo wywoluja skille agenta):
+uv run jdg --help
+uv run jdg tax calc --net 10500
+uv run jdg schema                       # kontrakt komend dla agentow
+uv run jdg mcp serve                    # te same komendy jako narzedzia MCP (stdio; http dla compose)
+
+# Wtyczka (Claude Code / Codex) — wymaga `jdg` w PATH: uv tool install --editable .
+claude plugin validate --strict plugins/jdg-ksiegowy && claude plugin validate --strict .
+claude plugin eval plugins/jdg-ksiegowy --ablation none   # ewaluacje (platne wywolania modelu)
 ```
 
 ## Darmowy hosting
@@ -69,7 +82,15 @@ Na tej maszynie użyj qwen3.5:9b (6.6 GB) — 35b się nie zmieści w 24 GB RAM.
 
 - Python 3.12+, Decimal (nie float) dla kwot
 - ZUS/podatki: single source of truth w `src/jdg_ksiegowy/tax/zus.py`
-- Skill scripts importuja z `src/` via sys.path
+- Nowa funkcja = przypadek uzycia w `app/` (model wejscia/wyjscia) + komenda w `cli/`;
+  czynnosci nieodwracalne przez `require_confirmation` (dwufazowo, z audytem)
+- Kontrakt CLI pilnuje `tests/golden/schema.json` (UPDATE_GOLDEN=1 po swiadomej zmianie;
+  odswieza tez `plugins/jdg-ksiegowy/evals/mocks/jdg/_tools.json`)
+- Kazda komenda z `@command` jest automatycznie narzedziem MCP; komendy tylko do odczytu
+  oznaczaj `read_only=True`, nieodwracalne `confirmable=True` (+ matcher w hooks.json)
+- Skille opisuja komendy `jdg`; test dryfu odrzuca nieistniejace komendy/opcje i komendy bez opisu
+- Logika biznesowa dostaje modele domenowe z `registry.repository`, nie rekordy ORM
+- Kwoty w bazie jako grosze (INTEGER), w Pythonie `Decimal`
 - Dane sprzedawcy TYLKO z .env (zero hardkodu)
 
 ## Zasady pracy (wytyczne developera AI)
@@ -101,7 +122,7 @@ Przy KAZDEJ zmianie kodu w tym projekcie:
    skrypt zwracajacy JSON na stdout) — trzymaj sie jej. Nie wymyslaj
    wlasnej notacji kategorii/stawek/kodow pol gdy MF ma wlasna.
 
-5. **Weryfikacja, nie deklaracja** — po zmianie uruchom testy (`py -m pytest`),
+5. **Weryfikacja, nie deklaracja** — po zmianie uruchom testy (`uv run pytest`),
    end-to-end skrypt na przykladowych danych, sprawdz wynikowy XML lxml-em.
    Nie mow "gotowe" zanim wszystko nie zadziala na czysto.
 

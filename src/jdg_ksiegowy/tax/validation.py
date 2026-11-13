@@ -1,28 +1,28 @@
-"""Walidacja XSD plikow JPK przed wysylka do bramki MF.
+"""Walidacja XSD plikow JPK przed wysylka do bramki MF — offline.
 
-MF publikuje oficjalne XSD na podatki.gov.pl. Zamiast wysylac "na slepo" i
-czekac na blad 401 z bramki, walidujemy lokalnie — szybszy feedback loop.
+Schematy MF (wraz z importowanymi typami crd.gov.pl) sa wbudowane w pakiet
+(`jdg_ksiegowy/schemas/<nazwa>/schemat.xsd`), a ladowanie odbywa sie w trybie
+`allow="local"`: walidator nigdy nie siega do sieci.
 
-Cache: `data/xsd/<schema_name>.xsd` (pobierane raz, rzadko sie zmienia).
+Aktualizacja schematu po zmianie przez MF:
+    xmlschema.XMLSchema(url).export(target=..., save_remote=True)
 """
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 
-import httpx
 import xmlschema
+from lxml import etree
 
-logger = logging.getLogger(__name__)
+SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"
 
-
-# Oficjalne URL-e XSD MF (potwierdzone na 2026-04, za research sub-agent).
-# V7M(3) obowiazuje od 01.02.2026, EWP(4) od 01.01.2026.
-DEFAULT_XSD_URLS: dict[str, str] = {
-    "JPK_V7M_3": "https://crd.gov.pl/wzor/2025/12/19/14090/schemat.xsd",
-    "JPK_EWP_4": "https://www.gov.pl/attachment/67b55c59-e05c-42f0-be4c-28afcca460b6",
+# kodSystemowy z naglowka JPK -> katalog schematu w pakiecie
+SCHEMA_DIRS: dict[str, str] = {
+    "JPK_V7M_3": "jpk_v7m_3",  # JPK_V7M(3), od 01.02.2026
+    "JPK_EWP_4": "jpk_ewp_4",  # JPK_EWP(4), od 01.01.2026
 }
 
 
@@ -47,51 +47,25 @@ class XSDValidationError(Exception):
         super().__init__(f"XSD validation failed: {summary}")
 
 
-class JPKValidator:
-    """Waliduje JPK XML wg oficjalnego XSD z podatki.gov.pl.
+@cache
+def _schema(name: str) -> xmlschema.XMLSchema:
+    directory = SCHEMA_DIRS.get(name)
+    if directory is None:
+        raise ValueError(f"Nieznany schemat JPK: {name!r} (dostepne: {sorted(SCHEMA_DIRS)})")
+    return xmlschema.XMLSchema(str(SCHEMAS_DIR / directory / "schemat.xsd"), allow="local")
 
-    Uzycie:
-        v = JPKValidator(cache_dir=Path("data/xsd"))
-        v.validate(xml_bytes, schema="JPK_V7M_3").raise_if_invalid()
-    """
 
-    def __init__(
-        self,
-        cache_dir: Path,
-        urls: dict[str, str] | None = None,
-        http_timeout: float = 30.0,
-    ):
-        self.cache_dir = cache_dir
-        self.urls = urls or DEFAULT_XSD_URLS
-        self.http_timeout = http_timeout
-        self._schema_cache: dict[str, xmlschema.XMLSchema] = {}
+def schema_name(xml: bytes) -> str:
+    """Nazwa schematu z naglowka: kodSystemowy 'JPK_V7M (3)' -> 'JPK_V7M_3'."""
+    kod = etree.fromstring(xml).find(".//{*}KodFormularza")
+    if kod is None or not kod.get("kodSystemowy"):
+        raise ValueError("Brak KodFormularza@kodSystemowy — to nie jest plik JPK")
+    return kod.get("kodSystemowy", "").replace(" (", "_").rstrip(")")
 
-    def validate(self, xml: str | bytes, schema: str) -> ValidationResult:
-        """Zwaliduj XML wg nazwanego schematu (np. 'JPK_V7M_3')."""
-        xsd = self._get_schema(schema)
-        xml_bytes = xml.encode("utf-8") if isinstance(xml, str) else xml
-        errors = [str(e) for e in xsd.iter_errors(xml_bytes)]
-        return ValidationResult(valid=not errors, errors=errors)
 
-    def _get_schema(self, name: str) -> xmlschema.XMLSchema:
-        if name in self._schema_cache:
-            return self._schema_cache[name]
-        path = self._ensure_cached(name)
-        schema = xmlschema.XMLSchema(str(path))
-        self._schema_cache[name] = schema
-        return schema
-
-    def _ensure_cached(self, name: str) -> Path:
-        path = self.cache_dir / f"{name}.xsd"
-        if path.exists():
-            return path
-        url = self.urls.get(name)
-        if not url:
-            raise ValueError(f"Nieznany schemat JPK: {name!r} (dodaj do DEFAULT_XSD_URLS)")
-        logger.info("Pobieram XSD %s z %s", name, url)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        with httpx.Client(timeout=self.http_timeout, follow_redirects=True) as http:
-            resp = http.get(url)
-            resp.raise_for_status()
-            path.write_bytes(resp.content)
-        return path
+def validate_jpk(xml: str | bytes, schema: str | None = None) -> ValidationResult:
+    """Zwaliduj JPK wzgledem wbudowanego XSD; schemat rozpoznawany z naglowka."""
+    xml_bytes = xml.encode("utf-8") if isinstance(xml, str) else xml
+    xsd = _schema(schema or schema_name(xml_bytes))
+    errors = [str(e) for e in xsd.iter_errors(xml_bytes)]
+    return ValidationResult(valid=not errors, errors=errors)

@@ -1,7 +1,13 @@
-"""Konfiguracja aplikacji — Pydantic Settings z .env."""
+"""Konfiguracja aplikacji — Pydantic Settings z .env.
+
+Katalog roboczy (`.env` + `data/`) wskazuje zmienna JDG_HOME. Bez niej: katalog
+repozytorium, gdy pakiet dziala z checkoutu zrodel, a w instalacji z wheela
+`~/.jdg-ksiegowy`. Dzieki temu CLI i serwer MCP dzialaja z dowolnego cwd.
+"""
 
 from __future__ import annotations
 
+import os
 from decimal import Decimal
 from pathlib import Path
 
@@ -9,7 +15,19 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = PROJECT_ROOT / "data"
+
+
+def _resolve_home() -> Path:
+    if env := os.environ.get("JDG_HOME"):
+        return Path(env).expanduser().resolve()
+    if (PROJECT_ROOT / "pyproject.toml").exists():
+        return PROJECT_ROOT
+    return Path.home() / ".jdg-ksiegowy"
+
+
+JDG_HOME = _resolve_home()
+ENV_FILE = JDG_HOME / ".env"
+DATA_DIR = JDG_HOME / "data"
 
 
 class SellerConfig(BaseSettings):
@@ -17,7 +35,7 @@ class SellerConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="SELLER_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -59,7 +77,7 @@ class SMTPConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="SMTP_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -81,7 +99,7 @@ class OCRConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="OCR_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -90,7 +108,7 @@ class OCRConfig(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "pixtral:12b"
     ollama_timeout: float = 120.0  # CPU inference moze byc wolna
-    claude_model: str = "claude-haiku-4-5-20251001"
+    claude_model: str = "claude-haiku-5-5"
     claude_max_tokens: int = 1024
 
 
@@ -99,7 +117,7 @@ class MFGatewayConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="MF_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -127,7 +145,7 @@ class KSeFConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="KSEF_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -152,7 +170,7 @@ class CalendarConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="GCAL_",
-        env_file=PROJECT_ROOT / ".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -174,7 +192,7 @@ class Settings(BaseSettings):
     """Glowna konfiguracja aplikacji."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -187,6 +205,9 @@ class Settings(BaseSettings):
     calendar: CalendarConfig = CalendarConfig()
     anthropic_api_key: str = ""
     libreoffice_bin: str = Field(default="", alias="LIBREOFFICE_BIN")
+    backup_key: str = ""  # klucz Fernet szyfrowania backupow (BACKUP_KEY)
+    backup_dir: str = ""  # katalog docelowy backupow (BACKUP_DIR); pusty -> OneDrive/~
+    mcp_token: str = Field(default="", alias="JDG_MCP_TOKEN")  # Bearer dla `jdg mcp serve` HTTP
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 

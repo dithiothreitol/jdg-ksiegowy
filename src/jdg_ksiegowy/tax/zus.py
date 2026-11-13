@@ -1,11 +1,12 @@
-"""Skladki ZUS dla ryczaltowcow (2026).
+"""Skladki ZUS przedsiebiorcy na ryczalcie — parametry per rok.
 
-Zdrowotna: progi wg rocznego przychodu (9% × podstawa).
-Podstawa: przecietne wynagrodzenie Q4 2025 = 9228.64 PLN (GUS, 22.01.2026).
+Zdrowotna: prog wg przychodu NARASTAJACO od poczatku roku (pomniejszonego o zaplacone
+skladki spoleczne); po przekroczeniu progu wyzsza skladka obowiazuje od miesiaca
+przekroczenia. Spoleczne: tryb zalezny od stazu dzialalnosci i zbiegu z umowa o prace.
 
-Spoleczne: 4 tryby wyboru — zaleznie od stazu dzialalnosci i zbiegu z UoP.
-Zrodlo: zus.pl (styczen 2026). Prognozowane przecietne 2026: 9420 PLN,
-minimum wynagrodzenie 2026: 4806 PLN.
+Parametry na nowy rok publikuja GUS/ZUS (przecietne wynagrodzenie za IV kw. — styczen,
+prognozowane przecietne i placa minimalna — ustawa budzetowa). Brak roku w `PARAMS`
+konczy sie bledem, a nie cichym uzyciem stawek z poprzedniego roku.
 """
 
 from __future__ import annotations
@@ -16,131 +17,143 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-# -------------------- SKLADKA ZDROWOTNA (ryczalt, progi) --------------------
+
+class ZUSSocialMode(StrEnum):
+    START_RELIEF = "start_relief"  # ulga na start: 6 mies. bez skladek spolecznych
+    SMALL_ZUS = "small_zus"  # preferencyjne: 24 mies. po uldze (30% placy minimalnej)
+    EMPLOYMENT = "employment"  # zbieg z umowa o prace >= placa minimalna
+    FULL = "full"  # pelne (60% prognozowanego przecietnego wynagrodzenia)
 
 
 @dataclass(frozen=True)
 class ZUSHealthTier:
-    """Prog skladki zdrowotnej."""
-
-    max_annual_revenue: Decimal
+    max_annual_revenue: Decimal  # gorna granica progu (wlacznie)
     basis_percent: int  # % przecietnego wynagrodzenia
     monthly_basis: Decimal
     monthly_contribution: Decimal
     label: str
 
 
-AVERAGE_SALARY_Q4_2025 = Decimal("9228.64")
-HEALTH_RATE = Decimal("0.09")  # 9%
-
-ZUS_TIERS_2026: list[ZUSHealthTier] = [
-    ZUSHealthTier(
-        max_annual_revenue=Decimal("60000"),
-        basis_percent=60,
-        monthly_basis=Decimal("5537.18"),
-        monthly_contribution=Decimal("498.35"),
-        label="do 60 000 PLN",
-    ),
-    ZUSHealthTier(
-        max_annual_revenue=Decimal("300000"),
-        basis_percent=100,
-        monthly_basis=Decimal("9228.64"),
-        monthly_contribution=Decimal("830.58"),
-        label="60 001 - 300 000 PLN",
-    ),
-    ZUSHealthTier(
-        max_annual_revenue=Decimal("999999999"),
-        basis_percent=180,
-        monthly_basis=Decimal("16611.55"),
-        monthly_contribution=Decimal("1495.04"),
-        label="powyzej 300 000 PLN",
-    ),
-]
-
-
-def get_zus_tier(annual_revenue: Decimal) -> ZUSHealthTier:
-    """Zwroc prog zdrowotnej na podstawie rocznego przychodu."""
-    for tier in ZUS_TIERS_2026:
-        if annual_revenue <= tier.max_annual_revenue:
-            return tier
-    return ZUS_TIERS_2026[-1]
-
-
-def get_monthly_zus(annual_revenue: Decimal) -> Decimal:
-    """Miesieczna skladka zdrowotna."""
-    return get_zus_tier(annual_revenue).monthly_contribution
-
-
-def get_annual_zus(annual_revenue: Decimal) -> Decimal:
-    """Roczna skladka zdrowotna (12 * miesieczna)."""
-    return get_monthly_zus(annual_revenue) * 12
-
-
-def get_deductible_zus(annual_revenue: Decimal) -> Decimal:
-    """Roczna kwota skladki zdrowotnej do odliczenia od przychodu (50% w 2026)."""
-    return get_annual_zus(annual_revenue) * Decimal("0.5")
-
-
-# -------------------- SKLADKI SPOLECZNE (4 tryby) --------------------
-
-
-class ZUSSocialMode(StrEnum):
-    """Tryb rozliczenia skladek spolecznych."""
-
-    START_RELIEF = "start_relief"  # Ulga na start, 6 mies od rozpoczecia
-    SMALL_ZUS = "small_zus"  # Preferencyjne, 24 mies po uldze (30% min. wyn.)
-    EMPLOYMENT = "employment"  # Zbieg z UoP >= min. wyn. — brak spolecznych z JDG
-    FULL = "full"  # Pelne (60% prognozowanego przecietnego)
-
-
 @dataclass(frozen=True)
 class ZUSSocialTier:
     mode: ZUSSocialMode
-    monthly_contribution: Decimal  # BEZ dobrowolnej chorobowej
-    sickness_optional: Decimal  # kwota chorobowej (do doliczenia gdy dobrowolna)
+    monthly_contribution: Decimal  # bez dobrowolnej chorobowej
+    sickness_optional: Decimal
     label: str
-    kedu_code: str  # kod tytulu ubezpieczenia (KEDU)
+    kedu_code: str  # kod tytulu ubezpieczenia
 
 
-# Wartosci 2026 (bez chorobowej dobrowolnej). Z chorobowa: dodac sickness_optional.
-ZUS_SOCIAL_TIERS_2026: dict[ZUSSocialMode, ZUSSocialTier] = {
-    ZUSSocialMode.START_RELIEF: ZUSSocialTier(
-        mode=ZUSSocialMode.START_RELIEF,
-        monthly_contribution=Decimal("0.00"),
-        sickness_optional=Decimal("0.00"),
-        label="Ulga na start (6 mies, 0 PLN spolecznych)",
-        kedu_code="0540",
-    ),
-    ZUSSocialMode.SMALL_ZUS: ZUSSocialTier(
-        mode=ZUSSocialMode.SMALL_ZUS,
-        monthly_contribution=Decimal("420.86"),
-        sickness_optional=Decimal("35.32"),
-        label="Preferencyjne 24 mies (30% min. wyn.)",
-        kedu_code="0570",
-    ),
-    ZUSSocialMode.EMPLOYMENT: ZUSSocialTier(
-        mode=ZUSSocialMode.EMPLOYMENT,
-        monthly_contribution=Decimal("0.00"),
-        sickness_optional=Decimal("0.00"),
-        label="Zbieg z UoP (tylko zdrowotna)",
-        kedu_code="0510",
-    ),
-    ZUSSocialMode.FULL: ZUSSocialTier(
-        mode=ZUSSocialMode.FULL,
-        monthly_contribution=Decimal("1788.29"),
-        sickness_optional=Decimal("138.47"),
-        label="Pelne (60% prognozowanego przecietnego)",
-        kedu_code="0510",
+@dataclass(frozen=True)
+class YearParams:
+    year: int
+    source: str
+    health_tiers: tuple[ZUSHealthTier, ...]
+    social: dict[ZUSSocialMode, ZUSSocialTier]
+
+
+_UNLIMITED = Decimal("999999999")
+
+PARAMS: dict[int, YearParams] = {
+    2026: YearParams(
+        year=2026,
+        source=(
+            "Przecietne wynagrodzenie IV kw. 2025: 9228.64 zl (GUS, 22.01.2026); "
+            "prognozowane 2026: 9420 zl; placa minimalna 2026: 4806 zl"
+        ),
+        health_tiers=(
+            ZUSHealthTier(
+                Decimal("60000"), 60, Decimal("5537.18"), Decimal("498.35"), "do 60 000 PLN"
+            ),
+            ZUSHealthTier(
+                Decimal("300000"),
+                100,
+                Decimal("9228.64"),
+                Decimal("830.58"),
+                "60 001 - 300 000 PLN",
+            ),
+            ZUSHealthTier(
+                _UNLIMITED, 180, Decimal("16611.55"), Decimal("1495.04"), "powyzej 300 000 PLN"
+            ),
+        ),  # fmt: skip
+        social={
+            ZUSSocialMode.START_RELIEF: ZUSSocialTier(
+                ZUSSocialMode.START_RELIEF,
+                Decimal("0.00"),
+                Decimal("0.00"),
+                "Ulga na start (6 mies, 0 PLN spolecznych)",
+                "0540",
+            ),
+            ZUSSocialMode.SMALL_ZUS: ZUSSocialTier(
+                ZUSSocialMode.SMALL_ZUS,
+                Decimal("420.86"),
+                Decimal("35.32"),
+                "Preferencyjne 24 mies (30% min. wyn.)",
+                "0570",
+            ),
+            ZUSSocialMode.EMPLOYMENT: ZUSSocialTier(
+                ZUSSocialMode.EMPLOYMENT,
+                Decimal("0.00"),
+                Decimal("0.00"),
+                "Zbieg z UoP (tylko zdrowotna)",
+                "0510",
+            ),
+            ZUSSocialMode.FULL: ZUSSocialTier(
+                ZUSSocialMode.FULL,
+                Decimal("1788.29"),
+                Decimal("138.47"),
+                "Pelne (60% prognozowanego przecietnego)",
+                "0510",
+            ),
+        },  # fmt: skip
     ),
 }
+
+
+class MissingTaxParamsError(LookupError):
+    """Brak parametrow ZUS na dany rok — trzeba je dopisac po publikacji."""
+
+
+def params_for(year: int) -> YearParams:
+    try:
+        return PARAMS[year]
+    except KeyError:
+        known = ", ".join(map(str, sorted(PARAMS)))
+        raise MissingTaxParamsError(
+            f"Brak parametrow ZUS na {year} (znane lata: {known}). Dopisz je w "
+            "jdg_ksiegowy/tax/zus.py po publikacji przez GUS/ZUS."
+        ) from None
+
+
+def get_zus_tier(annual_revenue: Decimal, *, year: int) -> ZUSHealthTier:
+    """Prog skladki zdrowotnej dla przychodu (narastajaco) w danym roku."""
+    tiers = params_for(year).health_tiers
+    return next((t for t in tiers if annual_revenue <= t.max_annual_revenue), tiers[-1])
+
+
+def get_monthly_zus(annual_revenue: Decimal, *, year: int) -> Decimal:
+    return get_zus_tier(annual_revenue, year=year).monthly_contribution
+
+
+def get_social_contribution(
+    mode: ZUSSocialMode, voluntary_sickness: bool = False, *, year: int
+) -> Decimal:
+    tier = params_for(year).social[mode]
+    return tier.monthly_contribution + (tier.sickness_optional if voluntary_sickness else 0)
+
+
+def get_total_monthly_zus(
+    annual_revenue: Decimal, mode: ZUSSocialMode, voluntary_sickness: bool = False, *, year: int
+) -> Decimal:
+    return get_social_contribution(mode, voluntary_sickness, year=year) + get_monthly_zus(
+        annual_revenue, year=year
+    )
 
 
 def _add_months(d: date, months: int) -> date:
     m = d.month - 1 + months
     year = d.year + m // 12
     month = m % 12 + 1
-    day = min(d.day, monthrange(year, month)[1])
-    return date(year, month, day)
+    return date(year, month, min(d.day, monthrange(year, month)[1]))
 
 
 def get_current_social_mode(
@@ -149,41 +162,16 @@ def get_current_social_mode(
     employment_above_min: bool,
     override: ZUSSocialMode | None = None,
 ) -> ZUSSocialMode:
-    """Wybierz tryb spolecznych wg priorytetu: override > employment > staz > full.
-
-    - override: recznie wymuszony tryb (z .env)
-    - employment_above_min: UoP z brutto >= min. wyn. -> brak spolecznych z JDG
-    - business_start: data rozpoczecia/wznowienia — decyduje o start_relief / small_zus
-    """
+    """Tryb skladek spolecznych: override > zbieg z UoP > staz dzialalnosci > pelne."""
     if override is not None:
         return override
     if employment_above_min:
         return ZUSSocialMode.EMPLOYMENT
     if business_start is None:
         return ZUSSocialMode.FULL
-
     start_relief_end = _add_months(business_start, 6)
-    small_zus_end = _add_months(start_relief_end, 24)
-
     if today < start_relief_end:
         return ZUSSocialMode.START_RELIEF
-    if today < small_zus_end:
+    if today < _add_months(start_relief_end, 24):
         return ZUSSocialMode.SMALL_ZUS
     return ZUSSocialMode.FULL
-
-
-def get_social_contribution(mode: ZUSSocialMode, voluntary_sickness: bool = False) -> Decimal:
-    """Miesieczna skladka spoleczna dla trybu (opcjonalnie + chorobowa)."""
-    tier = ZUS_SOCIAL_TIERS_2026[mode]
-    return tier.monthly_contribution + (
-        tier.sickness_optional if voluntary_sickness else Decimal("0")
-    )
-
-
-def get_total_monthly_zus(
-    annual_revenue: Decimal,
-    mode: ZUSSocialMode,
-    voluntary_sickness: bool = False,
-) -> Decimal:
-    """Calkowita miesieczna skladka ZUS = spoleczne + zdrowotna."""
-    return get_social_contribution(mode, voluntary_sickness) + get_monthly_zus(annual_revenue)

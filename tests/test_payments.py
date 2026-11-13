@@ -1,81 +1,64 @@
-"""Testy śledzenia płatności — mark_paid, CSV import, dopasowanie."""
+"""Testy platnosci — oznaczanie zaplaty, import CSV, dopasowanie przelewow."""
 
 from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
 
-from jdg_ksiegowy.registry.payments import (
-    BankRow,
-    mark_paid,
-    match_payments,
-    parse_bank_csv,
-)
+from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceStatus, LineItem
+from jdg_ksiegowy.registry.payments import BankRow, match_payments, parse_bank_csv
+from jdg_ksiegowy.registry.repository import InvoiceNotFoundError, InvoiceRepository
 
 
 @pytest.fixture(autouse=True)
 def _autouse_isolated_db(isolated_db):
-    """Wymuś izolację DB dla wszystkich testów w tym pliku (conftest.isolated_db)."""
+    """Wymus izolacje DB dla wszystkich testow w tym pliku (conftest.isolated_db)."""
 
 
-def _inv(number: str, gross: Decimal, due: date, paid: bool = False):
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
-
-    init_db()
-    rec = InvoiceRecord(
+def _inv(number: str, gross: Decimal, due: date, paid: bool = False) -> Invoice:
+    inv = Invoice(
         id=f"id-{number}",
         number=number,
         issue_date=date(2026, 4, 1),
         sale_date=date(2026, 4, 1),
         payment_due=due,
-        buyer_name="Klient",
-        buyer_nip="5260250274",
-        total_net=gross / Decimal("1.23"),
-        total_vat=gross - gross / Decimal("1.23"),
-        total_gross=gross,
-        vat_rate=Decimal("23"),
+        buyer=Buyer(name="Klient", nip="5260250274", address="ul. X 1"),
+        items=[
+            LineItem(
+                description="usl",
+                unit_price_net=(gross / Decimal("1.23")).quantize(Decimal("0.01")),
+                vat_rate=Decimal("23"),
+            )
+        ],
         paid_at=datetime.now() if paid else None,
-        status="paid" if paid else "generated",
+        status=InvoiceStatus.PAID if paid else InvoiceStatus.GENERATED,
     )
-    save_invoice(rec)
-    return rec
+    InvoiceRepository().save(inv)
+    return InvoiceRepository().get(number)
 
 
 class TestMarkPaid:
     def test_marks_invoice_as_paid(self):
         _inv("A1/04/2026", Decimal("1230"), date(2026, 4, 30))
-        result = mark_paid("A1/04/2026")
-        assert result.success is True
-        assert result.error == ""
+        InvoiceRepository().mark_paid("A1/04/2026", datetime(2026, 4, 25))
+        inv = InvoiceRepository().get("A1/04/2026")
+        assert inv.status is InvoiceStatus.PAID
+        assert inv.paid_at == datetime(2026, 4, 25)
 
-    def test_returns_error_for_missing_invoice(self):
-        from jdg_ksiegowy.registry.db import init_db
+    def test_missing_invoice_raises(self):
+        with pytest.raises(InvoiceNotFoundError, match="nie istnieje"):
+            InvoiceRepository().mark_paid("NIEISTNIEJACA/01/2026", datetime.now())
 
-        init_db()
-        result = mark_paid("NIEISTNIEJACA/01/2026")
-        assert result.success is False
-        assert "nie istnieje" in result.error.lower()
-
-    def test_returns_error_if_already_paid(self):
+    def test_already_paid_raises(self):
         _inv("A2/04/2026", Decimal("1230"), date(2026, 4, 30), paid=True)
-        result = mark_paid("A2/04/2026")
-        assert result.success is False
-        assert "zaplacona" in result.error.lower()
-
-    def test_sets_paid_at_timestamp(self):
-        from jdg_ksiegowy.registry.db import get_invoices, init_db
-
-        init_db()
-        _inv("A3/04/2026", Decimal("1230"), date(2026, 4, 30))
-        ts = datetime(2026, 4, 25, 12, 0, 0)
-        mark_paid("A3/04/2026", paid_at=ts)
-        inv = get_invoices()[0]
-        assert inv.paid_at is not None
+        with pytest.raises(ValueError, match="zaplacona"):
+            InvoiceRepository().mark_paid("A2/04/2026", datetime.now())
 
 
 class TestMatchPayments:
     def test_matches_by_invoice_number_in_description(self):
         inv = _inv("A1/04/2026", Decimal("1230"), date(2026, 4, 30))
+        assert inv.total_gross == Decimal("1230.00")
         row = BankRow(date(2026, 4, 26), Decimal("1230"), "Przelew za A1/04/2026 uslugi IT")
         result = match_payments([row], [inv])
         assert len(result.matched) == 1
@@ -130,3 +113,23 @@ class TestParseBankCSV:
         rows = parse_bank_csv(f)
         assert len(rows) == 1
         assert rows[0].amount == Decimal("1230.00")
+
+
+def test_contract_invoice_number_with_hex_prefix_matches():
+    """Numery faktur z kontraktow maja prefiks K + 8 znakow hex (np. Kab12cd34)."""
+    inv = _inv("Kab12cd34/04/2026", Decimal("1230"), date(2026, 4, 30))
+    row = BankRow(date(2026, 5, 20), Decimal("1"), "Zaplata Kab12cd34/04/2026")
+    assert match_payments([row], [inv]).matched[0][1].number == "Kab12cd34/04/2026"
+
+
+def test_decreasing_correction_is_not_a_receivable():
+    """Korekta in minus nie jest naleznoscia: nie trafia do zaleglych ani do dopasowan."""
+    from jdg_ksiegowy.registry.payments import awaiting_payment, overdue, unpaid
+    from tests.helpers import InvoiceRow
+
+    sale = InvoiceRow(number="A1/10/2026", issue_date=date(2026, 10, 1), total_net=Decimal("100"))
+    kor = InvoiceRow(number="KOR1/11/2026", issue_date=date(2026, 11, 1), total_net=Decimal("-100"))
+    invoices = [sale.to_domain(), kor.to_domain()]
+    assert [i.number for i in overdue(invoices, date(2026, 11, 20))] == ["A1/10/2026"]
+    assert unpaid(invoices, date(2026, 9, 1)) == [invoices[0]]
+    assert not awaiting_payment(invoices[1])

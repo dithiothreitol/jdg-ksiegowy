@@ -175,10 +175,20 @@ GCAL_ENABLED=false                     # kalendarz zostaje na maszynie usera (pa
 
 ### 2.4 Build + start
 
+Compose uruchamia dwie usługi z jednego obrazu: `jdg-mcp` (serwer MCP — jedyny proces z
+sekretami z `.env` i z dostępem do `./data`, bez portu na hoście) oraz `openclaw` (agent, dostaje
+tylko konfigurację modelu i token do MCP).
+
 ```bash
+echo "JDG_MCP_TOKEN=$(openssl rand -hex 32)" >> .env   # token Bearer OpenClaw -> jdg-mcp
 docker compose build           # obraz: Python 3.13 + LibreOffice + skille (najnowsze liby)
-docker compose up -d
+docker compose up -d           # openclaw startuje, gdy jdg-mcp ma status healthy
 docker compose ps
+
+# Raz: rejestracja narzędzi jdg w OpenClaw (zapisuje się w volume openclaw-state)
+docker compose exec openclaw sh -c 'openclaw mcp add jdg --url http://jdg-mcp:8765/mcp \
+  --transport streamable-http --header "Authorization=Bearer $JDG_MCP_TOKEN"'
+docker compose exec openclaw openclaw mcp probe jdg     # oczekiwane: jdg: 34 tools
 ```
 
 ### 2.5 Konfiguracja modelu agenta OpenClaw (Claude API)
@@ -188,14 +198,14 @@ Bramka startuje na domyślnym modelu i ignoruje `OPENCLAW_MODEL` env (patrz
 volume `openclaw-state`:
 
 ```bash
-docker exec jdg-ksiegowy openclaw config set agents.defaults.model "anthropic/claude-sonnet-4-6"
+docker exec jdg-ksiegowy openclaw config set agents.defaults.model "anthropic/claude-sonnet-5-5"
 docker compose restart
-# Weryfikacja — powinno pokazać anthropic/claude-sonnet-4-6 (nie openai/gpt-5.4):
+# Weryfikacja — powinno pokazać anthropic/claude-sonnet-5-5 (nie openai/gpt-5.4):
 docker logs jdg-ksiegowy 2>&1 | grep -i "agent model"
 ```
 
-> Model: `claude-sonnet-4-6` (bilans koszt/jakość dla pracy narzędziowej skilli).
-> `claude-opus-4-8` jeśli zależy na maksymalnej jakości rozumowania podatkowego.
+> Model: `claude-sonnet-5-5` (bilans koszt/jakość dla pracy narzędziowej; na nim przechodzą
+> ewaluacje wtyczki). `claude-opus-5-5`, jeśli zależy na maksymalnej jakości rozumowania.
 > `ANTHROPIC_API_KEY` z `.env` autoryzuje providera anthropic w OpenClaw.
 
 ---
@@ -205,28 +215,25 @@ docker logs jdg-ksiegowy 2>&1 | grep -i "agent model"
 ### 3.1 Testy jednostkowe + lint (w kontenerze)
 
 ```bash
-docker exec jdg-ksiegowy sh -lc 'cd /home/node/.openclaw/workspace && \
-  python -m pip install -e ".[dev]" -q && python -m pytest -q && ruff check . && ruff format --check .'
-# Oczekiwane: zielono (test OCR przechodzi — brak .env override na serwerze ustawia OCR=claude)
+# Testy uruchamia CI (uv sync --locked, ruff, mypy, pytest z XSD offline, docker build).
+# Na serwerze wystarczy smoke obrazu:
+docker exec jdg-ksiegowy jdg --version
 ```
 
 ### 3.2 Preflight (doctor)
 
 ```bash
-docker exec jdg-ksiegowy python skills/doctor/scripts/check.py
+docker exec jdg-ksiegowy jdg doctor
 # Sprawdza: dane sprzedawcy, KSeF(test), bramka MF(test), SMTP, OCR, (CALENDAR=skip).
 ```
 
-### 3.3 E2E skille (deterministycznie, na danych przykładowych)
+### 3.3 E2E CLI (deterministycznie, na danych przykładowych)
 
 ```bash
-# Kalkulacja podatku
-docker exec jdg-ksiegowy python skills/tax-calculator/scripts/calculate.py --netto 10500
-# Faktura: DOCX + XML FA(3) + zapis do SQLite
-docker exec jdg-ksiegowy python skills/invoice/scripts/generate.py \
-  --buyer-name "Test Sp. z o.o." --buyer-nip 1234567890 --netto 5000
-# JPK_V7M (XML) — potem walidacja względem XSD MF (test xsd w pytest)
-docker exec jdg-ksiegowy python skills/jpk/scripts/generate_jpk.py --month 5 --year 2026
+docker exec jdg-ksiegowy jdg tax calc --net 10500
+docker exec jdg-ksiegowy jdg invoice issue --buyer-nip 5260250274 --buyer-name "Test Sp. z o.o." \
+  --buyer-address "ul. Testowa 1, 00-001 Warszawa" --description "Test" --net 5000
+docker exec jdg-ksiegowy jdg jpk build --year 2026 --month 5     # walidacja XSD w wyniku
 ```
 
 ### 3.4 Web UI przez tunel SSH (UI nie jest publiczne)
@@ -242,12 +249,12 @@ ssh -N -L 18789:127.0.0.1:18789 deploy@167.233.57.77
 ### 3.5 Wysyłki do sandboxów (skutki tylko testowe)
 
 ```bash
-# KSeF test: wyślij ostatnią fakturę sprzedaży
-docker exec jdg-ksiegowy python skills/ksef/scripts/... --env test     # ref number z sandboxu
-# JPK_V7M → bramka MF test (zwróci UPO testowe)
-docker exec jdg-ksiegowy python skills/jpk-submit/scripts/... --env test
-# KSeF inbox (rola nabywcy) — sync kosztów
-docker exec jdg-ksiegowy python skills/ksef/scripts/... inbox --env test
+# Przy KSEF_ENV=test / MF_ENV=test w .env. Wysylki sa dwufazowe: pierwsze wywolanie
+# zwraca podsumowanie i token (kod 4), drugie z --confirm <token> wysyla.
+docker exec jdg-ksiegowy jdg ksef send A1/05/2026
+docker exec jdg-ksiegowy jdg jpk submit /home/node/.openclaw/workspace/data/jpk/JPK_V7M_2026_05.xml
+docker exec jdg-ksiegowy jdg ksef inbox            # faktury zakupowe (rola nabywcy)
+# Pelne e2e z fikcyjnymi danymi (z repozytorium): uv run pytest -m sandbox
 ```
 
 ### 3.6 Smoke konwersacyjny (Claude API)
@@ -271,7 +278,7 @@ docker exec jdg-ksiegowy python skills/ksef/scripts/... inbox --env test
 docker exec jdg-ksiegowy openclaw cron add "0 9 17 * *" "...ryczałt+ZUS..."
 # (komplet 5 wpisów jak w setup.sh / INSTALL.md §9)
 
-# 4.2 Backup bazy + plików (off-site, Fernet) — scripts/backup_offsite.py
+# 4.2 Backup bazy + plików (off-site, Fernet) — `jdg backup`
 #     Wymaga BACKUP_KEY w .env (NIE gubić — bez klucza backupy nieodzyskiwalne).
 #     Harmonogram: systemd timer / cron host, np. codziennie 22:00.
 

@@ -159,6 +159,7 @@ def _parse_public_key(raw: bytes, source_url: str) -> PublicKeyInfo:
     not_after: datetime | None = None
     key: RSAPublicKey | None = None
 
+    public_key: object
     if raw.lstrip().startswith(b"-----BEGIN"):
         if b"CERTIFICATE" in raw:
             cert = x509.load_pem_x509_certificate(raw)

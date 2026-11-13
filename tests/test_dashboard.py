@@ -30,23 +30,22 @@ def test_snapshot_with_empty_db():
     # Standardowe terminy obecne (ryczalt/ZUS/VAT za marzec)
     labels = [r.label for r in snap.reminders]
     assert any("Ryczalt za 03/2026" in lb for lb in labels)
-    assert any("ZUS zdrowotne za 03/2026" in lb for lb in labels)
+    assert any("ZUS za 03/2026" in lb for lb in labels)
     assert any("VAT + JPK_V7M za 03/2026" in lb for lb in labels)
 
 
 def test_snapshot_aggregates_current_month_invoices():
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i1",
             number="A1/04/2026",
             issue_date=date(2026, 4, 5),
             sale_date=date(2026, 4, 5),
             payment_due=date(2026, 4, 30),
             buyer_name="Klient",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("1000"),
             total_vat=Decimal("230"),
             total_gross=Decimal("1230"),
@@ -54,14 +53,14 @@ def test_snapshot_aggregates_current_month_invoices():
         )
     )
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i2",
             number="A2/04/2026",
             issue_date=date(2026, 4, 10),
             sale_date=date(2026, 4, 10),
             payment_due=date(2026, 5, 10),
             buyer_name="K2",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("500"),
             total_vat=Decimal("115"),
             total_gross=Decimal("615"),
@@ -75,18 +74,17 @@ def test_snapshot_aggregates_current_month_invoices():
 
 
 def test_overdue_invoices_flagged():
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-overdue",
             number="A/03/2026",
             issue_date=date(2026, 3, 1),
             sale_date=date(2026, 3, 1),
             payment_due=date(2026, 3, 15),  # 30+ dni temu
             buyer_name="Niepunktualny",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("1000"),
             total_vat=Decimal("230"),
             total_gross=Decimal("1230"),
@@ -102,18 +100,17 @@ def test_overdue_invoices_flagged():
 
 
 def test_upcoming_invoice_within_7_days_is_warn():
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-soon",
             number="A/04/2026",
             issue_date=date(2026, 4, 10),
             sale_date=date(2026, 4, 10),
             payment_due=date(2026, 4, 20),  # 3 dni od "today"=17
             buyer_name="Soon",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("1000"),
             total_vat=Decimal("230"),
             total_gross=Decimal("1230"),
@@ -128,11 +125,10 @@ def test_upcoming_invoice_within_7_days_is_warn():
 
 def test_vat_reminder_uses_sale_date_not_issue_date():
     """Usługa z maja wystawiona 1 czerwca liczy się do VAT za MAJ (art. 19a), nie czerwiec."""
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-may-service",
             number="A1/06/2026",
             issue_date=date(2026, 6, 1),
@@ -158,19 +154,18 @@ def test_vat_reminder_uses_sale_date_not_issue_date():
 
 
 def test_estimated_ryczalt_uses_previous_month():
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     # Marzec: 10 000 netto — ryczalt 12% = 1200
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-march",
             number="A/03/2026",
             issue_date=date(2026, 3, 15),
             sale_date=date(2026, 3, 15),
             payment_due=date(2026, 4, 1),
             buyer_name="X",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("10000"),
             total_vat=Decimal("2300"),
             total_gross=Decimal("12300"),
