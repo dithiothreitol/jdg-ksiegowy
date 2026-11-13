@@ -2,13 +2,13 @@
 # Obrazy bazowe przypiete do wersji — aktualizacja swiadomie, przez Dependabot/PR.
 FROM ghcr.io/openclaw/openclaw:2026.11.3
 
-# Obraz bazowy ma Pythona 3.11; ksef2 wymaga 3.12+, wiec uv instaluje 3.13 obok.
+# Obraz bazowy ma Pythona 3.11; ksef2 wymaga 3.12+, wiec uv instaluje obok 3.15.
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libreoffice ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.18 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /usr/local/bin/uv
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/python \
     UV_PROJECT_ENVIRONMENT=/opt/jdg-venv \
@@ -19,9 +19,9 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/python \
 WORKDIR /opt/jdg
 # Najpierw sam lock — warstwa zaleznosci cache'uje sie niezaleznie od kodu.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project --python 3.13
+RUN uv sync --frozen --no-dev --no-install-project --python 3.15
 COPY src/ src/
-RUN uv sync --frozen --no-dev --python 3.13
+RUN uv sync --frozen --no-dev --python 3.15
 # venv pierwszy w PATH: `python`/`python3` ze skilli OpenClaw widza pakiet jdg_ksiegowy
 # (symlink do /usr/local/bin gubi wykrycie pyvenv.cfg).
 ENV PATH="/opt/jdg-venv/bin:${PATH}"

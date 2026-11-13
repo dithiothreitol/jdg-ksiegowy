@@ -181,7 +181,7 @@ tylko konfigurację modelu i token do MCP).
 
 ```bash
 echo "JDG_MCP_TOKEN=$(openssl rand -hex 32)" >> .env   # token Bearer OpenClaw -> jdg-mcp
-docker compose build           # obraz: Python 3.13 + LibreOffice + skille (najnowsze liby)
+docker compose build           # obraz: Python 3.15 + LibreOffice + skille (najnowsze liby)
 docker compose up -d           # openclaw startuje, gdy jdg-mcp ma status healthy
 docker compose ps
 

@@ -44,8 +44,8 @@ uzycia, jednym CLI `jdg`, serwerem MCP i wtyczka dla OpenClaw, Claude Code i Cod
 
 - OCR na structured outputs (Ollama `format`, Claude `messages.parse`) z deterministycznymi
   kontrolami odczytu, ktore blokuja zapis; domyslny model fallbacku `claude-haiku-5-5`.
-- Zaleznosci podniesione do aktualnych wersji, `uv` + `uv.lock`, CI na Pythonie 3.12–3.14
-  z mypy, walidacja wtyczki i test dymny serwera MCP w obrazie.
+- Zaleznosci podniesione do aktualnych wersji, `uv` + `uv.lock`, CI na Pythonie 3.12–3.15
+  z mypy, walidacja wtyczki i test dymny serwera MCP w obrazie (Python 3.15).
 - Skille skonsolidowane do pieciu (`faktury`, `koszty`, `vat-jpk`, `podatki`, `administracja`)
   i opisuja komendy CLI / narzedzia MCP; test pilnuje, by nie odwolywaly sie do nieistniejacych
   komend ani opcji.

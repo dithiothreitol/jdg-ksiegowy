@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
 
     steps:
       - uses: actions/checkout@v7
@@ -62,5 +62,5 @@ jobs:
       - uses: actions/checkout@v7
       - name: Walidacja wtyczki i marketplace (Claude Code)
         run: |
-          npx -y @anthropic-ai/claude-code@2.1.310 plugin validate --strict plugins/jdg-ksiegowy
-          npx -y @anthropic-ai/claude-code@2.1.310 plugin validate --strict .
+          npx -y @anthropic-ai/claude-code@2.1.311 plugin validate --strict plugins/jdg-ksiegowy
+          npx -y @anthropic-ai/claude-code@2.1.311 plugin validate --strict .
