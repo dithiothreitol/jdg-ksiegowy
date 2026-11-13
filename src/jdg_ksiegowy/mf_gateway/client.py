@@ -50,6 +50,10 @@ from jdg_ksiegowy.mf_gateway.metadata import (
 )
 from jdg_ksiegowy.mf_gateway.public_key import MFPublicKeyRegistry
 
+# Certyfikaty kluczy publicznych MF (Certum, wazne 07.07.2025 -> 07.07.2027) — publiczne,
+# wiec wbudowane; po rotacji przez MF nadpisz MF_CERT_PATH / MF_CERT_URL i zaktualizuj pliki.
+BUNDLED_CERTS_DIR = Path(__file__).resolve().parent / "certs"
+
 STATUS_POLL_INTERVAL_SEC = 15
 STATUS_TIMEOUT_SEC = 600  # max 10 min na przetworzenie
 
@@ -61,6 +65,7 @@ class SubmitResult:
     upo_base64: str | None = None
     status_code: int | None = None
     error: str | None = None
+    pending: bool = False  # przyjety do przetwarzania, status jeszcze nieostateczny
 
 
 @dataclass
@@ -87,6 +92,8 @@ class MFGatewayClient:
         cfg = settings.mf
         self.base_url = base_url or cfg.base_url
         self.cert_path = cert_path or cfg.cert_path
+        self.cert_url = cert_url or cfg.cert_url
+        self.env = cfg.env
         self.timeout = timeout
         self._registry = registry or MFPublicKeyRegistry(
             cache_dir=DATA_DIR / "mf_cert",
@@ -96,9 +103,12 @@ class MFGatewayClient:
         )
 
     def _public_key(self):
+        """Klucz MF: MF_CERT_PATH > MF_CERT_URL (cache z TTL) > certyfikat wbudowany w pakiet."""
         if self.cert_path:
             return load_mf_public_key(self.cert_path)
-        return self._registry.get().key
+        if self.cert_url:
+            return self._registry.get().key
+        return load_mf_public_key(BUNDLED_CERTS_DIR / f"{self.env}.pem")
 
     def _encrypt(self, xml: str, inner_filename: str) -> EncryptedPayload:
         return encrypt_jpk(xml.encode("utf-8"), self._public_key(), inner_filename)
@@ -145,13 +155,19 @@ class MFGatewayClient:
         poll_interval: int = STATUS_POLL_INTERVAL_SEC,
         timeout_sec: int = STATUS_TIMEOUT_SEC,
     ) -> SubmitResult:
-        """Pelny flow: encrypt -> init -> upload -> finish -> poll.
+        """Pelny flow: upload, potem odpytywanie statusu do skutku lub limitu czasu."""
+        uploaded = await self.upload(xml, auth, xml_filename)
+        if not uploaded.success or uploaded.reference_number is None:
+            return uploaded
+        return await self.wait_for_status(uploaded.reference_number, poll_interval, timeout_sec)
 
-        Args:
-            xml: tresc pliku JPK (pelny XML)
-            auth: DaneAutoryzujace (NIP/PESEL + kwota przychodu)
-            xml_filename: nazwa pliku XML (np. "JPK_V7M_2026_03.xml")
-                          uzywane w metadanych i FileName bloba
+    async def upload(
+        self, xml: str, auth: AuthorizationData, xml_filename: str = "jpk.xml"
+    ) -> SubmitResult:
+        """encrypt -> InitUploadSigned -> PUT blob -> FinishUpload; zwraca numer referencyjny.
+
+        Po sukcesie dokument jest u MF (`pending=True`) — status sprawdza sie osobno,
+        takze po restarcie procesu (`check_status` z zapisanym numerem referencyjnym).
         """
         try:
             payload = self._encrypt(xml, xml_filename)
@@ -183,16 +199,38 @@ class MFGatewayClient:
                 )
 
             try:
-                blob_names = [t.blob_name for t in targets]
-                await self._finish_upload(http, ref_num, blob_names)
+                await self._finish_upload(http, ref_num, [t.blob_name for t in targets])
             except Exception as e:
                 return SubmitResult(
                     success=False,
                     reference_number=ref_num,
                     error=f"finish_failed: {e}",
                 )
+        return SubmitResult(success=True, reference_number=ref_num, pending=True)
 
-            return await self._poll_status(http, ref_num, poll_interval, timeout_sec)
+    async def check_status(self, reference_number: str) -> SubmitResult:
+        """Jednorazowe sprawdzenie statusu dokumentu w bramce MF."""
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as http:
+            return await self._status_once(http, reference_number)
+
+    async def wait_for_status(
+        self,
+        reference_number: str,
+        poll_interval: int = STATUS_POLL_INTERVAL_SEC,
+        timeout_sec: int = STATUS_TIMEOUT_SEC,
+    ) -> SubmitResult:
+        """Odpytuj status do wyniku ostatecznego albo limitu czasu (wtedy pending=True)."""
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as http:
+            elapsed = 0
+            while True:
+                result = await self._status_once(http, reference_number)
+                if not result.pending or elapsed >= timeout_sec:
+                    break
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+        if result.pending:
+            result.error = f"timeout_after_{timeout_sec}s"
+        return result
 
     async def _init_upload(
         self,
@@ -256,47 +294,36 @@ class MFGatewayClient:
         )
         resp.raise_for_status()
 
-    async def _poll_status(
-        self,
-        http: httpx.AsyncClient,
-        reference_number: str,
-        poll_interval: int,
-        timeout_sec: int,
-    ) -> SubmitResult:
-        elapsed = 0
-        while elapsed < timeout_sec:
-            resp = await http.get(f"/api/Storage/Status/{reference_number}")
-            if resp.status_code != 200:
-                return SubmitResult(
-                    success=False,
-                    reference_number=reference_number,
-                    status_code=resp.status_code,
-                    error=f"status_http_{resp.status_code}",
-                )
-            data = resp.json()
-            code = data.get("Code")
-            if code == 200:
-                return SubmitResult(
-                    success=True,
-                    reference_number=reference_number,
-                    status_code=200,
-                    upo_base64=data.get("Upo"),
-                )
-            if code is not None and code >= 400:
-                return SubmitResult(
-                    success=False,
-                    reference_number=reference_number,
-                    status_code=code,
-                    error=data.get("Description") or f"mf_error_{code}",
-                )
-            # 100 / 300 — w toku
-            await asyncio.sleep(poll_interval)
-            elapsed += poll_interval
-
+    async def _status_once(self, http: httpx.AsyncClient, reference_number: str) -> SubmitResult:
+        resp = await http.get(f"/api/Storage/Status/{reference_number}")
+        if resp.status_code != 200:
+            # Blad transportu, nie decyzja MF o dokumencie — status nadal nieznany.
+            return SubmitResult(
+                success=False,
+                reference_number=reference_number,
+                status_code=resp.status_code,
+                error=f"status_http_{resp.status_code}",
+                pending=True,
+            )
+        data = resp.json()
+        code = data.get("Code")
+        if code == 200:
+            return SubmitResult(
+                success=True,
+                reference_number=reference_number,
+                status_code=200,
+                upo_base64=data.get("Upo"),
+            )
+        if code is not None and code >= 400:
+            return SubmitResult(
+                success=False,
+                reference_number=reference_number,
+                status_code=code,
+                error=data.get("Description") or f"mf_error_{code}",
+            )
+        # 100 / 300 — w toku
         return SubmitResult(
-            success=False,
-            reference_number=reference_number,
-            error=f"timeout_after_{timeout_sec}s",
+            success=False, reference_number=reference_number, status_code=code, pending=True
         )
 
     @staticmethod

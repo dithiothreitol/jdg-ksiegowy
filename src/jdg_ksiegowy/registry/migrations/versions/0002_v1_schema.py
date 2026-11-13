@@ -144,7 +144,8 @@ def _create_items_table() -> sa.Table:
     )
 
 
-def _backfill_items(items_table: sa.Table) -> None:
+def _legacy_items() -> list[dict[str, Any]]:
+    """Pozycje odtworzone z faktur v0.2 — czytane PRZED skalowaniem kwot i usunieciem vat_rate."""
     bind = op.get_bind()
     data_dir = context.config.attributes.get("data_dir")
     rows = bind.execute(
@@ -158,8 +159,7 @@ def _backfill_items(items_table: sa.Table) -> None:
         )
         for item in items or [_fallback_item(row)]:
             to_insert.append({**item, "invoice_id": row["id"]})
-    if to_insert:
-        op.bulk_insert(items_table, to_insert)
+    return to_insert
 
 
 def _scale_to_hundredths() -> None:
@@ -180,8 +180,9 @@ def _scale_to_hundredths() -> None:
 
 
 def upgrade() -> None:
-    items_table = _create_items_table()
-    _backfill_items(items_table)  # przed skalowaniem — czyta kwoty w PLN
+    # Pozycje tworzymy dopiero PO przebudowie tabeli `invoices` (batch = DROP + RENAME):
+    # przy wlaczonych kluczach obcych DROP kaskadowo skasowalby juz wstawione pozycje.
+    items = _legacy_items()  # przed skalowaniem — czyta kwoty w PLN i stara kolumne vat_rate
     _scale_to_hundredths()
 
     with op.batch_alter_table("invoices") as batch:
@@ -200,6 +201,10 @@ def upgrade() -> None:
         batch.add_column(sa.Column("correction_reason", sa.Text))
         batch.drop_column("vat_rate")
         batch.create_index("ix_invoices_ksef_number", ["ksef_number"])
+
+    items_table = _create_items_table()
+    if items:
+        op.bulk_insert(items_table, items)
 
     op.create_table(
         "filings",

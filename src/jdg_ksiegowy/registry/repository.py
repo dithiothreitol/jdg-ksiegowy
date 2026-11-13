@@ -22,6 +22,7 @@ from jdg_ksiegowy.registry.db import (
     BuyerRecord,
     ContractRecord,
     ExpenseRecord,
+    FilingRecord,
     InvoiceItemRecord,
     InvoiceRecord,
     get_session,
@@ -452,3 +453,111 @@ class ContractRepository:
                 )
                 for r in rows
             ]
+
+
+# --- Zlozone deklaracje (filings) ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class Filing:
+    id: int
+    form: str
+    year: int
+    month: int | None
+    purpose: int
+    file_path: str
+    sha256: str
+    env: str
+    status: str
+    reference_number: str | None
+    status_code: int | None
+    upo_path: str | None
+    error: str | None
+    created_at: datetime
+    submitted_at: datetime | None
+    updated_at: datetime | None
+
+
+def _filing(r: FilingRecord) -> Filing:
+    return Filing(
+        id=r.id,
+        form=r.form,
+        year=r.year,
+        month=r.month,
+        purpose=r.purpose,
+        file_path=r.file_path,
+        sha256=r.sha256,
+        env=r.env,
+        status=r.status,
+        reference_number=r.reference_number,
+        status_code=r.status_code,
+        upo_path=r.upo_path,
+        error=r.error,
+        created_at=r.created_at,
+        submitted_at=r.submitted_at,
+        updated_at=r.updated_at,
+    )
+
+
+class FilingRepository:
+    def __init__(self, session_factory: SessionFactory = get_session):
+        init_db()
+        self._session = session_factory
+
+    def create(
+        self,
+        *,
+        form: str,
+        year: int,
+        month: int | None,
+        purpose: int,
+        file_path: str,
+        sha256: str,
+        env: str,
+    ) -> Filing:
+        now = datetime.now()
+        with self._session() as s:
+            r = FilingRecord(
+                form=form,
+                year=year,
+                month=month,
+                purpose=purpose,
+                file_path=file_path,
+                sha256=sha256,
+                env=env,
+                status="submitting",
+                created_at=now,
+                submitted_at=now,
+            )
+            s.add(r)
+            s.commit()
+            return _filing(r)
+
+    def update(self, filing_id: int, **fields: object) -> Filing:
+        with self._session() as s:
+            r = s.get(FilingRecord, filing_id)
+            if r is None:
+                raise LookupError(f"Brak deklaracji id={filing_id}")
+            for name, value in fields.items():
+                setattr(r, name, value)
+            r.updated_at = datetime.now()
+            s.commit()
+            return _filing(r)
+
+    def get_by_reference(self, reference: str) -> Filing | None:
+        with self._session() as s:
+            r = s.scalar(select(FilingRecord).where(FilingRecord.reference_number == reference))
+            return _filing(r) if r else None
+
+    def list(
+        self, *, form: str | None = None, year: int | None = None, month: int | None = None
+    ) -> list[Filing]:
+        with self._session() as s:
+            q = select(FilingRecord)
+            if form:
+                q = q.where(FilingRecord.form == form)
+            if year is not None:
+                q = q.where(FilingRecord.year == year)
+            if month is not None:
+                q = q.where(FilingRecord.month == month)
+            return [_filing(r) for r in s.scalars(q.order_by(FilingRecord.id.desc()))]

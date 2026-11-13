@@ -21,7 +21,7 @@ body:
     attributes:
       label: Kroki do odtworzenia
       placeholder: |
-        1. `python skills/invoice/scripts/generate.py ...`
+        1. `jdg invoice issue ...`
         2. ...
     validations:
       required: true

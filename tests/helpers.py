@@ -108,3 +108,76 @@ def save_expense(row: ExpenseRow) -> Expense:
     exp = row.to_domain()
     ExpenseRepository().save(exp)
     return exp
+
+
+def seed_parity_dataset() -> None:
+    """Staly zestaw danych dla testu parytetu stare skrypty <-> `jdg` (tests/golden)."""
+    rows = [
+        InvoiceRow(
+            number="A1/09/2026",
+            issue_date=date(2026, 10, 1),
+            sale_date=date(2026, 9, 30),
+            payment_due=date(2026, 10, 15),
+            total_net=Decimal("10000"),
+            paid_at=datetime(2026, 10, 14),
+            status="paid",
+        ),
+        InvoiceRow(
+            number="A1/10/2026",
+            issue_date=date(2026, 10, 31),
+            total_net=Decimal("10500"),
+            payment_due=date(2026, 11, 14),
+        ),
+        InvoiceRow(
+            number="A2/10/2026",
+            issue_date=date(2026, 10, 15),
+            total_net=Decimal("333.33"),
+            vat_rate=Decimal("8"),
+            payment_due=date(2026, 11, 20),
+        ),
+    ]
+    for row in rows:
+        save_invoice(row)
+    expenses = [
+        ExpenseRow(
+            id="e-pl",
+            issue_date=date(2026, 10, 3),
+            receive_date=date(2026, 10, 5),
+            total_net=Decimal("100"),
+            total_vat=Decimal("23"),
+            document_number="FV/1",
+        ),
+        ExpenseRow(
+            id="e-fuel",
+            issue_date=date(2026, 10, 7),
+            total_net=Decimal("200"),
+            total_vat=Decimal("46"),
+            category="paliwo",
+            vat_deduction_pct=Decimal("50"),
+            document_number="FV/2",
+        ),
+        ExpenseRow(
+            id="e-us",
+            issue_date=date(2026, 10, 10),
+            total_net=Decimal("765.92"),
+            total_vat=Decimal("176.16"),
+            seller_name="Anthropic PBC",
+            seller_nip="",
+            seller_country="US",
+            reverse_charge=True,
+            document_number="INV-1",
+        ),
+        ExpenseRow(
+            id="e-de",
+            issue_date=date(2026, 10, 12),
+            total_net=Decimal("100"),
+            total_vat=Decimal("23"),
+            seller_name="Hetzner",
+            seller_nip="DE812871812",
+            seller_country="DE",
+            reverse_charge=True,
+            document_number="R-1",
+        ),
+    ]
+    for exp in expenses:
+        save_expense(exp)

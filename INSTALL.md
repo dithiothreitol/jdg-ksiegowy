@@ -215,7 +215,7 @@ dedicated "JDG Podatki" calendar. One-time OAuth setup:
    python3 -m jdg_ksiegowy.calendar.auth_setup
    ```
    This stores a refresh token in `data/gcal_token.json` — afterwards the sync runs headless.
-4. Test: `python3 skills/calendar-sync/scripts/sync.py --dry-run`, then without `--dry-run`.
+4. Test: `jdg calendar sync --dry-run`, then without `--dry-run`.
    The daily cron in `CRON.md` keeps it in sync.
 
 ---
@@ -414,13 +414,13 @@ Wyslij ostatnia fakture do KSeF
 
 Expected: reference number from KSeF test environment
 
-### Test 4: Manual skill execution
+### Test 4: CLI without the agent
 
 ```bash
-python3 skills/tax-calculator/scripts/calculate.py --netto 10500
-python3 skills/invoice/scripts/generate.py \
-  --buyer-name "Test Sp. z o.o." --buyer-nip "1234567890" --netto 5000
-python3 skills/jpk/scripts/generate_jpk.py --month 4 --year 2026
+jdg tax calc --net 10500
+jdg invoice issue --buyer-nip 5260250274 --buyer-name "Test Sp. z o.o." \
+  --buyer-address "ul. Testowa 1, 00-001 Warszawa" --description "Test" --net 5000
+jdg jpk build --year 2026 --month 4
 ```
 
 ---

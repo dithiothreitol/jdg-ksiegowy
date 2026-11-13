@@ -33,4 +33,4 @@ USER node
 
 COPY --chown=node:node SOUL.md /home/node/.openclaw/workspace/SOUL.md
 COPY --chown=node:node HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
-COPY --chown=node:node skills/ /home/node/.openclaw/workspace/skills/
+COPY --chown=node:node plugins/jdg-ksiegowy/skills/ /home/node/.openclaw/workspace/skills/

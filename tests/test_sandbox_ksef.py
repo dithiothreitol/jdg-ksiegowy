@@ -65,3 +65,28 @@ def test_send_invoice_returns_ksef_number_and_upo(sandbox_seller):
     assert result.ksef_number.startswith(sandbox_seller)
     assert result.reference_number and result.reference_number != result.ksef_number
     assert result.upo and b"<" in result.upo
+
+
+def test_cli_two_phase_send_on_sandbox(sandbox_seller, isolated_db):
+    """Sciezka `jdg`: wystawienie -> podsumowanie + token -> wysylka -> numer KSeF w rejestrze."""
+    from jdg_ksiegowy.app import invoices, ksef
+    from jdg_ksiegowy.app.errors import ConfirmationRequiredError
+    from jdg_ksiegowy.registry.repository import InvoiceRepository
+
+    issued = invoices.issue_invoice(
+        invoices.IssueInvoiceInput(
+            buyer_nip=_fake_nip(),
+            buyer_name="Nabywca Sandbox",
+            buyer_address="ul. Inna 2, 00-002 Warszawa",
+            description="Test e2e CLI",
+            net=Decimal("10"),
+        )
+    )
+    with pytest.raises(ConfirmationRequiredError) as pending:
+        ksef.send_invoice(issued.number)
+    assert pending.value.summary["env"] == "test"
+
+    sent = ksef.send_invoice(issued.number, confirm=pending.value.token)
+
+    assert is_ksef_number(sent.ksef_number)
+    assert InvoiceRepository().get(issued.number).ksef_number == sent.ksef_number

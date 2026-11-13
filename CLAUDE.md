@@ -15,14 +15,13 @@ OpenClaw Gateway
   +-- HEARTBEAT.md          # Checklist co 30 min (platnosci, terminy)
   +-- Cron Jobs              # Miesieczne: faktury, JPK, przypomnienia
   |
-  +-- skills/                # AgentSkills (deterministyczna logika Python)
-  |   +-- tax-calculator/    # VAT, ryczalt, ZUS (importuje z tax/zus.py)
-  |   +-- invoice/           # DOCX + XML FA(3) + zapis do SQLite
-  |   +-- ksef/              # Wyslka do KSeF via ksef2 SDK
-  |   +-- jpk/               # JPK_V7M generator
+  +-- plugins/jdg-ksiegowy/skills/   # Skille agenta: faktury, koszty, vat-jpk, podatki,
+  |                                  # administracja — wolaja CLI `jdg`
   |
   +-- src/jdg_ksiegowy/      # Biblioteka Python (rdzen logiki)
-  |   +-- config.py          # Pydantic Settings z .env
+  |   +-- app/               # Przypadki uzycia (typowane wejscie/wyjscie, potwierdzenia, audyt)
+  |   +-- cli/               # CLI `jdg` (Typer + Rich; JSON dla agentow, `jdg schema`)
+  |   +-- config.py          # Pydantic Settings z .env (JDG_HOME)
   |   +-- invoice/           # Modele, generator DOCX, generator XML
   |   +-- ksef/              # KSeF API client (ksef2)
   |   +-- tax/               # JPK, ZUS (single source of truth)
@@ -63,9 +62,10 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 # Migracje bazy (Alembic) uruchamiaja sie same przy init_db();
 # nowa migracja: uv run alembic revision --autogenerate -m "opis"
 
-# Test skills:
-uv run python skills/tax-calculator/scripts/calculate.py --netto 10500
-uv run python skills/invoice/scripts/generate.py --buyer-name "Firma" --buyer-nip 1234567890 --netto 10500
+# CLI (to samo wywoluja skille agenta):
+uv run jdg --help
+uv run jdg tax calc --net 10500
+uv run jdg schema                       # kontrakt komend dla agentow
 ```
 
 ## Darmowy hosting
@@ -77,7 +77,9 @@ Na tej maszynie użyj qwen3.5:9b (6.6 GB) — 35b się nie zmieści w 24 GB RAM.
 
 - Python 3.12+, Decimal (nie float) dla kwot
 - ZUS/podatki: single source of truth w `src/jdg_ksiegowy/tax/zus.py`
-- Skill scripts importuja zainstalowany pakiet `jdg_ksiegowy` (uv sync) — bez sys.path
+- Nowa funkcja = przypadek uzycia w `app/` (model wejscia/wyjscia) + komenda w `cli/`;
+  czynnosci nieodwracalne przez `require_confirmation` (dwufazowo, z audytem)
+- Kontrakt CLI pilnuje `tests/golden/schema.json` (UPDATE_GOLDEN=1 po swiadomej zmianie)
 - Logika biznesowa dostaje modele domenowe z `registry.repository`, nie rekordy ORM
 - Kwoty w bazie jako grosze (INTEGER), w Pythonie `Decimal`
 - Dane sprzedawcy TYLKO z .env (zero hardkodu)

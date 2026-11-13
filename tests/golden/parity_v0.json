@@ -1,0 +1,102 @@
+{
+  "jpk_v7m_2026_10": {
+    "invoice_count": 2,
+    "expense_count": 4,
+    "sales_total_net": "10833.33",
+    "sales_total_vat": "2441.67",
+    "expenses_deductible_vat": "245.16",
+    "vat_due": "2640.83",
+    "vat_to_pay": "2395.67"
+  },
+  "jpk_ewp_2026": {
+    "invoice_count": 3,
+    "total_revenue": "20833.33"
+  },
+  "pit28_2026": {
+    "annual_sales_net": "20833.33",
+    "annual_ryczalt": "2500.00",
+    "annual_ryczalt_rounded": "2500",
+    "monthly": [
+      {
+        "month": 9,
+        "sales_net": "10000.00",
+        "ryczalt": "1200.00"
+      },
+      {
+        "month": 10,
+        "sales_net": "10833.33",
+        "ryczalt": "1300.00"
+      }
+    ]
+  },
+  "tax_calc": {
+    "vat_amount": "2415.00",
+    "brutto": "12915.00",
+    "ryczalt_amount": "1260.00",
+    "zus_health_monthly": "830.58",
+    "zus_social_monthly": "1788.29",
+    "zus_total_monthly": "2618.87",
+    "total_monthly_tax": "6293.87",
+    "deadlines": {
+      "ryczalt_zus": "2026-12-20",
+      "vat_jpk": "2026-12-25"
+    }
+  },
+  "status_2026_11_13": {
+    "reminders": [
+      {
+        "label": "Faktura A1/10/2026 (Klient)",
+        "due_date": "2026-11-14",
+        "amount": "12915.00"
+      },
+      {
+        "label": "Ryczalt za 10/2026",
+        "due_date": "2026-11-20",
+        "amount": "1300.00"
+      },
+      {
+        "label": "ZUS zdrowotne za 10/2026",
+        "due_date": "2026-11-20",
+        "amount": "830.58"
+      },
+      {
+        "label": "Faktura A2/10/2026 (Klient)",
+        "due_date": "2026-11-20",
+        "amount": "360.00"
+      },
+      {
+        "label": "VAT + JPK_V7M za 10/2026",
+        "due_date": "2026-11-25",
+        "amount": "2395.67"
+      }
+    ],
+    "month_summary": {
+      "sales_net": "0.00",
+      "sales_vat": "0.00",
+      "expenses_net": "0.00",
+      "expenses_vat": "0.00",
+      "estimated_ryczalt": "1300.00",
+      "estimated_zus_health": "830.58"
+    },
+    "unpaid": [
+      "A1/10/2026",
+      "A2/10/2026"
+    ],
+    "overdue": []
+  },
+  "expenses_2026_10": {
+    "count": 4,
+    "ids": [
+      "e-de",
+      "e-fuel",
+      "e-pl",
+      "e-us"
+    ]
+  },
+  "dra_2026_10": {
+    "health_contribution": "830.58",
+    "social_contribution": "0.00",
+    "total": "830.58",
+    "deadline": "2026-11-20"
+  }
+}
