@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/ZUS-cumulative_health_tier-green" alt="ZUS" />
   <img src="https://img.shields.io/badge/OCR-Pixtral_+_Claude_Haiku-blue" alt="OCR" />
   <img src="https://img.shields.io/badge/MF_Gateway-REST_+_AES%2BRSA-blue" alt="MF Gateway" />
-  <img src="https://img.shields.io/badge/tests-358_passing-green" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-381_passing-green" alt="Tests" />
   <img src="https://img.shields.io/badge/OpenClaw-agent-orange?logo=lobster" alt="OpenClaw" />
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License" />
   <img src="https://img.shields.io/badge/status-beta-yellow" alt="Status" />
