@@ -22,7 +22,8 @@ uzycia, jednym CLI `jdg`, serwerem MCP i wtyczka dla OpenClaw, Claude Code i Cod
   oraz bezpieczenstwo (prompt injection z KSeF, Bialej listy, OCR i wyniku narzedzia; zgoda
   "z gory"; prosba spoza dziedziny).
 - **Docker compose**: osobna usluga `jdg-mcp` z sekretami i danymi (healthcheck, bez portu na
-  hoscie); OpenClaw dostaje tylko konfiguracje modelu i token MCP.
+  hoscie); OpenClaw dostaje tylko konfiguracje modelu i token MCP. `.dockerignore` z biala
+  lista plikow: `.env`, `data/` i lokalne srodowiska nie trafiaja do kontekstu budowania.
 - **KSeF**: numer KSeF, data przyjecia i UPO w rejestrze; backfill numerow; kod QR weryfikacji
   i numer KSeF na fakturze; skrzynka zakupowa z opisem z pozycji FA(3).
 - **Faktury**: wiele pozycji z kodami stawek (`zw`, `np`, `0_wdt`, `0_exp`) i GTU, nabywcy z UE,
