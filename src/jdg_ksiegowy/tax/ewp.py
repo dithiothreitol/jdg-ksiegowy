@@ -121,8 +121,8 @@ def generate_jpk_ewp(
         # K_3 = data uzyskania przychodu (art. 14 ust. 1c) — ta sama regula co PIT-28.
         etree.SubElement(wiersz, _ns("K_3")).text = income_date(inv).isoformat()
         etree.SubElement(wiersz, _ns("K_4")).text = inv.number
-        if inv.ksef_reference:
-            etree.SubElement(wiersz, _ns("K_5")).text = inv.ksef_reference
+        if inv.ksef_number:
+            etree.SubElement(wiersz, _ns("K_5")).text = inv.ksef_number
         etree.SubElement(wiersz, _ns("K_6")).text = inv.buyer.country_code
         etree.SubElement(wiersz, _ns("K_7")).text = inv.buyer.nip
         etree.SubElement(wiersz, _ns("K_8")).text = f"{inv.total_net:.2f}"

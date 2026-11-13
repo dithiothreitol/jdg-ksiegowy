@@ -3,13 +3,10 @@
 
 import argparse
 import json
-import sys
-from pathlib import Path
+from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
-from jdg_ksiegowy.registry.db import get_invoices, init_db
-from jdg_ksiegowy.registry.payments import mark_paid, match_payments, parse_bank_csv
+from jdg_ksiegowy.registry.payments import match_payments, parse_bank_csv
+from jdg_ksiegowy.registry.repository import InvoiceRepository
 
 
 def main():
@@ -22,9 +19,9 @@ def main():
     )
     args = parser.parse_args()
 
-    init_db()
+    repo = InvoiceRepository()
     bank_rows = parse_bank_csv(args.csv_path)
-    invoices = get_invoices()
+    invoices = repo.list()
     match = match_payments(bank_rows, invoices)
 
     out: dict = {
@@ -42,10 +39,8 @@ def main():
             "marked_paid": False,
         }
         if args.auto_mark:
-            from datetime import datetime
-
-            r = mark_paid(inv.number, datetime.combine(row.transaction_date, datetime.min.time()))
-            entry["marked_paid"] = r.success
+            repo.mark_paid(inv.number, datetime.combine(row.transaction_date, datetime.min.time()))
+            entry["marked_paid"] = True
         out["matched"].append(entry)
 
     print(json.dumps(out, ensure_ascii=False, indent=2))

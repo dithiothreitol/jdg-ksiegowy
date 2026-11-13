@@ -69,25 +69,18 @@ def test_nadwyzka_when_input_exceeds_output():
 
 def test_dashboard_estimate_matches_declaration(isolated_db):
     """Szacunek z dashboardu == P_51 z wygenerowanego JPK_V7M (ten sam okres)."""
-    from jdg_ksiegowy.registry.db import (
-        ExpenseRecord,
-        InvoiceRecord,
-        init_db,
-        save_expense,
-        save_invoice,
-    )
     from jdg_ksiegowy.status.dashboard import Dashboard
+    from tests.helpers import ExpenseRow, InvoiceRow, save_expense, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i1",
             number="A1/05/2026",
             issue_date=date(2026, 5, 31),
             sale_date=date(2026, 5, 31),
             payment_due=date(2026, 6, 14),
             buyer_name="Klient",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("10000"),
             total_vat=Decimal("2300"),
             total_gross=Decimal("12300"),
@@ -95,7 +88,7 @@ def test_dashboard_estimate_matches_declaration(isolated_db):
         )
     )
     save_expense(
-        ExpenseRecord(
+        ExpenseRow(
             id="e1",
             seller_name="AWS EMEA",
             seller_nip="IE9692928F",

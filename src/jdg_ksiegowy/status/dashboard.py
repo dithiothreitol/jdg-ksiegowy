@@ -1,7 +1,7 @@
 """Generator snapshotu JDG: nadchodzace/zalegle terminy, stan faktur, podsumowanie miesiaca.
 
-Dashboard dziala odczytujac wylacznie z SQLite + liczac terminy z `tax.zus`
-i `invoice.calculator` — nie hitsuje sieci.
+Dashboard czyta wylacznie rejestr (repozytoria) i liczy terminy z `tax.zus`
+i `invoice.calculator` — nie siega do sieci.
 """
 
 from __future__ import annotations
@@ -13,14 +13,10 @@ from enum import StrEnum
 from typing import Literal
 
 from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
-from jdg_ksiegowy.registry.db import (
-    ExpenseRecord,
-    InvoiceRecord,
-    get_expenses,
-    get_invoices,
-    init_db,
-)
+from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.registry.repository import ExpenseRepository, InvoiceRepository
 from jdg_ksiegowy.tax.income import income_date
 from jdg_ksiegowy.tax.jpk import settle_vat
 from jdg_ksiegowy.tax.zus import get_zus_tier
@@ -49,8 +45,8 @@ class Reminder:
 class DashboardSnapshot:
     today: date
     reminders: list[Reminder] = field(default_factory=list)
-    unpaid_invoices: list[InvoiceRecord] = field(default_factory=list)
-    overdue_invoices: list[InvoiceRecord] = field(default_factory=list)
+    unpaid_invoices: list[Invoice] = field(default_factory=list)
+    overdue_invoices: list[Invoice] = field(default_factory=list)
     month_sales_net: Decimal = Decimal("0")
     month_sales_vat: Decimal = Decimal("0")
     month_expenses_net: Decimal = Decimal("0")
@@ -66,9 +62,8 @@ class Dashboard:
         self.today = today or date.today()
 
     def snapshot(self) -> DashboardSnapshot:
-        init_db()
-        invoices = get_invoices()
-        expenses = get_expenses()
+        invoices = InvoiceRepository().list()
+        expenses = ExpenseRepository().list()
 
         prev_month = self.today.month - 1 if self.today.month > 1 else 12
         prev_year = self.today.year if self.today.month > 1 else self.today.year - 1
@@ -119,7 +114,7 @@ class Dashboard:
 
     def _sum_invoices(
         self,
-        records: list[InvoiceRecord],
+        records: list[Invoice],
         year: int,
         month: int,
         *,
@@ -134,34 +129,18 @@ class Dashboard:
         """
         period_date = income_date if by == "income" else (lambda r: r.sale_date)
         filtered = [r for r in records if (d := period_date(r)).year == year and d.month == month]
-        net = sum((Decimal(str(r.total_net)) for r in filtered), Decimal("0"))
-        vat = sum((Decimal(str(r.total_vat)) for r in filtered), Decimal("0"))
+        net = sum((r.total_net for r in filtered), Decimal("0"))
+        vat = sum((r.total_vat for r in filtered), Decimal("0"))
         return net, vat
 
     def _sum_expenses(
-        self, records: list[ExpenseRecord], year: int, month: int
+        self, records: list[Expense], year: int, month: int
     ) -> tuple[Decimal, Decimal]:
         filtered = [
-            r
-            for r in records
-            if r.receive_date.year == year
-            and r.receive_date.month == month
-            and Decimal(str(r.vat_deduction_pct)) > 0
+            r for r in records if r.receive_date.year == year and r.receive_date.month == month
         ]
-        net = sum(
-            (
-                Decimal(str(r.total_net)) * Decimal(str(r.vat_deduction_pct)) / Decimal("100")
-                for r in filtered
-            ),
-            Decimal("0"),
-        )
-        vat = sum(
-            (
-                Decimal(str(r.total_vat)) * Decimal(str(r.vat_deduction_pct)) / Decimal("100")
-                for r in filtered
-            ),
-            Decimal("0"),
-        )
+        net = sum((r.deductible_net for r in filtered), Decimal("0"))
+        vat = sum((r.deductible_vat for r in filtered), Decimal("0"))
         return net, vat
 
     def _build_reminders(
@@ -184,17 +163,17 @@ class Dashboard:
 
     def _invoice_reminders(
         self,
-        overdue: list[InvoiceRecord],
-        unpaid: list[InvoiceRecord],
+        overdue: list[Invoice],
+        unpaid: list[Invoice],
     ) -> list[Reminder]:
         reminders: list[Reminder] = []
         for inv in overdue:
             days = (inv.payment_due - self.today).days
             reminders.append(
                 Reminder(
-                    label=f"Faktura {inv.number} ({inv.buyer_name}) — PO TERMINIE",
+                    label=f"Faktura {inv.number} ({inv.buyer.name}) — PO TERMINIE",
                     due_date=inv.payment_due,
-                    amount=Decimal(str(inv.total_gross)),
+                    amount=inv.total_gross,
                     level=ReminderLevel.OVERDUE,
                     days_until=days,
                     key=f"invoice-{inv.number}",
@@ -205,9 +184,9 @@ class Dashboard:
             if days <= 7:
                 reminders.append(
                     Reminder(
-                        label=f"Faktura {inv.number} ({inv.buyer_name})",
+                        label=f"Faktura {inv.number} ({inv.buyer.name})",
                         due_date=inv.payment_due,
-                        amount=Decimal(str(inv.total_gross)),
+                        amount=inv.total_gross,
                         level=self._level_for(days),
                         days_until=days,
                         key=f"invoice-{inv.number}",

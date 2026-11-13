@@ -1,7 +1,7 @@
-"""Mapowanie metadanych faktur z KSeF -> rekord kosztu (ExpenseRecord).
+"""Mapowanie metadanych faktur z KSeF -> koszt domenowy (Expense).
 
 Czysta logika domenowa: zero sieci, zero DB. Wejscie to surowy InvoiceMetadata
-z ksef2; wyjscie to ExpenseRecord gotowy do save_expense().
+z ksef2; wyjscie to Expense gotowy do ExpenseRepository.save().
 
 Decyzje (patrz plan):
 - receive_date = data przyjecia w KSeF (decyduje o miesiacu JPK_V7M),
@@ -14,11 +14,10 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
-from jdg_ksiegowy.expenses.models import ExpenseCategory
-from jdg_ksiegowy.registry.db import ExpenseRecord
+from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
 
 if TYPE_CHECKING:
-    from ksef2.domain.models.invoices import InvoiceMetadata
+    from ksef2.models import InvoiceMetadata
 
 # Stacje paliw -> kategoria PALIWO (heurystyka po nazwie sprzedawcy).
 _FUEL_SELLERS = (
@@ -87,17 +86,16 @@ def _effective_vat_rate(net: Decimal, vat: Decimal) -> Decimal:
     return (vat / net * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
-def metadata_to_record(
+def metadata_to_expense(
     meta: InvoiceMetadata,
     *,
     xml_path: str | None = None,
     category: ExpenseCategory | None = None,
     vat_deduction_pct: Decimal = Decimal("100"),
-) -> ExpenseRecord:
-    """Zmapuj metadane faktury KSeF na ExpenseRecord (bez zapisu do DB)."""
+) -> Expense:
+    """Zmapuj metadane faktury KSeF na Expense (bez zapisu do DB)."""
     net = _dec(meta.net_amount)
     vat = _dec(meta.vat_amount)
-    gross = _dec(meta.gross_amount)
     vat_rate = _effective_vat_rate(net, vat)
 
     cat = category if category is not None else _infer_category(meta.seller.name or "")
@@ -114,7 +112,7 @@ def metadata_to_record(
     # id wg konwencji add.py; fallback na ksef_number gdy sprzedawca bez NIP (zagraniczny).
     record_id = f"{seller_nip}-{meta.invoice_number}" if seller_nip else meta.ksef_number
 
-    return ExpenseRecord(
+    return Expense(
         id=record_id,
         seller_name=meta.seller.name or "",
         seller_nip=seller_nip,
@@ -123,10 +121,9 @@ def metadata_to_record(
         issue_date=meta.issue_date,
         receive_date=meta.acquisition_date.date(),  # wplyw do KSeF -> miesiac JPK
         description="",
-        category=cat.value,
+        category=cat,
         total_net=net,
         total_vat=vat,
-        total_gross=gross,
         vat_rate=vat_rate,
         vat_deduction_pct=vat_deduction_pct,
         file_path=xml_path,

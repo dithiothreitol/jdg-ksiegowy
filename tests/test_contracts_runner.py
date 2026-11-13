@@ -15,15 +15,12 @@ def _autouse_isolated_db(isolated_db):
 
 
 def _contract(**kwargs):
-    from jdg_ksiegowy.registry.db import ContractRecord, init_db, save_contract
+    from jdg_ksiegowy.invoice.models import Buyer, Contract
+    from jdg_ksiegowy.registry.repository import ContractRepository
 
-    init_db()
     defaults = dict(
         id=str(uuid.uuid4()),
-        buyer_name="Klient",
-        buyer_nip="5260250274",
-        buyer_address="ul. X 1",
-        buyer_email=None,
+        buyer=Buyer(name="Klient", nip="5260250274", address="ul. X 1"),
         description="Usluga IT",
         net_amount=Decimal("2000"),
         vat_rate=Decimal("23"),
@@ -34,9 +31,9 @@ def _contract(**kwargs):
         active=True,
     )
     defaults.update(kwargs)
-    rec = ContractRecord(**defaults)
-    save_contract(rec)
-    return rec
+    contract = Contract(**defaults)
+    ContractRepository().save(contract)
+    return contract
 
 
 class TestLastWorkingDay:
@@ -58,12 +55,8 @@ class TestLastWorkingDay:
 
 class TestRunContracts:
     def test_no_contracts_no_invoices(self):
-        from jdg_ksiegowy.registry.db import init_db
-
-        init_db()
         result = run_contracts(today=date(2026, 4, 30))
         assert result.generated == []
-        assert result.errors == []
 
     def test_contract_fires_on_last_working_day(self):
         _contract(day_of_month=-1)
@@ -94,10 +87,10 @@ class TestRunContracts:
         assert result.generated == []
 
     def test_invoice_saved_to_db(self):
-        from jdg_ksiegowy.registry.db import get_invoices
+        from jdg_ksiegowy.registry.repository import InvoiceRepository
 
         _contract(day_of_month=10)
         run_contracts(today=date(2026, 4, 10))
-        invoices = get_invoices(month=4, year=2026)
+        invoices = InvoiceRepository().list(year=2026, month=4)
         assert len(invoices) == 1
         assert invoices[0].total_gross == Decimal("2460.00")  # 2000 + 23%

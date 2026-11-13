@@ -3,27 +3,16 @@
 
 import argparse
 import json
-import sys
 from datetime import date, timedelta
-from pathlib import Path
 
 # Dodaj src/ do PYTHONPATH
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
 from decimal import Decimal
 
 from jdg_ksiegowy.config import DATA_DIR, settings
 from jdg_ksiegowy.invoice.generator_docx import generate_invoice_docx
 from jdg_ksiegowy.invoice.generator_xml import save_invoice_xml
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
-from jdg_ksiegowy.registry.db import (
-    InvoiceRecord,
-    find_buyer_by_nip,
-    get_next_invoice_number,
-    init_db,
-    save_buyer,
-    save_invoice,
-)
+from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceStatus, LineItem
+from jdg_ksiegowy.registry.repository import BuyerRepository, InvoiceRepository
 
 
 def parse_period(period_str: str) -> tuple[date, date]:
@@ -57,8 +46,9 @@ def main():
     )
     args = parser.parse_args()
 
-    init_db()
     seller = settings.seller
+    invoices = InvoiceRepository()
+    buyers = BuyerRepository()
 
     issue_date = date.fromisoformat(args.issue_date) if args.issue_date else date.today()
     sale_date = date.fromisoformat(args.sale_date) if args.sale_date else issue_date
@@ -72,10 +62,10 @@ def main():
 
     # Reuse zapamiętanego kontrahenta po NIP — jeśli istnieje, uzupełniamy
     # brakujące pola z rejestru zamiast wymagać przepisywania danych.
-    cached = find_buyer_by_nip(args.buyer_nip)
-    buyer_name = args.buyer_name or (cached.name if cached else "")
-    buyer_address = args.buyer_address or (cached.address if cached else "")
-    buyer_email = args.buyer_email or (cached.email if cached else "") or None
+    cached = buyers.find_by_nip(args.buyer_nip)
+    buyer_name = args.buyer_name or (cached.buyer.name if cached else "")
+    buyer_address = args.buyer_address or (cached.buyer.address if cached else "")
+    buyer_email = args.buyer_email or (cached.buyer.email if cached else "") or None
     description = (
         args.description
         or (cached.default_description if cached else "")
@@ -86,7 +76,7 @@ def main():
             f"NIP {args.buyer_nip} nie ma w rejestrze kontrahentów — podaj --buyer-name"
         )
 
-    number = get_next_invoice_number(issue_date.month, issue_date.year)
+    number = invoices.next_number(issue_date.month, issue_date.year)
 
     period_from, period_to = None, None
     if args.period:
@@ -119,35 +109,15 @@ def main():
 
     docx_path = generate_invoice_docx(invoice, month_dir / f"faktura_{safe_number}.docx")
     xml_path = save_invoice_xml(invoice, month_dir / f"faktura_{safe_number}.xml")
-
-    record = InvoiceRecord(
-        id=invoice.id,
-        number=number,
-        issue_date=issue_date,
-        sale_date=sale_date,
-        payment_due=payment_due,
-        buyer_name=buyer_name,
-        buyer_nip=args.buyer_nip,
-        buyer_address=buyer_address,
-        total_net=invoice.total_net,
-        total_vat=invoice.total_vat,
-        total_gross=invoice.total_gross,
-        vat_rate=seller.vat_rate,
-        status="generated",
-        docx_path=str(docx_path),
-        xml_path=str(xml_path),
+    invoice = invoice.model_copy(
+        update={
+            "status": InvoiceStatus.GENERATED,
+            "docx_path": str(docx_path),
+            "xml_path": str(xml_path),
+        }
     )
-    save_invoice(record)
-
-    # Dograj do rejestru kontrahentów email i typowy opis (InvoiceRecord ich nie nosi)
-    if buyer_email or description:
-        existing = find_buyer_by_nip(args.buyer_nip)
-        if existing is not None:
-            if buyer_email:
-                existing.email = buyer_email
-            if description and not existing.default_description:
-                existing.default_description = description
-            save_buyer(existing)
+    invoices.save(invoice)
+    buyers.remember_description(args.buyer_nip, description)
 
     result = {
         "number": number,

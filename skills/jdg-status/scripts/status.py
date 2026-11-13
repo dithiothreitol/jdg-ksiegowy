@@ -3,11 +3,7 @@
 
 import argparse
 import json
-import sys
 from datetime import date
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.status import Dashboard
 
@@ -46,7 +42,7 @@ def main():
             "unpaid_invoices": [
                 {
                     "number": i.number,
-                    "buyer": i.buyer_name,
+                    "buyer": i.buyer.name,
                     "gross": str(i.total_gross),
                     "due": i.payment_due.isoformat(),
                 }
@@ -55,7 +51,7 @@ def main():
             "overdue_invoices": [
                 {
                     "number": i.number,
-                    "buyer": i.buyer_name,
+                    "buyer": i.buyer.name,
                     "gross": str(i.total_gross),
                     "due": i.payment_due.isoformat(),
                 }
@@ -82,10 +78,10 @@ def main():
         print(f"  {marker} [{r.due_date}] {r.label}{amt} ({r.days_until}d)")
     print(f"\nFAKTURY PO TERMINIE ({len(snap.overdue_invoices)}):")
     for i in snap.overdue_invoices:
-        print(f"  ❌ {i.number} {i.buyer_name}: {i.total_gross} PLN, due {i.payment_due}")
+        print(f"  ❌ {i.number} {i.buyer.name}: {i.total_gross} PLN, due {i.payment_due}")
     print(f"\nFAKTURY NIEZAPLACONE ({len(snap.unpaid_invoices)}):")
     for i in snap.unpaid_invoices:
-        print(f"  • {i.number} {i.buyer_name}: {i.total_gross} PLN, due {i.payment_due}")
+        print(f"  • {i.number} {i.buyer.name}: {i.total_gross} PLN, due {i.payment_due}")
     print(f"\nMIESIAC {snap.today.strftime('%m/%Y')}:")
     print(f"  Sprzedaz: {snap.month_sales_net:.2f} netto, {snap.month_sales_vat:.2f} VAT")
     print(f"  Koszty:   {snap.month_expenses_net:.2f} netto, {snap.month_expenses_vat:.2f} VAT")

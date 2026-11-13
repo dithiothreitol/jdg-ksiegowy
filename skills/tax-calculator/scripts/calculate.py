@@ -7,14 +7,10 @@ Importuje logike z src/jdg_ksiegowy/tax/ (single source of truth).
 
 import argparse
 import json
-import sys
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
 
 # Dodaj src/ do PYTHONPATH
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 from jdg_ksiegowy.tax.zus import (

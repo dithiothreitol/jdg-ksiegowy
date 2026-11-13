@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import httpx
 from pydantic import BaseModel, Field
@@ -121,7 +121,10 @@ class ClaudeOCR:
         self.max_tokens = settings.ocr.claude_max_tokens
 
     def extract(self, file_path: Path) -> ExtractedExpense:
+        from anthropic.types import MessageParam, TextBlock
+
         media_type = mimetypes.guess_type(str(file_path))[0] or "image/jpeg"
+        content_block: dict[str, object]
         if media_type == "application/pdf":
             content_block = {
                 "type": "document",
@@ -141,23 +144,25 @@ class ClaudeOCR:
                 },
             }
 
-        message = self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=OCR_SYSTEM_PROMPT,
-            messages=[
+        messages = [
+            cast(
+                MessageParam,
                 {
                     "role": "user",
                     "content": [
                         content_block,
                         {"type": "text", "text": "Wyciagnij dane i zwroc JSON."},
                     ],
-                }
-            ],
+                },
+            )
+        ]
+        message = self._client.messages.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            system=OCR_SYSTEM_PROMPT,
+            messages=messages,
         )
-        text = "".join(
-            block.text for block in message.content if getattr(block, "type", None) == "text"
-        )
+        text = "".join(block.text for block in message.content if isinstance(block, TextBlock))
         return _parse_ocr_response(text, source="claude")
 
 

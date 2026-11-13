@@ -3,11 +3,8 @@
 
 import argparse
 import json
-import sys
 from decimal import Decimal
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.zus.dra import DRARequest, dra_deadline, generate_dra_xml
 

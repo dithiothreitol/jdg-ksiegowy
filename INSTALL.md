@@ -223,15 +223,17 @@ dedicated "JDG Podatki" calendar. One-time OAuth setup:
 ## 7. Initialize Database
 
 ```bash
-python3 -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
+uv run python -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
 ```
 
-This creates `data/jdg_ksiegowy.db` with tables for invoices, contracts, and tax payments.
+This creates `data/jdg_ksiegowy.db` (or migrates an existing one with Alembic) — invoices with
+line items, expenses, contracts, tax payments, filings and the audit log. The same migration runs
+automatically on first use, so this step is optional.
 
 Verify:
 
 ```bash
-python3 -c "
+uv run python -c "
 from jdg_ksiegowy.registry.db import get_session, InvoiceRecord
 with get_session() as s:
     print(f'Invoices: {s.query(InvoiceRecord).count()}')

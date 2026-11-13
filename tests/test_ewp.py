@@ -90,9 +90,9 @@ def test_ewp_stawka_12_5_has_decimal():
     assert root.find(f".//{_ns('K_9')}").text == "12.5"
 
 
-def test_ewp_includes_ksef_reference_when_present():
+def test_ewp_includes_ksef_number_when_present():
     inv = _invoice(4, Decimal("1000"))
-    inv.ksef_reference = "KSEF-2026-04-15-ABC123"
+    inv.ksef_number = "5260250274-20260415-0A1B2C-3D4E5F-6A"
     xml = generate_jpk_ewp([inv], year=2026, ryczalt_rate=Decimal("12"))
     root = etree.fromstring(xml.encode("utf-8"))
-    assert root.find(f".//{_ns('K_5')}").text == "KSEF-2026-04-15-ABC123"
+    assert root.find(f".//{_ns('K_5')}").text == "5260250274-20260415-0A1B2C-3D4E5F-6A"

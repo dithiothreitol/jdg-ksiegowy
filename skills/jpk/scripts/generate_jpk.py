@@ -3,64 +3,12 @@
 
 import argparse
 import json
-import sys
 from decimal import Decimal
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
 from jdg_ksiegowy.config import DATA_DIR
-from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
-from jdg_ksiegowy.registry.db import get_expenses, get_invoices, init_db
+from jdg_ksiegowy.registry.repository import ExpenseRepository, InvoiceRepository
 from jdg_ksiegowy.tax.jpk import save_jpk_v7m, settle_vat
-
-
-def records_to_invoices(records):
-    invoices = []
-    for r in records:
-        vat_rate = Decimal(str(r.vat_rate)) if r.vat_rate else Decimal("23")
-        inv = Invoice(
-            id=r.id,
-            number=r.number,
-            issue_date=r.issue_date,
-            sale_date=r.sale_date,
-            payment_due=r.payment_due,
-            buyer=Buyer(name=r.buyer_name, nip=r.buyer_nip, address=r.buyer_address or ""),
-            items=[
-                LineItem(
-                    description="(z rejestru)",
-                    unit_price_net=Decimal(str(r.total_net)),
-                    vat_rate=vat_rate,
-                )
-            ],
-        )
-        invoices.append(inv)
-    return invoices
-
-
-def records_to_expenses(records):
-    return [
-        Expense(
-            id=r.id,
-            seller_name=r.seller_name,
-            seller_nip=r.seller_nip,
-            seller_country=r.seller_country or "PL",
-            document_number=r.document_number,
-            issue_date=r.issue_date,
-            receive_date=r.receive_date,
-            description=r.description or "",
-            category=ExpenseCategory(r.category) if r.category else ExpenseCategory.INNE,
-            total_net=Decimal(str(r.total_net)),
-            total_vat=Decimal(str(r.total_vat)),
-            vat_rate=Decimal(str(r.vat_rate)) if r.vat_rate else Decimal("23"),
-            vat_deduction_pct=Decimal(str(r.vat_deduction_pct)),
-            reverse_charge=bool(r.reverse_charge),
-            file_path=r.file_path,
-            notes=r.notes,
-        )
-        for r in records
-    ]
 
 
 def _correction_output_path(jpk_dir: Path, year: int, month: int) -> tuple[int, Path]:
@@ -87,14 +35,11 @@ def main():
     if args.reason and not args.correction:
         parser.error("--reason wymaga --correction")
 
-    init_db()
-    invoice_records = get_invoices(args.month, args.year)
-    expense_records = get_expenses(args.month, args.year)
-    invoices = records_to_invoices(invoice_records)
-    expenses = records_to_expenses(expense_records)
+    invoices = InvoiceRepository().list(year=args.year, month=args.month, by="sale_date")
+    expenses = ExpenseRepository().list(year=args.year, month=args.month)
 
-    total_net = sum((Decimal(str(r.total_net)) for r in invoice_records), Decimal("0"))
-    total_vat = sum((Decimal(str(r.total_vat)) for r in invoice_records), Decimal("0"))
+    total_net = sum((i.total_net for i in invoices), Decimal("0"))
+    total_vat = sum((i.total_vat for i in invoices), Decimal("0"))
     # Sumy spojne z JPK XML (per-faktura quantize HALF_UP w computed fields).
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))

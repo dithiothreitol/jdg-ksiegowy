@@ -1,4 +1,4 @@
-"""Generator XML FA(3) dla KSeF 2.0 — oparty o ksef2 SDK FA3InvoiceBuilder.
+"""Generator XML FA(3) dla KSeF 2.0 — oparty o ksef2 SDK InvoiceBuilder.
 
 FA(3) obowiazuje od 1.02.2026 (KSeF 2.0). Schemat CRD: wzor/2025/06/25/13775/.
 Generacja przez SDK gwarantuje zgodnosc z XSD i semantyka MF.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ksef2.fa3 import FA3InvoiceBuilder
+from ksef2.fa3 import InvoiceBuilder
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
@@ -33,7 +33,7 @@ def _vat_rate_for_builder(item: LineItem) -> str:
     return str(int(item.vat_rate))
 
 
-def _apply_seller(builder: FA3InvoiceBuilder) -> FA3InvoiceBuilder:
+def _apply_seller(builder: InvoiceBuilder) -> InvoiceBuilder:
     seller = settings.seller
     l1, l2 = _split_address(seller.address)
     return builder.seller(
@@ -45,7 +45,7 @@ def _apply_seller(builder: FA3InvoiceBuilder) -> FA3InvoiceBuilder:
     )
 
 
-def _apply_buyer(builder: FA3InvoiceBuilder, buyer: Buyer) -> FA3InvoiceBuilder:
+def _apply_buyer(builder: InvoiceBuilder, buyer: Buyer) -> InvoiceBuilder:
     l1, l2 = _split_address(buyer.address)
     kwargs: dict = dict(
         name=buyer.name,
@@ -87,7 +87,7 @@ def _apply_payment(std_body, *, due, paid: bool = False):
 
 def generate_invoice_xml(invoice: Invoice) -> str:
     """Wygeneruj XML FA(3) dla faktury standardowej."""
-    builder = FA3InvoiceBuilder().header(system_info=SYSTEM_INFO)
+    builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, invoice.buyer)
 
@@ -112,7 +112,7 @@ def generate_invoice_xml(invoice: Invoice) -> str:
 
 def generate_correction_xml(correction: InvoiceCorrection) -> str:
     """Wygeneruj XML FA(3) korekty (rodzaj KOR)."""
-    builder = FA3InvoiceBuilder().header(system_info=SYSTEM_INFO)
+    builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, correction.buyer)
 

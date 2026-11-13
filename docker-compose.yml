@@ -13,10 +13,9 @@ services:
       - ./SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
       - ./HEARTBEAT.md:/home/node/.openclaw/workspace/HEARTBEAT.md:ro
       - ./skills:/home/node/.openclaw/workspace/skills:ro
-      - ./src:/home/node/.openclaw/workspace/src:ro
       - ./data:/home/node/.openclaw/workspace/data
     ports:
-      - "18789:18789"   # OpenClaw Web UI
+      - "127.0.0.1:18789:18789"   # OpenClaw Web UI — tylko lokalnie (zdalnie: tunel SSH)
 
 volumes:
   openclaw-state:

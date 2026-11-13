@@ -3,15 +3,11 @@
 
 import argparse
 import json
-import sys
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
-from jdg_ksiegowy.expenses.models import ExpenseCategory
-from jdg_ksiegowy.registry.db import ExpenseRecord, init_db, save_expense
+from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
+from jdg_ksiegowy.registry.repository import ExpenseRepository
 
 
 def parse_iso_date(s: str) -> date:
@@ -65,7 +61,6 @@ def main():
     parser.add_argument("--notes", default=None)
     args = parser.parse_args()
 
-    init_db()
     issue = parse_iso_date(args.issue_date)
     receive = parse_iso_date(args.receive_date) if args.receive_date else issue
 
@@ -83,7 +78,7 @@ def main():
     if not (Decimal("0") <= deduction_pct <= Decimal("100")):
         parser.error("--vat-deduction-pct musi byc w zakresie 0-100")
 
-    record = ExpenseRecord(
+    record = Expense(
         id=f"{args.seller_nip}-{args.document_number}",
         seller_name=args.seller_name,
         seller_nip=args.seller_nip,
@@ -92,17 +87,16 @@ def main():
         issue_date=issue,
         receive_date=receive,
         description=args.description,
-        category=args.category,
+        category=ExpenseCategory(args.category),
         total_net=netto,
         total_vat=vat,
-        total_gross=brutto,
         vat_rate=vat_rate,
         vat_deduction_pct=deduction_pct,
         reverse_charge=args.reverse_charge,
         file_path=args.file_path,
         notes=args.notes,
     )
-    save_expense(record)
+    ExpenseRepository().save(record)
 
     deductible_vat = (vat * deduction_pct / Decimal("100")).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP

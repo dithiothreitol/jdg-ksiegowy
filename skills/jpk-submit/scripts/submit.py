@@ -13,8 +13,6 @@ import sys
 from datetime import date
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
 from jdg_ksiegowy.config import DATA_DIR, settings
 from jdg_ksiegowy.mf_gateway.auth import AuthorizationData
 from jdg_ksiegowy.mf_gateway.client import MFGatewayClient

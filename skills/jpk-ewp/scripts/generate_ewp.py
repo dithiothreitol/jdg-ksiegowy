@@ -3,38 +3,11 @@
 
 import argparse
 import json
-import sys
 from decimal import Decimal
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.config import DATA_DIR
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
-from jdg_ksiegowy.registry.db import get_invoices, init_db
+from jdg_ksiegowy.registry.repository import InvoiceRepository
 from jdg_ksiegowy.tax.ewp import save_jpk_ewp
-from jdg_ksiegowy.tax.income import income_date
-
-
-def records_to_invoices(records):
-    return [
-        Invoice(
-            id=r.id,
-            number=r.number,
-            issue_date=r.issue_date,
-            sale_date=r.sale_date,
-            payment_due=r.payment_due,
-            buyer=Buyer(name=r.buyer_name, nip=r.buyer_nip, address=r.buyer_address or ""),
-            items=[
-                LineItem(
-                    description="(z rejestru)",
-                    unit_price_net=Decimal(str(r.total_net)),
-                    vat_rate=Decimal(str(r.vat_rate)) if r.vat_rate else Decimal("23"),
-                )
-            ],
-        )
-        for r in records
-    ]
 
 
 def main():
@@ -48,12 +21,9 @@ def main():
     )
     args = parser.parse_args()
 
-    init_db()
     # Rok wg daty uzyskania przychodu (art. 14 ust. 1c) — ta sama regula co PIT-28,
     # inaczej faktura zaliczkowa na przelomie roku trafia do innego roku niz zeznanie.
-    invoices = [
-        inv for inv in records_to_invoices(get_invoices()) if income_date(inv).year == args.year
-    ]
+    invoices = InvoiceRepository().list(year=args.year, by="income")
 
     rate = Decimal(args.ryczalt_rate) if args.ryczalt_rate else None
     output_path = DATA_DIR / "jpk" / f"JPK_EWP_{args.year}.xml"

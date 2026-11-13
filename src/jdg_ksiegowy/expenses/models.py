@@ -7,7 +7,9 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+from jdg_ksiegowy.validators import check_ksef_number
 
 
 class ExpenseCategory(StrEnum):
@@ -50,6 +52,8 @@ class Expense(BaseModel):
     file_path: str | None = None  # PDF/JPG/XML dowodu
     notes: str | None = None
     ksef_number: str | None = None  # numer KSeF (faktura zakupowa z inboxu)
+
+    _check_ksef_number = field_validator("ksef_number")(check_ksef_number)
 
     @computed_field
     @property
