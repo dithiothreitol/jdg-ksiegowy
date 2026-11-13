@@ -4,12 +4,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), wersje: [SemVe
 
 ## [1.0.1] — 2026-11-13
 
+### Zmienione
+
+- Komunikaty `jdg` z polskimi znakami: pomoc komend i opcji, bledy i podpowiedzi, podsumowania
+  zgody, ostrzezenia, etykiety przypomnien ("Ryczałt za 10/2026"), tresc e-maila z faktura dla
+  klienta i okno zgody hooka wtyczki. Opisy narzedzi MCP i `jdg schema` zmieniaja sie razem
+  z pomoca; klucze JSON, kody wyjscia i parametry komend pozostaja bez zmian.
+
 ### Naprawione
 
 - Wizualizacja faktury (DOCX i PDF wysylany klientom): szerokosci kolumn zapisane takze w siatce
   tabeli, dzieki czemu LibreOffice nie lamie kwot w polowie; strona A4 z marginesami 1,5 cm,
   polskie znaki w etykietach ("Do zapłaty", "Termin płatności") i polski zapis kwot
   (`1 230,00` z twarda spacja tysiecy).
+- Wyjscie `jdg` w UTF-8 takze w potoku: na Windows Python < 3.15 kodowal je w cp1250/cp1252,
+  przez co polskie znaki docieraly do agenta jako bledne bajty, a przy cp1252 polecenie
+  konczylo sie bledem `UnicodeEncodeError`.
+- Testy wyjscia w terminalu nie zaleza od szerokosci i kolorow terminala, z ktorego zostaly
+  uruchomione (`COLUMNS`, `FORCE_COLOR`, `TTY_COMPATIBLE`).
 
 ## [1.0.0] — 2026-11-13
 
