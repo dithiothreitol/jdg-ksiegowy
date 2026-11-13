@@ -82,6 +82,7 @@ class InvoiceRecord(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     corrected_number: Mapped[str | None] = mapped_column(String)
     corrected_ksef_number: Mapped[str | None] = mapped_column(String)
+    corrected_issue_date: Mapped[date | None]
     correction_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime | None] = mapped_column(default=datetime.now)
 

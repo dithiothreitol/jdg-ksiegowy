@@ -5,13 +5,8 @@ from decimal import Decimal
 
 from lxml import etree
 
-from jdg_ksiegowy.invoice.generator_xml import FA3_NS, generate_correction_xml
-from jdg_ksiegowy.invoice.models import (
-    Buyer,
-    CorrectionReason,
-    InvoiceCorrection,
-    LineItem,
-)
+from jdg_ksiegowy.invoice.generator_xml import FA3_NS, generate_invoice_xml
+from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceKind, LineItem
 
 
 def _fa3(tag: str) -> str:
@@ -22,12 +17,15 @@ def _buyer() -> Buyer:
     return Buyer(name="Klient Sp. z o.o.", nip="5260250274", address="ul. X 1, Warszawa")
 
 
-def _correction(**kwargs) -> InvoiceCorrection:
+def _correction(**kwargs) -> Invoice:
     defaults = dict(
         number="AK1/04/2026",
-        original_number="A1/04/2026",
+        kind=InvoiceKind.KOR,
+        corrected_number="A1/04/2026",
+        corrected_issue_date=date(2026, 4, 1),
         issue_date=date(2026, 4, 15),
-        correction_date=date(2026, 4, 15),
+        sale_date=date(2026, 4, 15),
+        payment_due=date(2026, 4, 29),
         buyer=_buyer(),
         items=[
             LineItem(
@@ -36,11 +34,10 @@ def _correction(**kwargs) -> InvoiceCorrection:
                 vat_rate=Decimal("23"),
             )
         ],
-        reason=CorrectionReason.PRICE_CHANGE,
-        reason_description="Rabat 20%",
+        correction_reason="Rabat 20%",
     )
     defaults.update(kwargs)
-    return InvoiceCorrection(**defaults)
+    return Invoice(**defaults)
 
 
 class TestCorrectionModel:
@@ -50,15 +47,16 @@ class TestCorrectionModel:
         assert c.total_vat == Decimal("-46.00")
         assert c.total_gross == Decimal("-246.00")
 
-    def test_reason_enum_values(self):
-        assert CorrectionReason.PRICE_CHANGE.value == "01"
-        assert CorrectionReason.RETURN_GOODS.value == "02"
-        assert CorrectionReason.OTHER.value == "99"
+    def test_correction_without_original_data_rejected(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="faktury korygowanej"):
+            generate_invoice_xml(_correction(corrected_issue_date=None))
 
 
 class TestCorrectionXML:
-    def _root(self, correction: InvoiceCorrection):
-        xml = generate_correction_xml(correction)
+    def _root(self, correction: Invoice):
+        xml = generate_invoice_xml(correction)
         return etree.fromstring(xml.encode())
 
     def test_rodzaj_faktury_is_kor(self):
@@ -72,19 +70,19 @@ class TestCorrectionXML:
         assert dane.find(_fa3("NrFaKorygowanej")).text == "A1/04/2026"
 
     def test_ksef_reference_in_fa_korygowana(self):
-        c = _correction(original_ksef_reference="5260250274-20260401-0A1B2C-3D4E5F-6A")
+        c = _correction(corrected_ksef_number="5260250274-20260401-0A1B2C-3D4E5F-6A")
         root = self._root(c)
         dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
         assert dane.find(_fa3("NrKSeFFaKorygowanej")).text == "5260250274-20260401-0A1B2C-3D4E5F-6A"
 
     def test_no_ksef_reference_skips_element(self):
-        root = self._root(_correction(original_ksef_reference=None))
+        root = self._root(_correction(corrected_ksef_number=None))
         dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
         assert dane.find(_fa3("NrKSeFFaKorygowanej")) is None
 
     def test_przyczyna_korekty_text_contains_description(self):
         """FA(3): PrzyczynaKorekty to pojedyncze pole tekstowe."""
-        root = self._root(_correction(reason_description="Rabat 20%"))
+        root = self._root(_correction(correction_reason="Rabat 20%"))
         powod = root.find(f".//{_fa3('PrzyczynaKorekty')}")
         assert powod.text == "Rabat 20%"
 
@@ -123,3 +121,11 @@ class TestCorrectionXML:
         dane2 = podmiot2.find(_fa3("DaneIdentyfikacyjne"))
         assert dane2.find(_fa3("KodUE")).text == "DE"
         assert dane2.find(_fa3("NrVatUE")).text == "987654321"
+
+
+def test_corrected_invoice_issue_date_is_original_date():
+    """DataWystFaKorygowanej to data faktury pierwotnej, nie data korekty."""
+    xml = generate_invoice_xml(_correction())
+    root = etree.fromstring(xml.encode())
+    dane = root.find(f".//{_fa3('DaneFaKorygowanej')}")
+    assert dane.find(_fa3("DataWystFaKorygowanej")).text == "2026-04-01"

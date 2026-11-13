@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 
 from jdg_ksiegowy.app.audit import audit
 from jdg_ksiegowy.app.errors import NotFoundError
-from jdg_ksiegowy.contracts.runner import run_contracts
+from jdg_ksiegowy.app.invoices import store_new
+from jdg_ksiegowy.contracts.runner import build_invoice, invoice_number_for, issue_date_for
 from jdg_ksiegowy.invoice.models import Buyer, Contract
 from jdg_ksiegowy.registry.payments import match_payments, parse_bank_csv
 from jdg_ksiegowy.registry.repository import ContractRepository, InvoiceRepository
@@ -81,11 +82,20 @@ class ContractRun(BaseModel):
 
 
 def run(today: date | None = None) -> ContractRun:
+    """Wystaw faktury z kontraktow wymagalnych danego dnia — ten sam potok co `invoice issue`.
+
+    Idempotentne: numer faktury wynika z kontraktu i miesiaca, istniejacej nie wystawia ponownie.
+    """
     today = today or date.today()
-    result = run_contracts(today=today)
-    if result.generated:
-        audit("contract.run", today.isoformat(), "ok", {"generated": result.generated})
-    return ContractRun(date=today, generated=result.generated, skipped_count=len(result.skipped))
+    repo = InvoiceRepository()
+    generated, skipped = [], 0
+    for contract in ContractRepository().active():
+        due = issue_date_for(contract, today.year, today.month)
+        if due != today or repo.get(invoice_number_for(contract, today.month, today.year)):
+            skipped += 1
+            continue
+        generated.append(store_new(build_invoice(contract, today)).number)
+    return ContractRun(date=today, generated=generated, skipped_count=skipped)
 
 
 class PaymentMatch(BaseModel):

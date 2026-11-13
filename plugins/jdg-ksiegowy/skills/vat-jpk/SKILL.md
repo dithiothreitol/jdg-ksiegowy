@@ -16,9 +16,13 @@ jdg jpk build-ewp --year 2026                # ewidencja ryczaltu, sklada sie do
 jdg jpk validate data/jpk/JPK_V7M_2026_10.xml
 ```
 
-Wynik zawiera P_38 (`vat_due`), P_48 (`vat_deductible`), P_51 (`vat_to_pay`), P_62 (`vat_surplus`)
-i `xsd_valid`. `invoice_count == 0` → ostrzez usera (brak faktur albo zly miesiac).
-Faktury z numerem KSeF dostaja w JPK `NrKSeF`, pozostale `BFK`.
+Wynik zawiera P_38 (`vat_due`), P_39 (`vat_carry_forward` — nadwyzka z poprzedniej deklaracji,
+pobierana automatycznie z P_62 poprzedniego okresu), P_48 (`vat_deductible`), P_51 (`vat_to_pay`),
+P_62 (`vat_surplus` — przechodzi na nastepny miesiac) i `xsd_valid`.
+`invoice_count == 0` → ostrzez usera (brak faktur albo zly miesiac).
+Faktury z numerem KSeF dostaja w JPK `NrKSeF`, pozostale `BFK` — przed budowa sprawdz, czy
+faktury z okresu zostaly wyslane do KSeF. Sprzedaz z kodami `np`, `zw`, `0_wdt`, `0_exp`
+trafia do wlasciwych pol (K_11/K_12, K_10, K_21, K_22); GTU z pozycji faktury.
 
 ## Wysylka — nieodwracalna
 
@@ -53,7 +57,9 @@ znaczy, ze nic nie zlozono. Pelnomocnik skladal za usera → przypomnij o OPL-1.
 
 ## Terminy i dane
 
-JPK_V7M do 25. dnia nastepnego miesiaca; JPK_EWP do 30.04 za rok poprzedni.
+JPK_V7M do 25. dnia nastepnego miesiaca; JPK_EWP do 30.04 za rok poprzedni (terminy
+w weekend lub swieto przesuwaja sie na najblizszy dzien roboczy). VAT placi sie na mikrorachunek
+(`tax_microaccount` w `jdg status`); po zaplacie `jdg tax pay vat --amount ... --year R --month M`.
 Wymagane w `.env`: `SELLER_NIP/FIRST_NAME/LAST_NAME/BIRTH_DATE/TAX_OFFICE_CODE`, `MF_PESEL`,
 `MF_PRIOR_INCOME` (przychod z PIT za rok N-2; brak zeznania = 0), `MF_ENV` (test|prod).
 Klucz publiczny MF jest wbudowany; po rotacji przez MF — `MF_CERT_PATH`/`MF_CERT_URL`.

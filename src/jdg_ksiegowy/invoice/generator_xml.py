@@ -12,7 +12,7 @@ from ksef2.fa3 import InvoiceBuilder
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceCorrection, LineItem
+from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceKind, LineItem
 
 FA3_NS = "http://crd.gov.pl/wzor/2025/06/25/13775/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
@@ -86,7 +86,9 @@ def _apply_payment(std_body, *, due, paid: bool = False):
 
 
 def generate_invoice_xml(invoice: Invoice) -> str:
-    """Wygeneruj XML FA(3) dla faktury standardowej."""
+    """XML FA(3) faktury: podstawowej (VAT) albo korygujacej (KOR)."""
+    if invoice.kind is InvoiceKind.KOR:
+        return _correction_xml(invoice)
     builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, invoice.buyer)
@@ -97,12 +99,9 @@ def generate_invoice_xml(invoice: Invoice) -> str:
         .issue_date(invoice.issue_date)
         .currency("PLN")
     )
-    # FA(3): date_of_supply (P_6) i billing_period (OkresFa) sa wzajemnie wykluczajace.
+    # FA(3): date_of_supply (P_6) i billing_period (OkresFa) wykluczaja sie.
     if invoice.period_from and invoice.period_to:
-        std = std.billing_period(
-            period_start=invoice.period_from,
-            period_end=invoice.period_to,
-        )
+        std = std.billing_period(period_start=invoice.period_from, period_end=invoice.period_to)
     else:
         std = std.date_of_supply(invoice.sale_date)
     std = _apply_rows(std, invoice.items)
@@ -110,51 +109,40 @@ def generate_invoice_xml(invoice: Invoice) -> str:
     return std.done().to_xml()
 
 
-def generate_correction_xml(correction: InvoiceCorrection) -> str:
-    """Wygeneruj XML FA(3) korekty (rodzaj KOR)."""
+def _correction_xml(correction: Invoice) -> str:
+    """FA(3) rodzaju KOR: pozycje roznicowe, dane faktury korygowanej, przyczyna."""
+    if not correction.corrected_number or not correction.corrected_issue_date:
+        raise ValueError("Korekta wymaga numeru i daty wystawienia faktury korygowanej")
     builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, correction.buyer)
-
     cor = (
         builder.correction()
         .invoice_number(correction.number)
         .issue_date(correction.issue_date)
-        .date_of_supply(correction.correction_date)
+        .date_of_supply(correction.issue_date)
         .currency("PLN")
     )
-
-    reason_text = correction.reason_description or f"Korekta {correction.reason.value}"
-    cor_sub = (
+    cor = (
         cor.correction()
-        .reason(reason_text)
+        .reason(correction.correction_reason or "Korekta")
         .add_corrected_invoice(
-            issue_date=correction.correction_date,
-            invoice_number=correction.original_number,
-            ksef_id=correction.original_ksef_reference,
-            outside_ksef=correction.original_ksef_reference is None,
+            issue_date=correction.corrected_issue_date,
+            invoice_number=correction.corrected_number,
+            ksef_id=correction.corrected_ksef_number,
+            outside_ksef=correction.corrected_ksef_number is None,
         )
+        .done()
     )
-    cor = cor_sub.done()
-
     cor = _apply_rows(cor, correction.items)
-    cor = _apply_payment(cor, due=correction.correction_date, paid=False)
+    cor = _apply_payment(cor, due=correction.payment_due, paid=False)
     return cor.done().to_xml()
 
 
 def save_invoice_xml(invoice: Invoice, output_path: Path) -> Path:
     """Wygeneruj i zapisz XML FA(3) do pliku."""
-    xml_content = generate_invoice_xml(invoice)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(xml_content, encoding="utf-8")
-    return output_path
-
-
-def save_correction_xml(correction: InvoiceCorrection, output_path: Path) -> Path:
-    """Wygeneruj i zapisz XML FA KOR do pliku."""
-    xml_content = generate_correction_xml(correction)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(xml_content, encoding="utf-8")
+    output_path.write_text(generate_invoice_xml(invoice), encoding="utf-8")
     return output_path
 
 

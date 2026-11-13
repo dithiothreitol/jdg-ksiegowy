@@ -90,3 +90,36 @@ def test_cli_two_phase_send_on_sandbox(sandbox_seller, isolated_db):
 
     assert is_ksef_number(sent.ksef_number)
     assert InvoiceRepository().get(issued.number).ksef_number == sent.ksef_number
+
+
+def test_correction_sent_to_sandbox_references_original(sandbox_seller, isolated_db, monkeypatch):
+    """Faktura -> KSeF -> korekta -> KSeF: korekta dostaje wlasny numer KSeF."""
+    from jdg_ksiegowy.app import invoices, ksef
+    from jdg_ksiegowy.app.errors import ConfirmationRequiredError
+    from jdg_ksiegowy.registry.repository import InvoiceRepository
+
+    def send(number: str) -> str:
+        with pytest.raises(ConfirmationRequiredError) as pending:
+            ksef.send_invoice(number)
+        return ksef.send_invoice(number, confirm=pending.value.token).ksef_number
+
+    original = invoices.issue_invoice(
+        invoices.IssueInvoiceInput(
+            buyer_nip=_fake_nip(),
+            buyer_name="Nabywca Sandbox",
+            buyer_address="ul. Inna 2, 00-002 Warszawa",
+            description="Usluga",
+            net=Decimal("100"),
+        )
+    )
+    original_ksef = send(original.number)
+    kor = invoices.correct_invoice(
+        original.number,
+        [invoices.ItemInput(description="Rabat", unit_price_net=Decimal("-10"))],
+        reason="Rabat po terminie",
+    )
+    kor_ksef = send(kor.number)
+
+    assert is_ksef_number(kor_ksef) and kor_ksef != original_ksef
+    stored = InvoiceRepository().get(kor.number)
+    assert stored.corrected_ksef_number == original_ksef and stored.ksef_number == kor_ksef

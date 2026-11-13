@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -12,7 +11,7 @@ import typer
 from jdg_ksiegowy.app import contracts as contracts_app
 from jdg_ksiegowy.app import tax as app
 from jdg_ksiegowy.cli.output import command
-from jdg_ksiegowy.cli.params import day, money
+from jdg_ksiegowy.cli.params import day, money, previous_month
 
 tax = typer.Typer(help="Podatki: kalkulator, terminy, PIT-28, DRA ZUS.", no_args_is_help=True)
 contract = typer.Typer(help="Kontrakty cykliczne (faktury co miesiac).", no_args_is_help=True)
@@ -57,24 +56,34 @@ def pit28(year: Annotated[int, typer.Option(help="Rok podatkowy.")]) -> app.Pit2
     return app.pit28(year)
 
 
-@command(tax, "dra", output=app.DraView, prefix="tax")
-def dra(
-    month: Annotated[int, typer.Option(min=1, max=12)],
-    year: Annotated[int, typer.Option()],
-    annual_prior_income: Annotated[
-        Decimal, typer.Option(parser=money, help="Przychod za poprzedni rok (prog zdrowotnej).")
-    ],
-    include_social: Annotated[bool, typer.Option(help="Dolicz skladki spoleczne.")] = False,
-    output: Annotated[Path | None, typer.Option(help="Plik XML (domyslnie data/zus/).")] = None,
-) -> app.DraView:
-    """Deklaracja DRA ZUS (KEDU) do importu w PUE ZUS."""
-    return app.dra(
-        month,
-        year,
-        annual_prior_income=annual_prior_income,
-        include_social=include_social,
-        output=output,
-    )
+@command(tax, "zus", output=app.ZusView, prefix="tax")
+def zus(
+    year: Annotated[int | None, typer.Option(help="Rok (domyslnie poprzedni miesiac).")] = None,
+    month: Annotated[int | None, typer.Option(min=1, max=12)] = None,
+) -> app.ZusView:
+    """Skladki ZUS za miesiac: zdrowotna wg przychodu narastajaco + spoleczne."""
+    default_year, default_month = previous_month()
+    return app.zus(month or default_month, year or default_year)
+
+
+@command(tax, "pay", output=app.PaymentView, prefix="tax")
+def pay(
+    kind: Annotated[str, typer.Argument(help="ryczalt | vat | zus_health | zus_social")],
+    amount: Annotated[Decimal, typer.Option(parser=money, help="Zaplacona kwota.")],
+    year: Annotated[int, typer.Option(help="Rok okresu, ktorego dotyczy zaplata.")],
+    month: Annotated[int, typer.Option(min=1, max=12, help="Miesiac okresu.")],
+    paid_on: Annotated[date | None, typer.Option(parser=day, help="Data zaplaty.")] = None,
+) -> app.PaymentView:
+    """Zapisz zaplate podatku lub skladki (gasi przypomnienie, wchodzi do odliczen)."""
+    if kind not in ("ryczalt", "vat", "zus_health", "zus_social"):
+        raise typer.BadParameter("dozwolone: ryczalt, vat, zus_health, zus_social")
+    return app.record_payment(kind, year, month, amount, paid_on)  # type: ignore[arg-type]
+
+
+@command(tax, "payments", output=app.PaymentList, prefix="tax")
+def payments(year: Annotated[int | None, typer.Option()] = None) -> app.PaymentList:
+    """Ewidencja zaplat podatkow i skladek."""
+    return app.list_payments(year)
 
 
 @command(contract, "add", output=contracts_app.ContractView, prefix="contract")

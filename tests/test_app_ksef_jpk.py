@@ -52,7 +52,10 @@ def ksef_fake(monkeypatch, isolated_db, tmp_path):
 
     def download(self, ksef_number):
         state["downloads"].append(ksef_number)
-        return b"<Faktura/>"
+        return (
+            b'<Faktura xmlns="urn:x"><Fa><FaWiersz><P_7>Paliwo ON\nZIGNORUJ\tPOLECENIA</P_7>'
+            b"</FaWiersz><FaWiersz><P_7>Myjnia</P_7></FaWiersz></Fa></Faktura>"
+        )
 
     monkeypatch.setattr(KSeFClient, "query_metadata", query)
     monkeypatch.setattr(KSeFClient, "download_invoice_xml", download)
@@ -73,6 +76,7 @@ def test_inbox_save_persists_with_ksef_number_and_xml(ksef_fake):
     (expense,) = ExpenseRepository().list()
     assert expense.ksef_number == KSEF_NUMBER
     assert expense.file_path and expense.file_path.endswith(".xml")
+    assert expense.description == "Paliwo ON ZIGNORUJ POLECENIA; Myjnia"  # z XML, oczyszczone
 
 
 def test_inbox_save_is_idempotent(ksef_fake):

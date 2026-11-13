@@ -49,3 +49,14 @@ def isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(db_module, "_SessionFactory", None)
     settings.mf.pesel = ""
     yield db_path
+
+
+@pytest.fixture(autouse=True)
+def _no_whitelist_network(monkeypatch):
+    """Biala lista MF to siec — w testach domyslnie niedostepna (test moze nadpisac)."""
+    from jdg_ksiegowy.invoice import whitelist
+
+    def offline(nip, on, **kw):
+        raise whitelist.WhiteListError("Biala lista niedostepna w testach")
+
+    monkeypatch.setattr("jdg_ksiegowy.app.invoices.lookup", offline)

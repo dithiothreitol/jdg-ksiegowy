@@ -6,7 +6,8 @@ from decimal import Decimal
 
 import pytest
 
-from jdg_ksiegowy.contracts.runner import last_working_day, run_contracts
+from jdg_ksiegowy.app.contracts import run as run_contracts
+from jdg_ksiegowy.contracts.runner import last_working_day
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +53,10 @@ class TestLastWorkingDay:
         assert d == date(2026, 12, 31)  # czwartek
         assert d.weekday() < 5
 
+    def test_skips_public_holiday(self):
+        # 31.10.2027 to niedziela, 30.10 sobota -> 29.10 (piatek)
+        assert last_working_day(2027, 10) == date(2027, 10, 29)
+
 
 class TestRunContracts:
     def test_no_contracts_no_invoices(self):
@@ -94,3 +99,5 @@ class TestRunContracts:
         invoices = InvoiceRepository().list(year=2026, month=4)
         assert len(invoices) == 1
         assert invoices[0].total_gross == Decimal("2460.00")  # 2000 + 23%
+        # Ten sam potok co `invoice issue`: XML FA(3) i DOCX powstaja od razu
+        assert invoices[0].xml_path and invoices[0].docx_path

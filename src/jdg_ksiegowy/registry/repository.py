@@ -17,7 +17,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from jdg_ksiegowy.expenses.models import Expense, ExpenseCategory
-from jdg_ksiegowy.invoice.models import Buyer, Contract, Invoice, InvoiceStatus, LineItem
+from jdg_ksiegowy.invoice.models import (
+    Buyer,
+    Contract,
+    Invoice,
+    InvoiceKind,
+    InvoiceStatus,
+    LineItem,
+)
 from jdg_ksiegowy.registry.db import (
     BuyerRecord,
     ContractRecord,
@@ -25,6 +32,7 @@ from jdg_ksiegowy.registry.db import (
     FilingRecord,
     InvoiceItemRecord,
     InvoiceRecord,
+    TaxPaymentRecord,
     get_session,
     init_db,
 )
@@ -55,6 +63,7 @@ def _invoice_to_domain(r: InvoiceRecord) -> Invoice:
     return Invoice(
         id=r.id,
         number=r.number,
+        kind=InvoiceKind(r.kind),
         issue_date=r.issue_date,
         sale_date=r.sale_date,
         period_from=r.period_from,
@@ -89,11 +98,16 @@ def _invoice_to_domain(r: InvoiceRecord) -> Invoice:
         docx_path=r.docx_path,
         xml_path=r.xml_path,
         notes=r.notes,
+        corrected_number=r.corrected_number,
+        corrected_ksef_number=r.corrected_ksef_number,
+        corrected_issue_date=r.corrected_issue_date,
+        correction_reason=r.correction_reason,
     )
 
 
 def _apply_invoice(r: InvoiceRecord, inv: Invoice) -> None:
     r.number = inv.number
+    r.kind = inv.kind.value
     r.issue_date = inv.issue_date
     r.sale_date = inv.sale_date
     r.period_from = inv.period_from
@@ -117,6 +131,10 @@ def _apply_invoice(r: InvoiceRecord, inv: Invoice) -> None:
     r.docx_path = inv.docx_path
     r.xml_path = inv.xml_path
     r.notes = inv.notes
+    r.corrected_number = inv.corrected_number
+    r.corrected_ksef_number = inv.corrected_ksef_number
+    r.corrected_issue_date = inv.corrected_issue_date
+    r.correction_reason = inv.correction_reason
     r.items = [
         InvoiceItemRecord(
             position=pos,
@@ -561,3 +579,59 @@ class FilingRepository:
             if month is not None:
                 q = q.where(FilingRecord.month == month)
             return [_filing(r) for r in s.scalars(q.order_by(FilingRecord.id.desc()))]
+
+
+# --- Zaplaty podatkow i skladek ---------------------------------------------------
+
+PaymentType = Literal["ryczalt", "vat", "zus_health", "zus_social"]
+
+
+@dataclass(frozen=True)
+class TaxPayment:
+    type: PaymentType
+    year: int
+    month: int
+    amount: Decimal
+    due_date: date
+    paid_at: datetime | None
+
+
+class TaxPaymentRepository:
+    def __init__(self, session_factory: SessionFactory = get_session):
+        init_db()
+        self._session = session_factory
+
+    def record(self, payment: TaxPayment) -> None:
+        """Zapisz zaplate za okres (nadpisuje wczesniejszy wpis tego samego typu i okresu)."""
+        with self._session() as s:
+            r = s.scalar(
+                select(TaxPaymentRecord).where(
+                    TaxPaymentRecord.type == payment.type,
+                    TaxPaymentRecord.year == payment.year,
+                    TaxPaymentRecord.month == payment.month,
+                )
+            ) or TaxPaymentRecord(type=payment.type, year=payment.year, month=payment.month)
+            r.amount = payment.amount
+            r.due_date = payment.due_date
+            r.paid = payment.paid_at is not None
+            r.paid_at = payment.paid_at
+            s.add(r)
+            s.commit()
+
+    def list(self, *, year: int | None = None) -> list[TaxPayment]:
+        with self._session() as s:
+            q = select(TaxPaymentRecord)
+            if year is not None:
+                q = q.where(TaxPaymentRecord.year == year)
+            rows = s.scalars(q.order_by(TaxPaymentRecord.year, TaxPaymentRecord.month))
+            return [
+                TaxPayment(
+                    type=r.type,  # type: ignore[arg-type]
+                    year=r.year,
+                    month=r.month,
+                    amount=r.amount,
+                    due_date=r.due_date,
+                    paid_at=r.paid_at if r.paid else None,
+                )
+                for r in rows
+            ]

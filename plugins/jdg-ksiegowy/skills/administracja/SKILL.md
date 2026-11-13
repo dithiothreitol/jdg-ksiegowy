@@ -7,12 +7,16 @@ description: Utrzymanie asystenta ksiegowego JDG — diagnostyka konfiguracji, b
 
 CLI `jdg` (lub `uv run jdg`); kontrakt wyjscia i kody bledow jak w `jdg schema`.
 
-- `jdg doctor` — sprawdza dane sprzedawcy, KSeF, bramke MF, SMTP, OCR, kalendarz. Przy bledach
-  pokaz userowi, co uzupelnic; nie edytuj `.env` samodzielnie.
+- `jdg doctor` — sprawdza dane sprzedawcy, KSeF, bramke MF, SMTP, OCR, kalendarz i obecnosc
+  parametrow ZUS na biezacy rok. Przy bledach pokaz userowi, co uzupelnic; nie edytuj `.env`
+  samodzielnie. Brak parametrow ZUS = zmiana w kodzie (`tax/zus.py`), nie w konfiguracji.
 - `jdg config` — skad czytana jest konfiguracja (`JDG_HOME`), srodowiska KSeF/MF, ktore sekrety
   sa ustawione (bez wartosci).
 - `jdg backup` — szyfrowana kopia bazy (spojna, `VACUUM INTO`) i dokumentow, weryfikowana po
-  zapisie. Wymaga `BACKUP_KEY`; katalog: `BACKUP_DIR` (domyslnie OneDrive lub ~/Documents).
+  zapisie (odszyfrowanie + `integrity_check`). Wymaga `BACKUP_KEY`; katalog: `BACKUP_DIR`.
+  Retencja: ostatnie 30 kopii + pierwsza kopia z kazdego z 12 miesiecy (`--keep-days`,
+  `--keep-monthly`). Bez `BACKUP_KEY` kopii nie da sie odtworzyc — user trzyma klucz w menedzerze
+  hasel.
 - `jdg calendar sync [--dry-run]` — terminy z kwotami w kalendarzu Google "JDG Podatki"
   (idempotentnie). Konfiguracja jednorazowa: `GCAL_ENABLED`, `GCAL_CREDENTIALS_PATH`, potem
   `uv run python -m jdg_ksiegowy.calendar.auth_setup`.

@@ -37,6 +37,7 @@ from jdg_ksiegowy.registry.repository import (
 from jdg_ksiegowy.tax.ewp import save_jpk_ewp
 from jdg_ksiegowy.tax.jpk import save_jpk_v7m, settle_vat
 from jdg_ksiegowy.tax.validation import schema_name, validate_jpk
+from jdg_ksiegowy.tax.vat_period import VatLedger
 
 Form = Literal["JPK_V7M", "JPK_EWP"]
 JPK_DIR_NAME = "jpk"
@@ -54,6 +55,7 @@ class JpkBuildResult(BaseModel):
     expense_count: int
     sales_net: Decimal
     sales_vat: Decimal
+    vat_carry_forward: Decimal | None = None  # P_39
     vat_due: Decimal | None = None  # P_38
     vat_deductible: Decimal | None = None  # P_48
     vat_to_pay: Decimal | None = None  # P_51
@@ -86,11 +88,19 @@ def build_v7m(
     expenses = ExpenseRepository().list(year=year, month=month)
     stem = f"JPK_V7M_{year}_{month:02d}"
     number, path = _next_correction_path(stem) if correction else (0, _jpk_dir() / f"{stem}.xml")
+    carry = VatLedger.load().carry_forward((year, month))
     save_jpk_v7m(
-        invoices, month, year, path, correction=number, expenses=expenses, correction_reason=reason
+        invoices,
+        month,
+        year,
+        path,
+        correction=number,
+        expenses=expenses,
+        correction_reason=reason,
+        carry_forward=carry,
     )
     sales_vat = sum((i.total_vat for i in invoices), Decimal("0"))
-    settlement = settle_vat(sales_vat, expenses)
+    settlement = settle_vat(sales_vat, expenses, carry)
     check = validate_jpk(path.read_bytes())
     audit("jpk.build", str(path.name), "ok" if check.valid else "error", {"valid": check.valid})
     return JpkBuildResult(
@@ -104,6 +114,7 @@ def build_v7m(
         expense_count=len(expenses),
         sales_net=sum((i.total_net for i in invoices), Decimal("0")),
         sales_vat=sales_vat,
+        vat_carry_forward=carry,
         vat_due=settlement.nalezny,
         vat_deductible=settlement.naliczony,
         vat_to_pay=settlement.to_pay,

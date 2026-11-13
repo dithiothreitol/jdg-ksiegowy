@@ -73,10 +73,10 @@ def test_parity_ewp_and_pit28(parity):
     g = parity["pit28_2026"]
     p = data("tax", "pit28", "--year", "2026")
     assert D(p["annual_sales_net"]) == D(g["annual_sales_net"])
-    assert D(p["annual_ryczalt"]) == D(g["annual_ryczalt"])
-    assert D(p["annual_ryczalt_rounded"]) == D(g["annual_ryczalt_rounded"])
-    assert [(m["month"], D(m["sales_net"]), D(m["ryczalt"])) for m in p["monthly"]] == [
-        (m["month"], D(m["sales_net"]), D(m["ryczalt"])) for m in g["monthly"]
+    # 1.0: ryczalt w pelnych zlotych (art. 63 Ordynacji) — 0.x zaokraglal tylko sume roczna.
+    assert D(p["annual_ryczalt"]) == D(g["annual_ryczalt_rounded"])
+    assert [(m["month"], D(m["sales_net"])) for m in p["monthly"]] == [
+        (m["month"], D(m["sales_net"])) for m in g["monthly"]
     ]
 
 
@@ -93,47 +93,56 @@ def test_parity_tax_calc(parity):
         ("total_monthly_burden", "total_monthly_tax"),
     ):
         assert D(d[new]) == D(g[old]), new
-    assert d["deadline_ryczalt_zus"] == g["deadlines"]["ryczalt_zus"]
-    assert d["deadline_vat_jpk"] == g["deadlines"]["vat_jpk"]
+    # 1.0: terminy przesuwane na dzien roboczy — 20.12.2026 (niedziela) -> 21.12,
+    # 25.12 (swieto) -> 28.12. 0.x zwracal daty kalendarzowe.
+    assert (g["deadlines"]["ryczalt_zus"], d["deadline_ryczalt_zus"]) == (
+        "2026-12-20",
+        "2026-12-21",
+    )
+    assert (g["deadlines"]["vat_jpk"], d["deadline_vat_jpk"]) == ("2026-12-25", "2026-12-28")
 
 
 def test_parity_status(parity):
     g = parity["status_2026_11_13"]
     d = data("status", "--on", "2026-11-13")
-    got = [(r["label"], r["due_date"], r["amount"] and D(r["amount"])) for r in d["reminders"]]
-    want = [(r["label"], r["due_date"], r["amount"] and D(r["amount"])) for r in g["reminders"]]
-    assert got == want
+
+    def rows(reminders: list[dict], skip_zus: bool) -> list[tuple]:
+        return [
+            (r["label"], r["due_date"], r["amount"] and D(r["amount"]))
+            for r in reminders
+            if not (skip_zus and r["label"].startswith("ZUS"))
+        ]
+
+    assert rows(d["reminders"], True) == rows(g["reminders"], True)
+    # 1.0: ZUS = zdrowotna wg przychodu NARASTAJACO (20 833 zl -> prog do 60 tys.: 498.35)
+    # + spoleczne (tryb pelny 1788.29). 0.x: tylko zdrowotna z "przychod miesiaca x 12".
+    (zus,) = [r for r in d["reminders"] if r["label"].startswith("ZUS")]
+    assert (zus["label"], D(zus["amount"])) == ("ZUS za 10/2026", D("2286.64"))
     summary = g["month_summary"]
     assert D(d["month_sales_net"]) == D(summary["sales_net"])
     assert D(d["estimated_ryczalt"]) == D(summary["estimated_ryczalt"])
-    assert D(d["estimated_zus_health"]) == D(summary["estimated_zus_health"])
+    assert D(d["estimated_zus"]) == D("2286.64")
     assert [i["number"] for i in d["unpaid_invoices"]] == g["unpaid"]
     assert [i["number"] for i in d["overdue_invoices"]] == g["overdue"]
 
 
-def test_parity_expenses_and_dra(parity, tmp_path):
+def test_parity_expenses(parity):
     d = data("expense", "list", "--year", "2026", "--month", "10")
     assert d["count"] == parity["expenses_2026_10"]["count"]
     assert sorted(e["id"] for e in d["expenses"]) == parity["expenses_2026_10"]["ids"]
 
-    g = parity["dra_2026_10"]
-    out = tmp_path / "dra.xml"
-    r = data(
-        "tax",
-        "dra",
-        "--month",
-        "10",
-        "--year",
-        "2026",
-        "--annual-prior-income",
-        "90000",
-        "--output",
-        str(out),
+
+def test_tax_zus_replaces_dra(parity):
+    """1.0: `tax zus` liczy prog z rejestru (narastajaco), zamiast pytac o przychod z roku
+    poprzedniego jak DRA w 0.x; plik KEDU nie jest juz generowany."""
+    d = data("tax", "zus", "--year", "2026", "--month", "10")
+    assert D(d["revenue_ytd"]) == D("20833.33")
+    assert (D(d["health"]), D(d["social"]), D(d["total"])) == (
+        D("498.35"),
+        D("1788.29"),
+        D("2286.64"),
     )
-    assert out.exists()
-    for key in ("health_contribution", "social_contribution", "total"):
-        assert D(r[key]) == D(g[key])
-    assert r["deadline"] == g["deadline"]
+    assert d["deadline"] == "2026-11-20"
 
 
 # --- koperta, kody wyjscia --------------------------------------------------------
@@ -177,7 +186,9 @@ def test_not_found_is_domain_error(isolated_db):
 
 
 def test_invalid_input_has_hint(isolated_db):
-    code, payload = jdg("invoice", "issue", "--buyer-nip", "5260250274", "--net", "100")
+    code, payload = jdg(
+        "invoice", "issue", "--buyer-nip", "5260250274", "--net", "100", "--no-lookup"
+    )
     assert code == ExitCode.DOMAIN
     assert payload["error"]["code"] == "INVALID_INPUT"
     assert "--buyer-name" in payload["error"]["hint"]

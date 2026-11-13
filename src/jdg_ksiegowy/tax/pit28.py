@@ -1,22 +1,22 @@
-"""Raport PIT-28 roczny dla ryczałtu — agregacja przychodów z SQLite.
+"""Podsumowanie roczne ryczaltu (PIT-28) z rejestru faktur i ewidencji zaplat.
 
-PIT-28 składany do 30 kwietnia za rok poprzedni. Stawki ryczałtu:
-  12% — usługi IT/programowanie (art. 12 ust. 1 pkt 2b lit. b)
-  12% — inne wolne zawody
-   8.5% — usługi pozostałe (w tym najem prywatny do 100 tys. PLN/rok)
-
-Źródło: Ustawa o zryczałtowanym podatku dochodowym z 20.11.1998
+Przychod wg daty uzyskania przychodu; od przychodu odlicza sie zaplacone w roku skladki
+spoleczne i 50% zaplaconej skladki zdrowotnej. Ryczalt roczny minus zaplacone zaliczki
+za miesiace roku = kwota do zaplaty z zeznaniem (do 30.04 nastepnego roku). Kwoty pomocnicze.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Invoice
-from jdg_ksiegowy.registry.repository import InvoiceRepository
-from jdg_ksiegowy.tax.income import income_date
+from jdg_ksiegowy.registry.repository import InvoiceRepository, TaxPaymentRepository
+from jdg_ksiegowy.tax.deadlines import annual_deadlines
+from jdg_ksiegowy.tax.obligations import deductions_paid, monthly_ryczalt, revenue, ryczalt
+
+ZERO = Decimal("0")
 
 
 @dataclass(frozen=True)
@@ -24,93 +24,48 @@ class MonthlyBreakdown:
     month: int
     year: int
     sales_net: Decimal
+    deductions: Decimal
     ryczalt: Decimal
 
 
-@dataclass
+@dataclass(frozen=True)
 class PIT28Report:
     year: int
     seller_name: str
     seller_nip: str
     ryczalt_rate: Decimal
-    monthly: list[MonthlyBreakdown] = field(default_factory=list)
-
-    @property
-    def annual_sales_net(self) -> Decimal:
-        return sum((m.sales_net for m in self.monthly), Decimal("0"))
-
-    @property
-    def annual_ryczalt(self) -> Decimal:
-        return sum((m.ryczalt for m in self.monthly), Decimal("0"))
-
-    @property
-    def annual_ryczalt_rounded(self) -> Decimal:
-        return self.annual_ryczalt.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-
-
-def _month_sales(invoices: list[Invoice], year: int, month: int) -> Decimal:
-    filtered = [i for i in invoices if (d := income_date(i)).year == year and d.month == month]
-    return sum((i.total_net for i in filtered), Decimal("0"))
+    monthly: list[MonthlyBreakdown]
+    annual_sales_net: Decimal
+    annual_deductions: Decimal
+    annual_base: Decimal
+    annual_ryczalt: Decimal
+    advances_paid: Decimal  # zaplacone zaliczki za miesiace roku (wg okresu)
+    to_pay: Decimal  # ujemne = nadplata
+    deadline: date
 
 
 def generate_pit28_report(year: int) -> PIT28Report:
-    """Wygeneruj raport PIT-28 za wskazany rok z danych SQLite."""
     invoices = InvoiceRepository().list(year=year, by="income")
+    payments = [p for p in TaxPaymentRepository().list() if p.paid_at]
     seller = settings.seller
-    rate = seller.ryczalt_rate / 100
-
+    rate = seller.ryczalt_rate
     monthly = []
-    for month in range(1, 13):
-        sales = _month_sales(invoices, year, month)
-        ryczalt = (sales * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        monthly.append(MonthlyBreakdown(month=month, year=year, sales_net=sales, ryczalt=ryczalt))
-
+    for m in range(1, 13):
+        r = monthly_ryczalt(invoices, payments, year, m, rate)
+        monthly.append(MonthlyBreakdown(m, year, r.revenue, r.deductions, r.tax))
+    annual = ryczalt(revenue(invoices, year), deductions_paid(payments, year, None), rate)
+    advances = sum((p.amount for p in payments if p.type == "ryczalt" and p.year == year), ZERO)
     return PIT28Report(
         year=year,
         seller_name=seller.name,
         seller_nip=seller.nip,
-        ryczalt_rate=seller.ryczalt_rate,
+        ryczalt_rate=rate,
         monthly=monthly,
+        annual_sales_net=annual.revenue,
+        annual_deductions=annual.deductions,
+        annual_base=annual.base,
+        annual_ryczalt=annual.tax,
+        advances_paid=advances,
+        to_pay=annual.tax - advances,
+        deadline=annual_deadlines(year)["pit28"],
     )
-
-
-_MONTHS_PL = [
-    "",
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień",
-]
-
-
-def format_pit28_text(report: PIT28Report) -> str:
-    """Sformatuj raport PIT-28 jako czytelny tekst."""
-    lines = [
-        f"=== RAPORT PIT-28 za {report.year} ===",
-        f"Podatnik: {report.seller_name} (NIP: {report.seller_nip})",
-        f"Stawka ryczałtu: {report.ryczalt_rate}%",
-        "",
-        f"{'Miesiąc':<12} {'Przychód netto':>16} {'Ryczałt':>12}",
-        "-" * 44,
-    ]
-    for m in report.monthly:
-        if m.sales_net > 0:
-            lines.append(f"{_MONTHS_PL[m.month]:<12} {m.sales_net:>16.2f} {m.ryczalt:>12.2f}")
-    lines += [
-        "-" * 44,
-        f"{'RAZEM':<12} {report.annual_sales_net:>16.2f} {report.annual_ryczalt:>12.2f}",
-        "",
-        f"Ryczałt do zapłaty (zaokrąglony): {report.annual_ryczalt_rounded:.0f} PLN",
-        "",
-        "UWAGA: Kwoty pomocnicze. Przed złożeniem PIT-28 zweryfikuj",
-        "z rzeczywistymi wpłatami zaliczek miesięcznych.",
-    ]
-    return "\n".join(lines)
