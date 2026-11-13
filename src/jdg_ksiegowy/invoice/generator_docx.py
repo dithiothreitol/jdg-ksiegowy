@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -12,7 +13,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt, RGBColor
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind
+from jdg_ksiegowy.ksef.qr import qr_png
 
 
 def _format_pln(amount: Decimal) -> str:
@@ -37,8 +39,12 @@ def _set_cell_text(cell, text: str, bold: bool = False, align: str = "left", siz
     run.bold = bold
 
 
-def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
-    """Wygeneruj fakture DOCX na podstawie modelu Invoice."""
+def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | None = None) -> Path:
+    """Wizualizacja faktury (VAT lub korekty) w DOCX.
+
+    Z numerem KSeF i `qr_url` dokument zawiera kod QR weryfikacji (KOD I) — wymagany, gdy
+    fakture ustrukturyzowana przekazuje sie nabywcy poza KSeF (np. PDF mailem).
+    """
     seller = settings.seller
     doc = Document()
 
@@ -48,7 +54,8 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     style.font.size = Pt(10)
 
     # --- Naglowek: FAKTURA VAT ---
-    heading = doc.add_heading(f"FAKTURA VAT nr {invoice.number}", level=1)
+    title = "FAKTURA KORYGUJACA" if invoice.kind is InvoiceKind.KOR else "FAKTURA VAT"
+    heading = doc.add_heading(f"{title} nr {invoice.number}", level=1)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in heading.runs:
         run.font.color.rgb = RGBColor(0, 0, 0)
@@ -64,6 +71,16 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
         dates_para.add_run(
             f"\nOkres: {_format_date(invoice.period_from)} - {_format_date(invoice.period_to)}"
         ).font.size = Pt(9)
+
+    if invoice.kind is InvoiceKind.KOR:
+        corr = doc.add_paragraph()
+        original = f"Korekta faktury nr {invoice.corrected_number}"
+        if invoice.corrected_issue_date:
+            original += f" z dnia {_format_date(invoice.corrected_issue_date)}"
+        if invoice.corrected_ksef_number:
+            original += f" (KSeF: {invoice.corrected_ksef_number})"
+        corr.add_run(original + "\n").bold = True
+        corr.add_run(f"Przyczyna korekty: {invoice.correction_reason or '-'}")
 
     # --- Sprzedawca / Nabywca (tabela 2 kolumny) ---
     parties_table = doc.add_table(rows=1, cols=2)
@@ -87,7 +104,8 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     p.add_run("NABYWCA\n").bold = True
     p.add_run(f"{invoice.buyer.name}\n")
     p.add_run(f"{invoice.buyer.address}\n")
-    p.add_run(f"NIP: {invoice.buyer.nip}")
+    id_type, id_value = invoice.buyer.identifier_for_xml()
+    p.add_run({"NIP": f"NIP: {id_value}", "NrVatUE": f"VAT UE: {id_value}"}.get(id_type, ""))
 
     doc.add_paragraph()  # spacer
 
@@ -121,7 +139,8 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
         _set_cell_text(cells[3], item.unit, align="center")
         _set_cell_text(cells[4], f"{item.unit_price_net:.2f}", align="right")
         _set_cell_text(cells[5], f"{item.net_value:.2f}", align="right")
-        _set_cell_text(cells[6], f"{item.vat_rate}%", align="center")
+        rate = item.vat_code.lower() if item.vat_code else f"{item.vat_rate.normalize():f}%"
+        _set_cell_text(cells[6], rate, align="center")
         _set_cell_text(cells[7], f"{item.vat_amount:.2f}", align="right")
         _set_cell_text(cells[8], f"{item.gross_value:.2f}", align="right")
 
@@ -155,6 +174,15 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path) -> Path:
     if invoice.notes:
         doc.add_paragraph()
         doc.add_paragraph(f"Uwagi: {invoice.notes}")
+
+    if invoice.ksef_number:
+        doc.add_paragraph()
+        ksef = doc.add_paragraph()
+        ksef.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if qr_url:
+            ksef.add_run().add_picture(io.BytesIO(qr_png(qr_url)), width=Cm(3.5))
+            ksef.add_run("\n")
+        ksef.add_run(f"Numer KSeF: {invoice.ksef_number}").bold = True
 
     # --- Stopka ---
     doc.add_paragraph()

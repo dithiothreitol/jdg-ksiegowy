@@ -78,35 +78,35 @@ class TestSocialModeAutoselect:
 
 class TestSocialContribution:
     def test_start_relief_zero(self):
-        assert get_social_contribution(ZUSSocialMode.START_RELIEF) == Decimal("0.00")
+        assert get_social_contribution(ZUSSocialMode.START_RELIEF, year=2026) == Decimal("0.00")
 
     def test_employment_zero(self):
-        assert get_social_contribution(ZUSSocialMode.EMPLOYMENT) == Decimal("0.00")
+        assert get_social_contribution(ZUSSocialMode.EMPLOYMENT, year=2026) == Decimal("0.00")
 
     def test_small_zus_without_sickness(self):
-        assert get_social_contribution(ZUSSocialMode.SMALL_ZUS) == Decimal("420.86")
+        assert get_social_contribution(ZUSSocialMode.SMALL_ZUS, year=2026) == Decimal("420.86")
 
     def test_small_zus_with_sickness(self):
-        assert get_social_contribution(ZUSSocialMode.SMALL_ZUS, voluntary_sickness=True) == Decimal(
-            "456.18"
-        )
+        assert get_social_contribution(
+            ZUSSocialMode.SMALL_ZUS, voluntary_sickness=True, year=2026
+        ) == Decimal("456.18")
 
     def test_full_without_sickness(self):
-        assert get_social_contribution(ZUSSocialMode.FULL) == Decimal("1788.29")
+        assert get_social_contribution(ZUSSocialMode.FULL, year=2026) == Decimal("1788.29")
 
     def test_full_with_sickness(self):
-        assert get_social_contribution(ZUSSocialMode.FULL, voluntary_sickness=True) == Decimal(
-            "1926.76"
-        )
+        assert get_social_contribution(
+            ZUSSocialMode.FULL, voluntary_sickness=True, year=2026
+        ) == Decimal("1926.76")
 
 
 class TestTotalMonthlyZus:
     def test_employment_plus_tier2_health(self):
         # 200k przychodu -> tier II zdrowotnej 830.58 + employment 0 = 830.58
-        total = get_total_monthly_zus(Decimal("200000"), ZUSSocialMode.EMPLOYMENT)
+        total = get_total_monthly_zus(Decimal("200000"), ZUSSocialMode.EMPLOYMENT, year=2026)
         assert total == Decimal("830.58")
 
     def test_full_plus_tier1_health(self):
         # 50k przychodu -> tier I 498.35 + full 1788.29 = 2286.64
-        total = get_total_monthly_zus(Decimal("50000"), ZUSSocialMode.FULL)
+        total = get_total_monthly_zus(Decimal("50000"), ZUSSocialMode.FULL, year=2026)
         assert total == Decimal("2286.64")

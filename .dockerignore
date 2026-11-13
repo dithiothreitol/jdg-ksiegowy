@@ -1,0 +1,11 @@
+# Kontekst budowania obrazu = tylko pliki kopiowane w Dockerfile (biala lista).
+# Sekrety (.env), baza i backupy (data/) oraz lokalne srodowiska nie trafiaja do buildera.
+# Nowy COPY w Dockerfile wymaga dopisania sciezki ponizej.
+*
+!pyproject.toml
+!uv.lock
+!src/
+!SOUL.md
+!HEARTBEAT.md
+!plugins/jdg-ksiegowy/skills/
+**/__pycache__

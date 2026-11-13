@@ -1,18 +1,19 @@
 # Checklist ksiegowy
 
-Przy kazdym heartbeat sprawdz:
+Przy kazdym heartbeat uruchom `jdg status` (wynik JSON) i:
 
 ## Platnosci
-- Czy sa przeterminowane niezaplacone faktury? Jesli tak, powiadom.
+- `overdue_invoices` niepuste → powiadom o fakturach po terminie (numer, kontrahent, kwota).
 
 ## Terminy podatkowe
-- Jesli dzis jest 17-20 danego miesiaca: przypomnij o ryczalcie i ZUS (termin 20-ty).
-- Jesli dzis jest 22-25 danego miesiaca: przypomnij o VAT JPK_V7M (termin 25-ty).
+- Przypomnienie z `level` = `urgent` lub `overdue` → powiadom z kwota i terminem.
 
-## Faktury cykliczne
-- Jesli dzis jest 28-31 danego miesiaca i sa aktywne kontrakty bez faktury za ten miesiac:
-  uzyj skill invoice-generator zeby wygenerowac faktury, potem ksef-submit zeby wyslac do KSeF.
+## Faktury
+- Faktury bez numeru KSeF (`jdg invoice list` → `ksef_number` puste, od 1.04.2026) → zapytaj,
+  czy wyslac je do KSeF. Wysylka tylko po zgodzie (`jdg ksef send`, protokol z tokenem).
 
-## Backup DB
-- Raz dziennie odpal `python scripts/backup_db.py` — zapis do `data/backups/jdg_YYYYMMDD.db`,
-  retencja 30 dni. VACUUM INTO jest atomowe, bezpieczne pod obciazeniem.
+## Deklaracje
+- `jdg jpk status` pokazuje `submitted` → MF jeszcze przetwarza; `rejected` → powiadom
+  z polem `error`.
+
+Nie wykonuj wysylek z heartbeat bez potwierdzenia uzytkownika.

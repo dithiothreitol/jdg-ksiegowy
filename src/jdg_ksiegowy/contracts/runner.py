@@ -1,152 +1,62 @@
-"""Cykliczne kontrakty — auto-fakturowanie wg harmonogramu.
+"""Kontrakty cykliczne — kiedy i jaka fakture wystawic (czysta logika, bez zapisu).
 
-Logika: kontrakt `monthly` z `day_of_month=-1` wystawia fakturę
-ostatniego dnia roboczego miesiąca (pn-pt). Inne wartości day_of_month
-wystawiają fakturę na konkretny dzień miesiąca.
-
-Runner wywołuje się z cron/schedulera raz dziennie.
+Kontrakt `monthly` z `day_of_month=-1` fakturuje ostatniego dnia roboczego miesiaca
+(z uwzglednieniem swiat), z innym `day_of_month` — tego dnia (albo w ostatni dzien
+roboczy, gdy miesiac jest krotszy). Zapis i dokumenty robi wspolny potok wystawiania.
 """
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
-from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, LineItem
-from jdg_ksiegowy.registry.db import (
-    ContractRecord,
-    InvoiceRecord,
-    get_active_contracts,
-    get_invoices,
-    init_db,
-    save_invoice,
-)
+from jdg_ksiegowy.invoice.models import Contract, Invoice, InvoiceStatus, LineItem
+from jdg_ksiegowy.tax.deadlines import is_business_day
 
-
-@dataclass
-class RunResult:
-    generated: list[str] = field(default_factory=list)  # numery faktur
-    skipped: list[str] = field(default_factory=list)  # kontrakty pominięte
-    errors: list[str] = field(default_factory=list)
+PAYMENT_DAYS = 14
 
 
 def last_working_day(year: int, month: int) -> date:
-    """Zwróć ostatni dzień roboczy (pn-pt) danego miesiąca."""
-    if month == 12:
-        last = date(year + 1, 1, 1) - timedelta(days=1)
-    else:
-        last = date(year, month + 1, 1) - timedelta(days=1)
-    while last.weekday() >= 5:  # 5=sob, 6=nie
+    last = (date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)) - timedelta(days=1)
+    while not is_business_day(last):
         last -= timedelta(days=1)
     return last
 
 
-def _invoice_due_date(issue_date: date, days: int = 14) -> date:
-    return issue_date + timedelta(days=days)
-
-
-def _already_issued(contract_id: str, year: int, month: int) -> bool:
-    """Sprawdź czy faktura z kontraktu już istnieje w tym miesiącu."""
-    all_invoices = get_invoices(month=month, year=year)
-    prefix = f"K{contract_id[:8]}"
-    return any(inv.number.startswith(prefix) for inv in all_invoices)
-
-
-def _contract_issue_date(contract: ContractRecord, year: int, month: int) -> date | None:
-    """Zwróć datę wystawienia faktury dla kontraktu w danym miesiącu.
-
-    Zwraca None jeśli kontrakt nie jest wymagalny w tym dniu.
-    """
+def issue_date_for(contract: Contract, year: int, month: int) -> date | None:
+    """Dzien wystawienia faktury z kontraktu w danym miesiacu (None — kontrakt nie miesieczny)."""
     if contract.cycle != "monthly":
-        return None  # quarterly nie jest jeszcze obsługiwane
-    day = contract.day_of_month
-    if day == -1:
+        return None
+    if contract.day_of_month == -1:
         return last_working_day(year, month)
     try:
-        return date(year, month, day)
+        return date(year, month, contract.day_of_month)
     except ValueError:
-        return last_working_day(year, month)  # np. 31 w miesiącu 30-dniowym
+        return last_working_day(year, month)
 
 
-def _invoice_number(contract: ContractRecord, month: int, year: int) -> str:
-    """Numer faktury cyklicznej: K{prefix_id}/{MM}/{RRRR}."""
+def invoice_number_for(contract: Contract, month: int, year: int) -> str:
+    """Numer faktury cyklicznej: K{8 znakow id}/MM/RRRR — klucz idempotencji."""
     return f"K{contract.id[:8]}/{month:02d}/{year}"
 
 
-def _build_invoice(contract: ContractRecord, issue_date: date, number: str) -> Invoice:
-    buyer = Buyer(
-        name=contract.buyer_name,
-        nip=contract.buyer_nip,
-        address=contract.buyer_address or "",
-        email=contract.buyer_email,
-    )
-    vat_rate = Decimal(str(contract.vat_rate)) if contract.vat_rate is not None else Decimal("23")
-    item = LineItem(
-        description=contract.description,
-        quantity=Decimal("1"),
-        unit="usl.",
-        unit_price_net=Decimal(str(contract.net_amount)),
-        vat_rate=vat_rate,
-    )
+def build_invoice(contract: Contract, issue_date: date) -> Invoice:
     return Invoice(
         id=str(uuid.uuid4()),
-        number=number,
+        number=invoice_number_for(contract, issue_date.month, issue_date.year),
         issue_date=issue_date,
         sale_date=issue_date,
-        payment_due=_invoice_due_date(issue_date),
-        buyer=buyer,
-        items=[item],
+        payment_due=issue_date + timedelta(days=PAYMENT_DAYS),
+        buyer=contract.buyer,
+        items=[
+            LineItem(
+                description=contract.description,
+                quantity=Decimal("1"),
+                unit="usl.",
+                unit_price_net=contract.net_amount,
+                vat_rate=contract.vat_rate,
+            )
+        ],
+        status=InvoiceStatus.GENERATED,
     )
-
-
-def _to_record(inv: Invoice) -> InvoiceRecord:
-    return InvoiceRecord(
-        id=inv.id,
-        number=inv.number,
-        issue_date=inv.issue_date,
-        sale_date=inv.sale_date,
-        payment_due=inv.payment_due,
-        buyer_name=inv.buyer.name,
-        buyer_nip=inv.buyer.nip,
-        buyer_address=inv.buyer.address,
-        total_net=inv.total_net,
-        total_vat=inv.total_vat,
-        total_gross=inv.total_gross,
-        vat_rate=inv.items[0].vat_rate if inv.items else Decimal(str(settings.seller.vat_rate)),
-        status="generated",
-    )
-
-
-def run_contracts(today: date | None = None) -> RunResult:
-    """Wygeneruj faktury cykliczne dla kontraktów wymagalnych na dany dzień.
-
-    Idempotentne — wywołanie wielokrotne tego samego dnia nie duplikuje faktur.
-    """
-    today = today or date.today()
-    init_db()
-    contracts = get_active_contracts()
-    result = RunResult()
-
-    for contract in contracts:
-        issue_date = _contract_issue_date(contract, today.year, today.month)
-        if issue_date is None or issue_date != today:
-            result.skipped.append(contract.id)
-            continue
-
-        if _already_issued(contract.id, today.year, today.month):
-            result.skipped.append(contract.id)
-            continue
-
-        number = _invoice_number(contract, today.month, today.year)
-        try:
-            inv = _build_invoice(contract, issue_date, number)
-            record = _to_record(inv)
-            save_invoice(record)
-            result.generated.append(number)
-        except Exception as exc:
-            result.errors.append(f"{contract.id}: {exc}")
-
-    return result

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "jdg-ksiegowy",
+  "version": "1.0.0",
+  "description": "Ksiegowosc JDG na ryczalcie: faktury FA(3) i KSeF, koszty z KSeF i OCR, JPK_V7M/JPK_EWP z wysylka do MF, ZUS, PIT-28 i terminy. Narzedzia MCP z dwufazowym potwierdzaniem wysylek.",
+  "author": {
+    "name": "JDG Ksiegowy Contributors",
+    "url": "https://github.com/dithiothreitol/jdg-ksiegowy"
+  },
+  "homepage": "https://github.com/dithiothreitol/jdg-ksiegowy#readme",
+  "repository": "https://github.com/dithiothreitol/jdg-ksiegowy",
+  "license": "MIT",
+  "keywords": ["ksiegowosc", "jdg", "ksef", "jpk", "vat", "zus", "ryczalt", "mcp"],
+  "extensions": {
+    "com.openai": {
+      "skills": "./skills/",
+      "interface": {
+        "displayName": "JDG Ksiegowy",
+        "shortDescription": "Faktury, KSeF, JPK, ZUS i PIT-28 dla JDG na ryczalcie",
+        "developerName": "JDG Ksiegowy Contributors",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://github.com/dithiothreitol/jdg-ksiegowy",
+        "defaultPrompt": ["Co mam do zaplacenia w tym miesiacu?"]
+      }
+    }
+  }
+}

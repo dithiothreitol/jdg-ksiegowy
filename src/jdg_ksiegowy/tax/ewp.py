@@ -22,6 +22,7 @@ from lxml import etree
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.models import Invoice
 from jdg_ksiegowy.tax.income import income_date
+from jdg_ksiegowy.tax.jpk import SellerDataMissingError
 
 TNS = "http://jpk.mf.gov.pl/wzor/2024/10/30/10301/"
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/01/05/eD/DefinicjeTypy/"
@@ -74,9 +75,9 @@ def generate_jpk_ewp(
             f"Stawka ryczaltu {rate}% nie jest w slowniku MF (dozwolone: {sorted(RYCZALT_STAWKI)})"
         )
     if not seller.first_name or not seller.last_name:
-        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")
+        raise SellerDataMissingError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")
     if not seller.tax_office_code:
-        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany dla JPK_EWP")
+        raise SellerDataMissingError("SELLER_TAX_OFFICE_CODE wymagany dla JPK_EWP")
 
     now = datetime.now()
     root = etree.Element(_ns("JPK"), nsmap=NSMAP)
@@ -121,8 +122,8 @@ def generate_jpk_ewp(
         # K_3 = data uzyskania przychodu (art. 14 ust. 1c) — ta sama regula co PIT-28.
         etree.SubElement(wiersz, _ns("K_3")).text = income_date(inv).isoformat()
         etree.SubElement(wiersz, _ns("K_4")).text = inv.number
-        if inv.ksef_reference:
-            etree.SubElement(wiersz, _ns("K_5")).text = inv.ksef_reference
+        if inv.ksef_number:
+            etree.SubElement(wiersz, _ns("K_5")).text = inv.ksef_number
         etree.SubElement(wiersz, _ns("K_6")).text = inv.buyer.country_code
         etree.SubElement(wiersz, _ns("K_7")).text = inv.buyer.nip
         etree.SubElement(wiersz, _ns("K_8")).text = f"{inv.total_net:.2f}"

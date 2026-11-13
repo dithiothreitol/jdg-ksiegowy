@@ -152,18 +152,17 @@ def test_dry_run_writes_nothing(isolated_db):
 
 
 def test_vat_reminder_has_amount(isolated_db):
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-may",
             number="A1/05/2026",
             issue_date=date(2026, 5, 10),
             sale_date=date(2026, 5, 10),
             payment_due=date(2026, 5, 24),
             buyer_name="Klient",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("1000"),
             total_vat=Decimal("230"),
             total_gross=Decimal("1230"),

@@ -1,4 +1,4 @@
-"""Generator XML FA(3) dla KSeF 2.0 — oparty o ksef2 SDK FA3InvoiceBuilder.
+"""Generator XML FA(3) dla KSeF 2.0 — oparty o ksef2 SDK InvoiceBuilder.
 
 FA(3) obowiazuje od 1.02.2026 (KSeF 2.0). Schemat CRD: wzor/2025/06/25/13775/.
 Generacja przez SDK gwarantuje zgodnosc z XSD i semantyka MF.
@@ -8,11 +8,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ksef2.fa3 import FA3InvoiceBuilder
+from ksef2.fa3 import InvoiceBuilder, SaleCategory
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceCorrection, LineItem
+from jdg_ksiegowy.invoice.models import (
+    Buyer,
+    Invoice,
+    InvoiceKind,
+    LineItem,
+    is_article_100_service,
+)
 
 FA3_NS = "http://crd.gov.pl/wzor/2025/06/25/13775/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
@@ -26,14 +32,29 @@ def _split_address(address: str) -> tuple[str, str | None]:
     return (parts[0], parts[1] if len(parts) > 1 else None)
 
 
-def _vat_rate_for_builder(item: LineItem) -> str:
-    """Stawka VAT w formacie akceptowanym przez FA3 builder."""
+_CODE_CATEGORY = {
+    "0": SaleCategory.ZERO_DOMESTIC,  # "0 KR"
+    "0_WDT": SaleCategory.ZERO_WDT,  # "0 WDT"
+    "0_EXP": SaleCategory.ZERO_EXPORT,  # "0 EX"
+    "ZW": SaleCategory.EXEMPT,  # "zw"
+}
+
+
+def _vat_args(item: LineItem, buyer: Buyer) -> dict[str, object]:
+    """Stawka albo kategoria sprzedazy FA(3) (P_12) — spojnie z polami K_* w JPK_V7M."""
+    if item.vat_code == "NP":
+        article_100 = is_article_100_service(buyer.country_code)
+        return {
+            "sale_category": SaleCategory.OUT_OF_SCOPE_ARTICLE_100  # "np II"
+            if article_100
+            else SaleCategory.OUT_OF_SCOPE_OUTSIDE_TERRITORY  # "np I"
+        }
     if item.vat_code:
-        return item.vat_code.lower() if item.vat_code in ("NP", "ZW") else item.vat_code
-    return str(int(item.vat_rate))
+        return {"sale_category": _CODE_CATEGORY[item.vat_code]}
+    return {"vat_rate": str(int(item.vat_rate))}
 
 
-def _apply_seller(builder: FA3InvoiceBuilder) -> FA3InvoiceBuilder:
+def _apply_seller(builder: InvoiceBuilder) -> InvoiceBuilder:
     seller = settings.seller
     l1, l2 = _split_address(seller.address)
     return builder.seller(
@@ -45,7 +66,7 @@ def _apply_seller(builder: FA3InvoiceBuilder) -> FA3InvoiceBuilder:
     )
 
 
-def _apply_buyer(builder: FA3InvoiceBuilder, buyer: Buyer) -> FA3InvoiceBuilder:
+def _apply_buyer(builder: InvoiceBuilder, buyer: Buyer) -> InvoiceBuilder:
     l1, l2 = _split_address(buyer.address)
     kwargs: dict = dict(
         name=buyer.name,
@@ -60,15 +81,15 @@ def _apply_buyer(builder: FA3InvoiceBuilder, buyer: Buyer) -> FA3InvoiceBuilder:
     return builder.buyer(**kwargs)
 
 
-def _apply_rows(std_body, items: list[LineItem]):
+def _apply_rows(std_body, items: list[LineItem], buyer: Buyer):
     rows = std_body.rows()
     for item in items:
         rows = rows.add_line(
             name=item.description,
             quantity=item.quantity,
             unit_price_net=item.unit_price_net,
-            vat_rate=_vat_rate_for_builder(item),
             unit_of_measure=item.unit,
+            **_vat_args(item, buyer),
         )
     return rows.done()
 
@@ -86,8 +107,10 @@ def _apply_payment(std_body, *, due, paid: bool = False):
 
 
 def generate_invoice_xml(invoice: Invoice) -> str:
-    """Wygeneruj XML FA(3) dla faktury standardowej."""
-    builder = FA3InvoiceBuilder().header(system_info=SYSTEM_INFO)
+    """XML FA(3) faktury: podstawowej (VAT) albo korygujacej (KOR)."""
+    if invoice.kind is InvoiceKind.KOR:
+        return _correction_xml(invoice)
+    builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, invoice.buyer)
 
@@ -97,64 +120,50 @@ def generate_invoice_xml(invoice: Invoice) -> str:
         .issue_date(invoice.issue_date)
         .currency("PLN")
     )
-    # FA(3): date_of_supply (P_6) i billing_period (OkresFa) sa wzajemnie wykluczajace.
+    # FA(3): date_of_supply (P_6) i billing_period (OkresFa) wykluczaja sie.
     if invoice.period_from and invoice.period_to:
-        std = std.billing_period(
-            period_start=invoice.period_from,
-            period_end=invoice.period_to,
-        )
+        std = std.billing_period(period_start=invoice.period_from, period_end=invoice.period_to)
     else:
         std = std.date_of_supply(invoice.sale_date)
-    std = _apply_rows(std, invoice.items)
+    std = _apply_rows(std, invoice.items, invoice.buyer)
     std = _apply_payment(std, due=invoice.payment_due, paid=False)
     return std.done().to_xml()
 
 
-def generate_correction_xml(correction: InvoiceCorrection) -> str:
-    """Wygeneruj XML FA(3) korekty (rodzaj KOR)."""
-    builder = FA3InvoiceBuilder().header(system_info=SYSTEM_INFO)
+def _correction_xml(correction: Invoice) -> str:
+    """FA(3) rodzaju KOR: pozycje roznicowe, dane faktury korygowanej, przyczyna."""
+    if not correction.corrected_number or not correction.corrected_issue_date:
+        raise ValueError("Korekta wymaga numeru i daty wystawienia faktury korygowanej")
+    builder = InvoiceBuilder().header(system_info=SYSTEM_INFO)
     builder = _apply_seller(builder)
     builder = _apply_buyer(builder, correction.buyer)
-
     cor = (
         builder.correction()
         .invoice_number(correction.number)
         .issue_date(correction.issue_date)
-        .date_of_supply(correction.correction_date)
+        .date_of_supply(correction.issue_date)
         .currency("PLN")
     )
-
-    reason_text = correction.reason_description or f"Korekta {correction.reason.value}"
-    cor_sub = (
+    cor = (
         cor.correction()
-        .reason(reason_text)
+        .reason(correction.correction_reason or "Korekta")
         .add_corrected_invoice(
-            issue_date=correction.correction_date,
-            invoice_number=correction.original_number,
-            ksef_id=correction.original_ksef_reference,
-            outside_ksef=correction.original_ksef_reference is None,
+            issue_date=correction.corrected_issue_date,
+            invoice_number=correction.corrected_number,
+            ksef_id=correction.corrected_ksef_number,
+            outside_ksef=correction.corrected_ksef_number is None,
         )
+        .done()
     )
-    cor = cor_sub.done()
-
-    cor = _apply_rows(cor, correction.items)
-    cor = _apply_payment(cor, due=correction.correction_date, paid=False)
+    cor = _apply_rows(cor, correction.items, correction.buyer)
+    cor = _apply_payment(cor, due=correction.payment_due, paid=False)
     return cor.done().to_xml()
 
 
 def save_invoice_xml(invoice: Invoice, output_path: Path) -> Path:
     """Wygeneruj i zapisz XML FA(3) do pliku."""
-    xml_content = generate_invoice_xml(invoice)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(xml_content, encoding="utf-8")
-    return output_path
-
-
-def save_correction_xml(correction: InvoiceCorrection, output_path: Path) -> Path:
-    """Wygeneruj i zapisz XML FA KOR do pliku."""
-    xml_content = generate_correction_xml(correction)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(xml_content, encoding="utf-8")
+    output_path.write_text(generate_invoice_xml(invoice), encoding="utf-8")
     return output_path
 
 

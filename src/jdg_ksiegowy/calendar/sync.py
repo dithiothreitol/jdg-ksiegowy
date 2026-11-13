@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 
 from jdg_ksiegowy.calendar.gcal import KEY_PROP, GCalClient
-from jdg_ksiegowy.status.dashboard import Dashboard, Reminder
+from jdg_ksiegowy.status.dashboard import Dashboard, Reminder, ReminderLevel
 
 
 @dataclass(frozen=True)
@@ -50,8 +50,8 @@ def reminders_to_events(reminders: list[Reminder]) -> list[DesiredEvent]:
     """Zamien przypomnienia (z kluczem) na pozadane wydarzenia kalendarza."""
     events: list[DesiredEvent] = []
     for r in reminders:
-        if not r.key:
-            continue  # bez stabilnego klucza pomijamy (ochrona idempotencji)
+        if not r.key or r.level is ReminderLevel.PAID:
+            continue  # bez klucza (idempotencja) albo juz zaplacone — znika z kalendarza
         desc = [f"Termin: {r.due_date.isoformat()}"]
         if r.amount is not None:
             desc.insert(0, f"Kwota (szacunkowo): {_fmt_amount(r.amount)}")

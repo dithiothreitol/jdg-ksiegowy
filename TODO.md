@@ -15,7 +15,7 @@ SQLite z księgami) — chmurowy harmonogram (np. scheduled remote agent) nie ma
 - `src/jdg_ksiegowy/calendar/gcal.py` — klient Google Calendar API (app-native OAuth, lazy import).
 - `src/jdg_ksiegowy/calendar/sync.py` — reconcile `Dashboard.reminders` ↔ wydarzenia (create/update/delete osieroconych).
 - `src/jdg_ksiegowy/calendar/auth_setup.py` — jednorazowa zgoda OAuth → refresh token.
-- Skill `calendar-sync` (`skills/calendar-sync/scripts/sync.py`, flaga `--dry-run`).
+- Komenda `jdg calendar sync` (flaga `--dry-run`).
 - `CalendarConfig` (prefix `GCAL_`) w `config.py`; check `_check_calendar` w doctorze.
 - Wpis crona w `CRON.md` (codziennie 07:00).
 - Idempotencja: `extendedProperties.private` (`jdg_managed`/`jdg_key`); zapłacone faktury znikają z kalendarza.
@@ -25,9 +25,9 @@ SQLite z księgami) — chmurowy harmonogram (np. scheduled remote agent) nie ma
 - [ ] Google Cloud Console: projekt → włącz **Google Calendar API** → **OAuth client „Desktop app"** → pobierz `credentials.json`
 - [ ] `.env`: `GCAL_ENABLED=true`, `GCAL_CREDENTIALS_PATH=/abs/sciezka/credentials.json`
 - [ ] `python -m jdg_ksiegowy.calendar.auth_setup` (zgoda w przeglądarce → token w `data/gcal_token.json`)
-- [ ] `python skills/calendar-sync/scripts/sync.py --dry-run` → weryfikacja różnicy; potem bez `--dry-run`
+- [ ] `jdg calendar sync --dry-run` → weryfikacja różnicy; potem bez `--dry-run`
 - [ ] Zarejestruj cron OpenClaw (linijka jest w `CRON.md`): `openclaw cron add "0 7 * * *" "...calendar-sync"`
-- [ ] `python skills/doctor/scripts/check.py` → obszar `CALENDAR` = OK
+- [ ] `jdg doctor` → obszar `CALENDAR` = OK
 
 ### Migracja z obecnego stanu (WAŻNE — uniknięcie duplikatów)
 07.06.2026 utworzono **ręcznie przez MCP** 3 zdarzenia za 05/2026 w kalendarzu **GŁÓWNYM**

@@ -1,58 +1,46 @@
-"""Przesuwanie terminow podatkowych i skladkowych z dni wolnych na dni robocze.
+"""Terminy podatkowe i skladkowe z przesunieciem na dzien roboczy.
 
-Art. 12 par. 5 Ordynacji podatkowej: termin przypadajacy w sobote lub dzien ustawowo
-wolny od pracy konczy sie w nastepnym dniu po dniu lub dniach wolnych. Do skladek ZUS
-przepis stosuje sie odpowiednio (art. 31 ustawy o systemie ubezpieczen spolecznych).
-Lista dni wolnych: ustawa z 18 stycznia 1951 r. o dniach wolnych od pracy.
+Ordynacja podatkowa art. 12 § 5: gdy ostatni dzien terminu przypada w sobote lub dzien
+ustawowo wolny od pracy, termin uplywa nastepnego dnia roboczego. Te sama zasade stosuje
+ZUS. Ryczalt za grudzien jest platny do 20 stycznia (od rozliczenia za 2023 r.),
+zeznanie PIT-28 do 30 kwietnia, JPK_EWP razem z zeznaniem.
 """
 
 from __future__ import annotations
 
 from datetime import date, timedelta
+from functools import cache
 
-CHRISTMAS_EVE_HOLIDAY_SINCE = 2025
-
-
-def easter_sunday(year: int) -> date:
-    """Wielkanoc w kalendarzu gregorianskim (algorytm Meeusa/Jonesa/Butchera)."""
-    a = year % 19
-    b, c = divmod(year, 100)
-    d, e = divmod(b, 4)
-    f = (b + 8) // 25
-    g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
-    i, k = divmod(c, 4)
-    m = (32 + 2 * e + 2 * i - h - k) % 7
-    n = (a + 11 * h + 22 * m) // 451
-    month, day = divmod(h + m - 7 * n + 114, 31)
-    return date(year, month, day + 1)
+import holidays
 
 
-def polish_public_holidays(year: int) -> set[date]:
-    """Dni ustawowo wolne od pracy w danym roku."""
-    easter = easter_sunday(year)
-    holidays = {
-        date(year, 1, 1),
-        date(year, 1, 6),
-        easter,
-        easter + timedelta(days=1),
-        date(year, 5, 1),
-        date(year, 5, 3),
-        easter + timedelta(days=49),  # Zeslanie Ducha Swietego
-        easter + timedelta(days=60),  # Boze Cialo
-        date(year, 8, 15),
-        date(year, 11, 1),
-        date(year, 11, 11),
-        date(year, 12, 25),
-        date(year, 12, 26),
+@cache
+def _pl_holidays(year: int) -> holidays.HolidayBase:
+    return holidays.country_holidays("PL", years=year)
+
+
+def is_business_day(d: date) -> bool:
+    return d.weekday() < 5 and d not in _pl_holidays(d.year)
+
+
+def next_business_day(d: date) -> date:
+    """Ten sam dzien albo najblizszy kolejny dzien roboczy."""
+    while not is_business_day(d):
+        d += timedelta(days=1)
+    return d
+
+
+def monthly_deadlines(month: int, year: int) -> dict[str, date]:
+    """Terminy za miesiac rozliczeniowy: ryczalt i ZUS do 20., VAT i JPK_V7M do 25."""
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return {
+        "ryczalt": next_business_day(date(next_year, next_month, 20)),
+        "zus": next_business_day(date(next_year, next_month, 20)),
+        "vat_jpk": next_business_day(date(next_year, next_month, 25)),
     }
-    if year >= CHRISTMAS_EVE_HOLIDAY_SINCE:
-        holidays.add(date(year, 12, 24))
-    return holidays
 
 
-def next_working_day(day: date) -> date:
-    """Zwroc `day`, a gdy to sobota, niedziela lub swieto: najblizszy dzien roboczy."""
-    while day.weekday() >= 5 or day in polish_public_holidays(day.year):
-        day += timedelta(days=1)
-    return day
+def annual_deadlines(year: int) -> dict[str, date]:
+    """Zeznanie PIT-28 i ewidencja JPK_EWP za rok podatkowy."""
+    pit28 = next_business_day(date(year + 1, 4, 30))
+    return {"pit28": pit28, "jpk_ewp": pit28}

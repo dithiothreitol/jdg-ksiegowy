@@ -43,3 +43,6 @@ token.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Publiczne certyfikaty kluczy MF wbudowane w pakiet (nie sekrety)
+!src/jdg_ksiegowy/mf_gateway/certs/*.pem

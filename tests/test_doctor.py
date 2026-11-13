@@ -59,11 +59,13 @@ class TestRunDoctor:
             f.level == "error" and "PESEL nieprawidłowy" in f.message for f in report.findings
         )
 
-    def test_missing_mf_cert_is_warn(self, fresh_settings):
+    def test_missing_mf_cert_uses_bundled(self, fresh_settings):
         fresh_settings.mf.cert_path = None
         fresh_settings.mf.cert_url = None
         report = run_doctor()
-        assert any(f.level == "warn" and "CERT" in f.message for f in report.findings)
+        assert any(
+            f.area == "mf" and f.level == "ok" and "wbudowany" in f.message for f in report.findings
+        )
 
     def test_mf_cert_url_set_is_ok(self, fresh_settings):
         fresh_settings.mf.cert_path = None
@@ -112,3 +114,11 @@ class TestFormatReport:
         text = format_report(report)
         assert "Podsumowanie" in text
         assert "Gotowość" in text
+
+
+def test_missing_zus_params_for_current_year_is_warning(fresh_settings, monkeypatch):
+    from jdg_ksiegowy import doctor
+
+    monkeypatch.setattr(doctor, "PARAMS", {})
+    tax = [f for f in run_doctor().findings if f.area == "tax"]
+    assert [f.level for f in tax] == ["warn"] and "tax/zus.py" in tax[0].message

@@ -49,19 +49,19 @@ def test_ewp_rows_sorted_by_income_date():
 
 def test_pit28_and_ewp_agree_on_year(isolated_db):
     """Ta sama faktura: PIT-28 i JPK_EWP musza wskazac ten sam rok."""
-    from jdg_ksiegowy.registry.db import InvoiceRecord, get_invoices, init_db, save_invoice
+    from jdg_ksiegowy.registry.repository import InvoiceRepository
     from jdg_ksiegowy.tax.pit28 import generate_pit28_report
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id="i-turn",
             number="A9/12/2026",
             issue_date=date(2026, 12, 30),
             sale_date=date(2027, 1, 5),
             payment_due=date(2027, 1, 19),
             buyer_name="Klient",
-            buyer_nip="1234567890",
+            buyer_nip="5260250274",
             total_net=Decimal("20000"),
             total_vat=Decimal("4600"),
             total_gross=Decimal("24600"),
@@ -73,5 +73,5 @@ def test_pit28_and_ewp_agree_on_year(isolated_db):
     assert report.annual_sales_net == Decimal("20000")
 
     # Ewidencja skladana razem z PIT-28 musi objac te sama fakture.
-    ewp_2026 = [inv for inv in get_invoices() if income_date(inv).year == 2026]
+    ewp_2026 = [inv for inv in InvoiceRepository().list() if income_date(inv).year == 2026]
     assert [i.number for i in ewp_2026] == ["A9/12/2026"]

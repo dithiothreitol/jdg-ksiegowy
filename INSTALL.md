@@ -125,14 +125,30 @@ openclaw --version
 cd /root  # or your preferred directory
 git clone https://github.com/YOUR_USER/jdg-ksiegowy.git
 cd jdg-ksiegowy
-pip install -e .
+curl -LsSf https://astral.sh/uv/install.sh | sh   # if uv is missing
+uv sync --frozen --no-dev
+uv tool install --editable .    # `jdg` in PATH (CLI for skills + MCP server for agents)
 ```
 
-Verify Python library:
+Verify:
 
 ```bash
-python3 -c "from jdg_ksiegowy.tax.zus import get_zus_tier; print(get_zus_tier(100000))"
-# Expected: ZUSHealthTier(max_annual_revenue=Decimal('300000'), ..., monthly_contribution=Decimal('830.58'), ...)
+jdg --version
+jdg tax calc --net 10500 --json   # VAT, ryczalt, ZUS and deadlines as JSON
+```
+
+Register the tools with OpenClaw (MCP over stdio, same commands as the CLI):
+
+```bash
+openclaw mcp add jdg --command jdg --arg mcp --arg serve
+openclaw mcp probe jdg            # expected: jdg: 34 tools
+```
+
+Claude Code / Codex use the same plugin (skills + MCP server):
+
+```bash
+claude plugin marketplace add ./ && claude plugin install jdg-ksiegowy@jdg-ksiegowy
+codex plugin marketplace add ./ && codex plugin add jdg-ksiegowy@jdg-ksiegowy
 ```
 
 ---
@@ -215,7 +231,7 @@ dedicated "JDG Podatki" calendar. One-time OAuth setup:
    python3 -m jdg_ksiegowy.calendar.auth_setup
    ```
    This stores a refresh token in `data/gcal_token.json` — afterwards the sync runs headless.
-4. Test: `python3 skills/calendar-sync/scripts/sync.py --dry-run`, then without `--dry-run`.
+4. Test: `jdg calendar sync --dry-run`, then without `--dry-run`.
    The daily cron in `CRON.md` keeps it in sync.
 
 ---
@@ -223,15 +239,17 @@ dedicated "JDG Podatki" calendar. One-time OAuth setup:
 ## 7. Initialize Database
 
 ```bash
-python3 -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
+uv run python -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
 ```
 
-This creates `data/jdg_ksiegowy.db` with tables for invoices, contracts, and tax payments.
+This creates `data/jdg_ksiegowy.db` (or migrates an existing one with Alembic) — invoices with
+line items, expenses, contracts, tax payments, filings and the audit log. The same migration runs
+automatically on first use, so this step is optional.
 
 Verify:
 
 ```bash
-python3 -c "
+uv run python -c "
 from jdg_ksiegowy.registry.db import get_session, InvoiceRecord
 with get_session() as s:
     print(f'Invoices: {s.query(InvoiceRecord).count()}')
@@ -412,13 +430,13 @@ Wyslij ostatnia fakture do KSeF
 
 Expected: reference number from KSeF test environment
 
-### Test 4: Manual skill execution
+### Test 4: CLI without the agent
 
 ```bash
-python3 skills/tax-calculator/scripts/calculate.py --netto 10500
-python3 skills/invoice/scripts/generate.py \
-  --buyer-name "Test Sp. z o.o." --buyer-nip "1234567890" --netto 5000
-python3 skills/jpk/scripts/generate_jpk.py --month 4 --year 2026
+jdg tax calc --net 10500
+jdg invoice issue --buyer-nip 5260250274 --buyer-name "Test Sp. z o.o." \
+  --buyer-address "ul. Testowa 1, 00-001 Warszawa" --description "Test" --net 5000
+jdg jpk build --year 2026 --month 4
 ```
 
 ---
@@ -509,7 +527,8 @@ cp data/jdg_ksiegowy.db ~/backup/jdg_$(date +%Y%m%d).db
 ```bash
 cd /root/jdg-ksiegowy
 git pull
-pip install -e .
+uv sync --frozen --no-dev
+uv tool install --editable . --force   # refresh `jdg` in PATH
 openclaw restart
 ```
 
@@ -528,10 +547,10 @@ openclaw cron list     # Scheduled jobs status
 
 You haven't filled in `.env`. Run `nano .env` and set all required `SELLER_*` fields.
 
-### "ksef2 not installed"
+### "ksef2 not installed" / `jdg: command not found`
 
 ```bash
-pip install ksef2
+uv sync --frozen --no-dev && uv tool install --editable . --force
 ```
 
 ### "Ollama connection refused"

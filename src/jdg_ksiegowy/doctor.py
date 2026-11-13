@@ -17,13 +17,14 @@ from datetime import date
 from pathlib import Path
 
 from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.tax.zus import PARAMS
 from jdg_ksiegowy.validators import validate_nip, validate_pesel
 
 
 @dataclass
 class Finding:
     level: str  # "ok" | "warn" | "error"
-    area: str  # "seller" | "ksef" | "mf" | "smtp" | "ocr"
+    area: str  # "seller" | "ksef" | "mf" | "smtp" | "ocr" | "calendar" | "tax"
     message: str
 
 
@@ -128,9 +129,27 @@ def _check_mf(report: DoctorReport) -> None:
     elif m.cert_url:
         report.findings.append(Finding("ok", area, f"MF_CERT_URL ustawiony: {m.cert_url}"))
     else:
-        report.findings.append(
-            Finding("warn", area, "MF_CERT_PATH/URL puste — wysyłka JPK nie zadziała")
+        report.findings.append(_bundled_cert_finding(m.env))
+
+
+def _bundled_cert_finding(env: str) -> Finding:
+    """Bez MF_CERT_PATH/URL uzywamy certyfikatu MF wbudowanego w pakiet — pilnuj jego daty."""
+    from datetime import UTC, datetime, timedelta
+
+    from cryptography import x509
+
+    from jdg_ksiegowy.mf_gateway.client import BUNDLED_CERTS_DIR
+
+    cert = x509.load_pem_x509_certificate((BUNDLED_CERTS_DIR / f"{env}.pem").read_bytes())
+    expires = cert.not_valid_after_utc
+    if expires - datetime.now(tz=UTC) < timedelta(days=60):
+        return Finding(
+            "warn",
+            "mf",
+            f"Wbudowany certyfikat MF wygasa {expires:%Y-%m-%d} — ustaw MF_CERT_PATH/URL "
+            "z komunikatu MF (podatki.gov.pl, komunikaty techniczne)",
         )
+    return Finding("ok", "mf", f"Certyfikat MF wbudowany (wazny do {expires:%Y-%m-%d})")
 
 
 def _check_smtp(report: DoctorReport) -> None:
@@ -208,7 +227,23 @@ def run_doctor() -> DoctorReport:
     _check_smtp(report)
     _check_ocr(report)
     _check_calendar(report)
+    _check_tax_params(report)
     return report
+
+
+def _check_tax_params(report: DoctorReport) -> None:
+    """Parametry ZUS na biezacy rok musza byc w kodzie, inaczej kalkulacje sie zatrzymaja."""
+    year = date.today().year
+    if year in PARAMS:
+        report.findings.append(Finding("ok", "tax", f"Parametry ZUS na {year} obecne"))
+    else:
+        report.findings.append(
+            Finding(
+                "warn",
+                "tax",
+                f"Brak parametrow ZUS na {year} — dopisz je w tax/zus.py po publikacji GUS/ZUS",
+            )
+        )
 
 
 def format_report(report: DoctorReport) -> str:

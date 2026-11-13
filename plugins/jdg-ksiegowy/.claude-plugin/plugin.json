@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "jdg-ksiegowy",
+  "displayName": "JDG Ksiegowy",
+  "version": "1.0.0",
+  "description": "Ksiegowosc JDG na ryczalcie: faktury FA(3) i KSeF, koszty z KSeF i OCR, JPK_V7M/JPK_EWP z wysylka do MF, ZUS, PIT-28 i terminy. Narzedzia MCP z dwufazowym potwierdzaniem wysylek.",
+  "author": {
+    "name": "JDG Ksiegowy Contributors",
+    "url": "https://github.com/dithiothreitol/jdg-ksiegowy"
+  },
+  "homepage": "https://github.com/dithiothreitol/jdg-ksiegowy#readme",
+  "repository": "https://github.com/dithiothreitol/jdg-ksiegowy",
+  "license": "MIT",
+  "keywords": ["ksiegowosc", "jdg", "ksef", "jpk", "vat", "zus", "ryczalt", "mcp"]
+}

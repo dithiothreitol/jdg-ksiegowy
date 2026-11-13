@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "release/**"]
 
 permissions:
   contents: read
@@ -15,28 +15,52 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      # setup-uv nie publikuje ruchomych tagow (v10) — pelna wersja; wydania sa niezmienne (immutable)
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: pyproject.toml
 
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+      - name: Install (z uv.lock)
+        run: uv sync --locked
 
       - name: Ruff lint
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
-      - name: Pytest
-        run: pytest -m "not xsd" -q
+      - name: Mypy
+        run: uv run mypy
+
+      - name: Pytest (z walidacja XSD offline; bez e2e na sandboxach)
+        run: uv run pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t jdg-ksiegowy:ci .
+      - name: Smoke test pakietu w obrazie
+        run: docker run --rm --entrypoint python jdg-ksiegowy:ci -c "import jdg_ksiegowy.registry.repository, ksef2; print('ok')"
+      - name: Serwer MCP (HTTP) odpowiada na healthcheck i wymaga tokenu
+        run: |
+          docker run -d --name jdg-mcp -p 127.0.0.1:8765:8765 -e JDG_MCP_TOKEN=ci-token             --entrypoint jdg jdg-ksiegowy:ci mcp serve --transport http --host 0.0.0.0
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/healthz && break; sleep 1; done
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8765/mcp)" = 401
+          docker rm -f jdg-mcp
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Walidacja wtyczki i marketplace (Claude Code)
+        run: |
+          npx -y @anthropic-ai/claude-code@2.1.311 plugin validate --strict plugins/jdg-ksiegowy
+          npx -y @anthropic-ai/claude-code@2.1.311 plugin validate --strict .

@@ -1,15 +1,16 @@
 """Generator JPK_V7M(3) — miesieczna deklaracja VAT z ewidencja.
 
-Schemat: JPK_V7M(3), TNS http://crd.gov.pl/wzor/2025/06/18/06181/
-Obowiazuje od 01.02.2026 (dopasowanie do KSeF 2.0). Dodaje oznaczenia
-NrKSeF/OFF/BFK/DI (exclusive choice) na kazdy wiersz sprzedazy.
+Schemat: JPK_V7M(3), TNS http://crd.gov.pl/wzor/2025/12/19/14090/ (od 01.02.2026).
+Kazdy wiersz ma oznaczenie NrKSeF / OFF / BFK / DI.
 
-Zrodlo XSD: https://www.podatki.gov.pl/media/qord0r0j/schemat_jpk_v7m-3-_v1-0e.xsd
+Jedna klasyfikacja pozycji (`classify_item`) zasila wiersze ewidencji (K_*) i pola
+deklaracji (P_*), wiec ewidencja i deklaracja nie moga sie rozjechac.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -20,148 +21,160 @@ from lxml import etree
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
-from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind, LineItem, is_article_100_service
+from jdg_ksiegowy.tax.rounding import round_pln
+from jdg_ksiegowy.validators import EU_COUNTRY_CODES
 
+ZERO = Decimal("0")
 
-class ExpenseLike(Protocol):
-    """Koszt na potrzeby rozliczenia VAT — domenowy Expense albo ExpenseRecord."""
-
-    total_vat: Decimal
-    vat_deduction_pct: Decimal
-    reverse_charge: bool
-
-
-def _dec(value: object) -> Decimal:
-    """Kwota z rejestru (SQLite oddaje float) -> Decimal bez utraty groszy."""
-    return value if isinstance(value, Decimal) else Decimal(str(value))
-
-
-TNS = "http://crd.gov.pl/wzor/2025/12/19/14090/"  # CRWDE 19.12.2025, obowiązuje od 01.02.2026
+TNS = "http://crd.gov.pl/wzor/2025/12/19/14090/"  # CRWDE 19.12.2025, od 01.02.2026
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/09/13/eD/DefinicjeTypy/"
 XSI = "http://www.w3.org/2001/XMLSchema-instance"
-
 NSMAP = {"tns": TNS, "etd": ETD, "xsi": XSI}
 
-# Stawka VAT -> (pole podstawy, pole podatku). None = brak pola podatku.
-VAT_RATE_TO_K_FIELDS: dict[Decimal, tuple[str, str | None]] = {
+# Stawka VAT -> (pole podstawy, pole podatku) w ewidencji sprzedazy
+VAT_RATE_TO_K_FIELDS: dict[Decimal, tuple[str, str]] = {
     Decimal("23"): ("K_19", "K_20"),
     Decimal("22"): ("K_19", "K_20"),
     Decimal("8"): ("K_17", "K_18"),
     Decimal("7"): ("K_17", "K_18"),
     Decimal("5"): ("K_15", "K_16"),
 }
-
-# Kody VAT które idą do K_11 (poza terytorium kraju / art. 28b)
-# zamiast do standardowych par stawek
-VAT_CODE_K11 = {"NP"}
-# Kody VAT które idą do K_13 (dostawy 0% wewnątrzwspólnotowe)
-VAT_CODE_K13 = {"0_WDT", "0"}
-# Kody VAT dla eksportu towarów K_14
-VAT_CODE_K14 = {"0_EXP"}
-
-# Pary stawek w kolejnosci wymaganej przez XSD: K_15/K_16, K_17/K_18, K_19/K_20.
-RATE_PAIRS_ORDER = [
-    (Decimal("5"), "K_15", "K_16"),
-    (Decimal("8"), "K_17", "K_18"),
-    (Decimal("23"), "K_19", "K_20"),
-]
-
-# Pola wiersza sprzedazy przed parami stawek (zawsze "0.00" gdy nieaktywne).
-PRE_RATE_FIELDS = ["K_10", "K_11", "K_12", "K_13", "K_14"]
-# Pola miedzy parami stawek a dalszymi parami (K_23-K_32).
-MID_FIELDS = ["K_21", "K_22"]
-# Pola po parach stawek (zawsze "0.00" gdy nieaktywne).
-POST_RATE_FIELDS = ["K_33", "K_34", "K_35", "K_36", "K_360"]
-
-# Kraje UE (ISO 3166-1 alpha-2) — dostawca z UE to "podatnik podatku od wartości
-# dodanej", więc import usług art. 28b idzie do K_29/K_30; spoza UE do K_27/K_28.
-EU_COUNTRIES = frozenset(
-    "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
-)
+# Kod pozycji (LineItem.vat_code) -> pole ewidencji sprzedazy bez podatku nalezenego
+VAT_CODE_FIELD: dict[str, str] = {
+    "ZW": "K_10",  # zwolnione
+    "NP": "K_11",  # poza terytorium kraju (+ K_12 dla uslug art. 28b dla podatnika z UE)
+    "0": "K_13",  # krajowe 0%
+    "0_WDT": "K_21",  # wewnatrzwspolnotowa dostawa towarow
+    "0_EXP": "K_22",  # eksport towarow
+}
+# Pola wiersza sprzedazy wypisywane zawsze (0.00 gdy nieaktywne) — jak w zlozonych plikach.
+ALWAYS_SALES_FIELDS = ("K_10", "K_11", "K_12", "K_13", "K_14")
+PAIR_FIELDS = ("K_15", "K_16", "K_17", "K_18", "K_19", "K_20")
+MID_FIELDS = ("K_21", "K_22")
+RC_FIELDS = ("K_27", "K_28", "K_29", "K_30")
+POST_FIELDS = ("K_33", "K_34", "K_35", "K_36", "K_360")
+# Podstawy wchodzace do P_37 (P_12 i P_14 to "w tym" — nie sumujemy) i podatki do P_38
+BASE_FIELDS = ("10", "11", "13", "15", "17", "19", "21", "22", "27", "29")
+TAX_FIELDS = ("16", "18", "20", "28", "30")
 
 
-def _is_eu(country_code: str) -> bool:
-    return (country_code or "").upper() in EU_COUNTRIES
+class SellerDataMissingError(ValueError):
+    """Brak danych podatnika wymaganych w JPK (SELLER_* w .env)."""
+
+
+def _is_eu(country_code: str | None) -> bool:
+    """Import uslug (art. 28b): dostawca z UE -> K_29/K_30, spoza UE -> K_27/K_28."""
+    return (country_code or "").upper() in EU_COUNTRY_CODES | {"PL"}
+
+
+class ExpenseLike(Protocol):
+    total_vat: Decimal
+    vat_deduction_pct: Decimal
+    reverse_charge: bool
+
+
+def _dec(value: object) -> Decimal:
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
+def _cents(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 @dataclass(frozen=True)
 class VatSettlement:
-    """Rozliczenie VAT za okres — pola deklaracji P_38 / P_48 / P_51 / P_62."""
+    """Rozliczenie VAT okresu — pola deklaracji w pelnych zlotych.
+
+    Sumy powstaja z juz zaokraglonych pol, tak jak sprawdza je MF: P_38 = P_16 + P_18 + P_20
+    + P_28 + P_30, P_48 = P_39 + P_43, P_51 = P_38 - P_48, P_53 = P_48 - P_38.
+    """
 
     nalezny: Decimal  # P_38
-    naliczony: Decimal  # P_48
+    naliczony: Decimal  # P_48 (z przeniesiona nadwyzka P_39)
     to_pay: Decimal  # P_51
-    nadwyzka: Decimal  # P_62
+    nadwyzka: Decimal  # P_53 = P_62 (bez zwrotu na rachunek)
+    carry_forward: Decimal = ZERO  # P_39
+    purchases_vat: Decimal = ZERO  # P_43
 
 
-def settle_vat(sales_vat: Decimal, expenses: Iterable[ExpenseLike]) -> VatSettlement:
-    """Policz VAT nalezny/naliczony/do zaplaty ze sprzedazy i kosztow okresu.
-
-    Reverse charge (import uslug, art. 17 ust. 1 pkt 4): nabywca sam nalicza VAT
-    nalezny od CALEJ kwoty, a odlicza tylko czesc podlegajaca odliczeniu — pominiecie
-    strony naleznej zaniza zobowiazanie. Przyjmuje zarowno domenowy Expense, jak i
-    ExpenseRecord z rejestru, bo obie strony maja te same trzy pola.
-    """
-    rc_vat = sum(
-        (_dec(e.total_vat) for e in expenses if e.reverse_charge),
-        Decimal("0"),
-    )
-    naliczony = sum(
+def deductible_vat(expenses: Iterable[ExpenseLike]) -> Decimal:
+    """VAT naliczony do odliczenia (w groszach): odliczenie czesciowe zaokraglane per faktura."""
+    return sum(
         (
-            (_dec(e.total_vat) * _dec(e.vat_deduction_pct) / Decimal("100")).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
+            _cents(_dec(e.total_vat) * _dec(e.vat_deduction_pct) / 100)
             for e in expenses
             if _dec(e.vat_deduction_pct) > 0
         ),
-        Decimal("0"),
+        ZERO,
     )
-    nalezny = sales_vat + rc_vat
+
+
+def settle_vat(
+    fields: Mapping[str, Decimal], expenses: Iterable[ExpenseLike], carry_forward: Decimal = ZERO
+) -> VatSettlement:
+    """Pola P_38..P_62 z sum ewidencji (`period_fields`) i faktur zakupu okresu.
+
+    Import uslug (odwrotne obciazenie) jest juz w `fields` jako VAT nalezny (K_28/K_30);
+    po stronie zakupow odlicza sie tylko czesc podlegajaca odliczeniu.
+    """
+    nalezny = sum((round_pln(fields.get(f"K_{n}", ZERO)) for n in TAX_FIELDS), ZERO)
+    p39 = round_pln(carry_forward)
+    p43 = round_pln(deductible_vat(expenses))
+    naliczony = p39 + p43
     return VatSettlement(
         nalezny=nalezny,
         naliczony=naliczony,
-        to_pay=max(nalezny - naliczony, Decimal("0")),
-        nadwyzka=max(naliczony - nalezny, Decimal("0")),
+        to_pay=max(nalezny - naliczony, ZERO),
+        nadwyzka=max(naliczony - nalezny, ZERO),
+        carry_forward=p39,
+        purchases_vat=p43,
     )
 
 
-# Para stawki -> pola deklaracji (podstawa, podatek). Te same numery co ewidencja K_*.
-_RATE_TO_P_FIELDS = {
-    "K_15": ("P_15", "P_16"),  # 5%
-    "K_17": ("P_17", "P_18"),  # 7/8%
-    "K_19": ("P_19", "P_20"),  # 22/23%
-}
+def classify_item(item: LineItem, buyer_country: str) -> dict[str, Decimal]:
+    """Pola ewidencji sprzedazy (K_*) dla pozycji faktury."""
+    code = (item.vat_code or "").upper()
+    if code:
+        field = VAT_CODE_FIELD.get(code)
+        if field is None:
+            raise ValueError(f"Nieobslugiwany kod VAT {item.vat_code!r} (znane: {VAT_CODE_FIELD})")
+        out = {field: item.net_value}
+        if code == "NP" and is_article_100_service(buyer_country):
+            out["K_12"] = item.net_value  # uslugi art. 100 ust. 1 pkt 4 (VAT-UE), FA(3) "np II"
+        return out
+    if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
+        raise ValueError(
+            f"Nieobslugiwana stawka VAT {item.vat_rate}% (dozwolone: "
+            f"{sorted(VAT_RATE_TO_K_FIELDS)} albo kod {sorted(VAT_CODE_FIELD)})"
+        )
+    net_field, vat_field = VAT_RATE_TO_K_FIELDS[item.vat_rate]
+    return {net_field: item.net_value, vat_field: item.vat_amount}
 
 
-def _aggregate_sales(
-    invoices: list[Invoice],
-) -> tuple[Decimal, Decimal, Decimal, dict[str, list[Decimal]]]:
-    """Zsumuj sprzedaz do pozycji deklaracji: poza terytorium (P_11), 0% (P_13),
-    art. 129 (P_14) oraz pary stawek 5/8/23 (P_15-P_20).
+def invoice_fields(inv: Invoice) -> dict[str, Decimal]:
+    totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for item in inv.items:
+        for field, value in classify_item(item, inv.buyer.country_code).items():
+            totals[field] += value
+    return dict(totals)
 
-    Zwraca (p11, p13, p14, pairs) gdzie pairs[net_field] = [netto, vat].
-    """
-    p11 = p13 = p14 = Decimal("0")
-    pairs: dict[str, list[Decimal]] = {k: [Decimal("0"), Decimal("0")] for k in _RATE_TO_P_FIELDS}
-    for inv in invoices:
-        for item in inv.items:
-            code = item.vat_code
-            net, vat = item.net_value, item.vat_amount
-            if code in VAT_CODE_K11:
-                p11 += net
-            elif code in VAT_CODE_K14:
-                p14 += net
-            elif code in VAT_CODE_K13:
-                p13 += net
-            else:
-                if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
-                    raise ValueError(
-                        f"Faktura {inv.number}: nieobslugiwana stawka VAT {item.vat_rate}%"
-                    )
-                net_field = VAT_RATE_TO_K_FIELDS[item.vat_rate][0]
-                pairs[net_field][0] += net
-                pairs[net_field][1] += vat
-    return p11, p13, p14, pairs
+
+def import_fields(exp: Expense) -> dict[str, Decimal]:
+    """Import uslug: samonaliczony VAT nalezny po stronie sprzedazy."""
+    net_f, vat_f = ("K_29", "K_30") if _is_eu(exp.seller_country) else ("K_27", "K_28")
+    return {net_f: exp.total_net, vat_f: exp.total_vat}
+
+
+def period_fields(invoices: Iterable[Invoice], expenses: Iterable[Expense]) -> dict[str, Decimal]:
+    """Sumy pol K_* ewidencji sprzedazy okresu: faktury i import uslug (odwrotne obciazenie)."""
+    rows = [invoice_fields(i) for i in invoices]
+    rows += [import_fields(e) for e in expenses if e.reverse_charge]
+    totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for row in rows:
+        for field, value in row.items():
+            totals[field] += value
+    return dict(totals)
 
 
 def _ns(tag: str) -> str:
@@ -169,7 +182,6 @@ def _ns(tag: str) -> str:
 
 
 def _etd(tag: str) -> str:
-    """Namespace etd (DefinicjeTypy MF) — pola identyfikacyjne osoby fizycznej."""
     return f"{{{ETD}}}{tag}"
 
 
@@ -180,144 +192,98 @@ def generate_jpk_v7m(
     correction: int = 0,
     expenses: list[Expense] | None = None,
     correction_reason: str | None = None,
+    carry_forward: Decimal = ZERO,
 ) -> str:
-    """Wygeneruj JPK_V7M(3) XML za dany miesiac.
+    """JPK_V7M(3) za miesiac.
 
     Args:
-        invoices: Faktury sprzedazowe za miesiac
-        month: 1-12
-        year: Rok
-        correction: 0 = pierwotny, 1+ = numer kolejnej korekty (w XML zawsze CelZlozenia=2)
-        expenses: Faktury zakupu (koszty). VAT naliczony idzie do odliczenia.
-        correction_reason: Uzasadnienie korekty -> P_ORDZU (opcjonalne; ORD-ZU nie jest
-            wymagane od 2016 r., ale tekst trafia do akt sprawy w US).
+        invoices: faktury sprzedazy okresu (VAT i korygujace).
+        correction: 0 = zlozenie, >=1 = korekta (w XML zawsze CelZlozenia=2).
+        expenses: faktury zakupu okresu (wg daty wplywu).
+        correction_reason: uzasadnienie korekty (P_ORDZU).
+        carry_forward: nadwyzka z poprzedniej deklaracji (P_39).
     """
     expenses = expenses or []
     seller = settings.seller
-    now = datetime.now()
-
     _require_seller_fields(seller)
 
-    root = etree.Element(_ns("JPK"), nsmap=NSMAP)
+    sales_rows = [invoice_fields(inv) for inv in invoices]
+    rc = [e for e in expenses if e.reverse_charge]
+    rc_rows = [import_fields(e) for e in rc]
+    totals: dict[str, Decimal] = defaultdict(lambda: ZERO, period_fields(invoices, expenses))
+    settlement = settle_vat(totals, expenses, carry_forward)
+    deductible = [e for e in expenses if e.vat_deduction_pct > 0]
+    purchases_net = sum((e.deductible_net for e in deductible), ZERO)
 
-    _append_naglowek(root, seller, now, month, year, correction)
+    root = etree.Element(_ns("JPK"), nsmap=NSMAP)
+    _append_naglowek(root, seller, datetime.now(), month, year, correction)
     _append_podmiot(root, seller)
 
-    # --- Deklaracja ---
     deklaracja = etree.SubElement(root, _ns("Deklaracja"))
-    nagl_dek = etree.SubElement(deklaracja, _ns("Naglowek"))
-    kod_dek = etree.SubElement(nagl_dek, _ns("KodFormularzaDekl"))
-    kod_dek.text = "VAT-7"
-    kod_dek.set("kodSystemowy", "VAT-7 (23)")
-    kod_dek.set("kodPodatku", "VAT")
-    kod_dek.set("rodzajZobowiazania", "Z")
-    kod_dek.set("wersjaSchemy", "1-0E")
-    etree.SubElement(nagl_dek, _ns("WariantFormularzaDekl")).text = "23"
+    nagl = etree.SubElement(deklaracja, _ns("Naglowek"))
+    kod = etree.SubElement(nagl, _ns("KodFormularzaDekl"))
+    kod.text = "VAT-7"
+    kod.set("kodSystemowy", "VAT-7 (23)")
+    kod.set("kodPodatku", "VAT")
+    kod.set("rodzajZobowiazania", "Z")
+    kod.set("wersjaSchemy", "1-0E")
+    etree.SubElement(nagl, _ns("WariantFormularzaDekl")).text = "23"
 
     poz = etree.SubElement(deklaracja, _ns("PozycjeSzczegolowe"))
-
-    # Sprzedaz krajowa rozbita na pola deklaracji wg stawek (art. 28b / NP -> P_11 itd.).
-    p11, p13, p14, sales_pairs = _aggregate_sales(invoices)
-    sales_base = p11 + p13 + sum((pairs[0] for pairs in sales_pairs.values()), Decimal("0"))
-    sales_vat = sum((pairs[1] for pairs in sales_pairs.values()), Decimal("0"))
-
-    # Import usług / odwrotne obciążenie: nabywca SAM nalicza VAT należny od CAŁEJ
-    # kwoty (niezaleznie od odliczenia), a odlicza tylko cześć podlegajaca odliczeniu.
-    rc = [e for e in expenses if e.reverse_charge]
-    rc_net_eu = sum((e.total_net for e in rc if _is_eu(e.seller_country)), Decimal("0"))
-    rc_vat_eu = sum((e.total_vat for e in rc if _is_eu(e.seller_country)), Decimal("0"))
-    rc_net_noneu = sum((e.total_net for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
-    rc_vat_noneu = sum((e.total_vat for e in rc if not _is_eu(e.seller_country)), Decimal("0"))
-
-    # P_37 = laczna podstawa, P_38 = laczny VAT nalezny (sprzedaz + samonaliczony import).
-    total_base = sales_base + rc_net_eu + rc_net_noneu
-
-    # Tylko wpisy z dodatnim procentem odliczenia trafiaja do ewidencji zakupu.
-    # Kwoty K_42/K_43 sa proporcjonalne do vat_deduction_pct (art. 86 ust. 2 ustawy o VAT).
-    # Reverse charge: deductible_vat jest tu juz uwzgledniony, wiec efekt netto = 0.
-    deductible = [e for e in expenses if e.vat_deduction_pct > 0]
-    exp_net = sum((e.deductible_net for e in deductible), Decimal("0"))
-
-    settlement = settle_vat(sales_vat, expenses)
-    total_nalezny = settlement.nalezny  # P_38
-    total_naliczony = settlement.naliczony  # P_48 (brak srodkow trwalych i korekt)
-    exp_vat = total_naliczony
-    vat_to_pay = settlement.to_pay  # P_51
-    nadwyzka = settlement.nadwyzka  # P_62
-
-    # Pozycje deklaracji VAT-7(23) — typ TKwotaC: integer (pelne zlote).
-    # Kolejnosc scisle rosnaca wg XSD JPK_V7M(3); pola opcjonalne (=0) pomijamy.
-    if p11:
-        _add_int(poz, "P_11", p11)  # dostawa poza terytorium kraju
-    if p13:
-        _add_int(poz, "P_13", p13)  # dostawa krajowa 0%
-    if p14:
-        _add_int(poz, "P_14", p14)  # art. 129
-    for net_field, (base, vat) in sales_pairs.items():
-        if base or vat:
-            base_p, vat_p = _RATE_TO_P_FIELDS[net_field]
-            _add_int(poz, base_p, base)  # P_15/P_17/P_19 podstawa
-            _add_int(poz, vat_p, vat)  # P_16/P_18/P_20 VAT nalezny
-    if rc_net_noneu or rc_vat_noneu:
-        _add_int(poz, "P_27", rc_net_noneu)  # import usług spoza art. 28b (dostawca spoza UE)
-        _add_int(poz, "P_28", rc_vat_noneu)  # VAT należny od ww.
-    if rc_net_eu or rc_vat_eu:
-        _add_int(poz, "P_29", rc_net_eu)  # import usług art. 28b (dostawca z UE)
-        _add_int(poz, "P_30", rc_vat_eu)  # VAT należny od ww.
-    _add_int(poz, "P_37", total_base)  # laczna podstawa opodatkowania
-    _add_int(poz, "P_38", total_nalezny)  # laczny podatek nalezny, REQ
+    # Pola deklaracji w kolejnosci XSD; TKwotaC = pelne zlote; zerowe opcjonalne pomijamy.
+    for n in ("10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22",
+              "27", "28", "29", "30"):  # fmt: skip
+        if totals[f"K_{n}"]:
+            _add_int(poz, f"P_{n}", totals[f"K_{n}"])
+    # P_37 i P_38 to sumy juz zaokraglonych pol (kontrola logiczna MF)
+    _add_int(poz, "P_37", sum((round_pln(totals[f"K_{n}"]) for n in BASE_FIELDS), ZERO))
+    _add_int(poz, "P_38", settlement.nalezny)
+    if settlement.carry_forward:
+        _add_int(poz, "P_39", settlement.carry_forward)
     if deductible:
-        # Grupy w XSD: P_40+P_41 (srodki trwale), P_42+P_43 (pozostale nabycia).
-        _add_int(poz, "P_40", Decimal("0"))  # nabycia ST netto
-        _add_int(poz, "P_41", Decimal("0"))  # VAT naliczony od nabyc ST
-        _add_int(poz, "P_42", exp_net)  # nabycia pozostale netto
-        _add_int(poz, "P_43", exp_vat)  # VAT naliczony od nabyc pozostalych
-    _add_int(poz, "P_48", total_naliczony)  # laczny VAT naliczony do odliczenia
-    _add_int(poz, "P_51", vat_to_pay)  # podatek do wplaty, REQ
-    if nadwyzka:
-        _add_int(poz, "P_62", nadwyzka)  # nadwyzka naliczonego do przeniesienia
+        _add_int(poz, "P_40", ZERO)  # nabycie srodkow trwalych — nieobslugiwane
+        _add_int(poz, "P_41", ZERO)
+        _add_int(poz, "P_42", purchases_net)
+        _add_int(poz, "P_43", settlement.purchases_vat)
+    _add_int(poz, "P_48", settlement.naliczony)
+    _add_int(poz, "P_51", settlement.to_pay)
+    if settlement.nadwyzka:
+        _add_int(poz, "P_53", settlement.nadwyzka)
+        _add_int(poz, "P_62", settlement.nadwyzka)  # bez zwrotu — cala nadwyzka przechodzi
     if correction_reason:
-        # P_ORDZU: ostatni element PozycjeSzczegolowe wg XSD (po P_69), tekst dowolny.
         etree.SubElement(poz, _ns("P_ORDZU")).text = correction_reason
-
     etree.SubElement(deklaracja, _ns("Pouczenia")).text = "1"
 
-    # --- Ewidencja ---
     ewidencja = etree.SubElement(root, _ns("Ewidencja"))
     lp = 0
-    for lp, inv in enumerate(invoices, start=1):
-        _append_sprzedaz_wiersz(ewidencja, lp, inv)
-    # Import usług wykazujemy też po stronie sprzedazy (samonaliczony VAT należny).
-    for exp in rc:
+    for lp, (inv, fields) in enumerate(zip(invoices, sales_rows, strict=True), start=1):
+        _append_sprzedaz_wiersz(ewidencja, lp, inv, fields)
+    for exp, fields in zip(rc, rc_rows, strict=True):
         lp += 1
-        _append_import_uslug_wiersz(ewidencja, lp, exp)
+        _append_import_uslug_wiersz(ewidencja, lp, exp, fields)
+    ctrl = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
+    etree.SubElement(ctrl, _ns("LiczbaWierszySprzedazy")).text = str(lp)
+    # Sumy kontrolne ewidencji sa w groszach (suma pol wierszy), nie w pelnych zlotych.
+    _add_decimal(ctrl, "PodatekNalezny", sum((totals[f"K_{n}"] for n in TAX_FIELDS), ZERO))
 
-    ctrl_sprz = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
-    etree.SubElement(ctrl_sprz, _ns("LiczbaWierszySprzedazy")).text = str(len(invoices) + len(rc))
-    _add_decimal(ctrl_sprz, "PodatekNalezny", total_nalezny)
-
-    for lp, exp in enumerate(deductible, start=1):
-        _append_zakup_wiersz(ewidencja, lp, exp)
-
+    for lp_zakupu, exp in enumerate(deductible, start=1):
+        _append_zakup_wiersz(ewidencja, lp_zakupu, exp)
     ctrl_zak = etree.SubElement(ewidencja, _ns("ZakupCtrl"))
     etree.SubElement(ctrl_zak, _ns("LiczbaWierszyZakupow")).text = str(len(deductible))
-    _add_decimal(ctrl_zak, "PodatekNaliczony", exp_vat)
+    _add_decimal(ctrl_zak, "PodatekNaliczony", deductible_vat(deductible))
 
-    return etree.tostring(
-        root,
-        xml_declaration=True,
-        encoding="UTF-8",
-        pretty_print=True,
-    ).decode("utf-8")
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True).decode(
+        "utf-8"
+    )
 
 
 def _require_seller_fields(seller) -> None:
     if not seller.tax_office_code:
-        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany (np. 1471)")
+        raise SellerDataMissingError("SELLER_TAX_OFFICE_CODE wymagany (np. 1471)")
     if not seller.first_name or not seller.last_name:
-        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane")
+        raise SellerDataMissingError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane")
     if not seller.birth_date:
-        raise ValueError("SELLER_BIRTH_DATE wymagana (YYYY-MM-DD)")
+        raise SellerDataMissingError("SELLER_BIRTH_DATE wymagana (YYYY-MM-DD)")
 
 
 def _append_naglowek(root, seller, now, month, year, correction) -> None:
@@ -326,17 +292,12 @@ def _append_naglowek(root, seller, now, month, year, correction) -> None:
     kod.text = "JPK_VAT"
     kod.set("kodSystemowy", "JPK_V7M (3)")
     kod.set("wersjaSchemy", "1-0E")
-
     etree.SubElement(naglowek, _ns("WariantFormularza")).text = "3"
     etree.SubElement(naglowek, _ns("DataWytworzeniaJPK")).text = now.isoformat()[:19]
     etree.SubElement(naglowek, _ns("NazwaSystemu")).text = "JDG-Ksiegowy/1.0"
-
     cel = etree.SubElement(naglowek, _ns("CelZlozenia"))
-    # XSD JPK_V7M(3): TCelZlozenia to enum {1, 2} — 1 = zlozenie, 2 = korekta.
-    # Numer kolejnej korekty nie jest raportowany (inaczej niz w starym JPK_VAT(3)).
-    cel.text = "2" if correction else "1"
+    cel.text = "2" if correction else "1"  # TCelZlozenia: 1 = zlozenie, 2 = korekta
     cel.set("poz", "P_7")
-
     etree.SubElement(naglowek, _ns("KodUrzedu")).text = seller.tax_office_code
     etree.SubElement(naglowek, _ns("Rok")).text = str(year)
     etree.SubElement(naglowek, _ns("Miesiac")).text = str(month)
@@ -345,7 +306,6 @@ def _append_naglowek(root, seller, now, month, year, correction) -> None:
 def _append_podmiot(root, seller) -> None:
     podmiot = etree.SubElement(root, _ns("Podmiot1"), rola="Podatnik")
     osoba = etree.SubElement(podmiot, _ns("OsobaFizyczna"))
-    # Pola identyfikacyjne idd z namespace etd (DefinicjeTypy)
     etree.SubElement(osoba, _etd("NIP")).text = seller.nip
     etree.SubElement(osoba, _etd("ImiePierwsze")).text = seller.first_name
     etree.SubElement(osoba, _etd("Nazwisko")).text = seller.last_name
@@ -354,7 +314,30 @@ def _append_podmiot(root, seller) -> None:
         etree.SubElement(osoba, _ns("Email")).text = seller.email
 
 
-def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
+def _append_ksef_marker(wiersz, ksef_number: str | None) -> None:
+    """Wybor XSD NrKSeF | OFF | BFK | DI: z numerem KSeF — NrKSeF, bez — BFK."""
+    if ksef_number:
+        etree.SubElement(wiersz, _ns("NrKSeF")).text = ksef_number
+    else:
+        etree.SubElement(wiersz, _ns("BFK")).text = "1"
+
+
+def _write_fields(wiersz, fields: dict[str, Decimal]) -> None:
+    for f in ALWAYS_SALES_FIELDS:
+        _add_decimal(wiersz, f, fields.get(f, ZERO))
+    for f in PAIR_FIELDS:
+        if f in fields:
+            _add_decimal(wiersz, f, fields[f])
+    for f in MID_FIELDS:
+        _add_decimal(wiersz, f, fields.get(f, ZERO))
+    for f in RC_FIELDS:
+        if f in fields:
+            _add_decimal(wiersz, f, fields[f])
+    for f in POST_FIELDS:
+        _add_decimal(wiersz, f, ZERO)
+
+
+def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice, fields: dict[str, Decimal]) -> None:
     wiersz = etree.SubElement(ewidencja, _ns("SprzedazWiersz"))
     etree.SubElement(wiersz, _ns("LpSprzedazy")).text = str(lp)
     etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = inv.buyer.country_code
@@ -362,70 +345,17 @@ def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
     etree.SubElement(wiersz, _ns("NazwaKontrahenta")).text = inv.buyer.name
     etree.SubElement(wiersz, _ns("DowodSprzedazy")).text = inv.number
     etree.SubElement(wiersz, _ns("DataWystawienia")).text = inv.issue_date.isoformat()
-    etree.SubElement(wiersz, _ns("DataSprzedazy")).text = inv.sale_date.isoformat()
-
-    # Choice: NrKSeF | OFF | BFK | DI (dokladnie jedno)
-    if inv.ksef_reference:
-        etree.SubElement(wiersz, _ns("NrKSeF")).text = inv.ksef_reference
-    else:
-        etree.SubElement(wiersz, _ns("BFK")).text = "1"
-
-    # Oblicz sumy wg kodu VAT pozycji
-    k11_net = Decimal("0")  # poza terytorium (art. 28b / NP)
-    k13_net = Decimal("0")  # WDT / 0%
-    k14_net = Decimal("0")  # eksport towarów
-    domestic_buckets: dict[Decimal, tuple[Decimal, Decimal]] = {}
-
-    for item in inv.items:
-        code = item.vat_code
-        net, vat_a = item.net_value, item.vat_amount
-        if code in VAT_CODE_K11:
-            k11_net += net
-        elif code in VAT_CODE_K14:
-            k14_net += net
-        elif code in VAT_CODE_K13:
-            k13_net += net
-        else:
-            if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
-                raise ValueError(
-                    f"Faktura {inv.number}: nieobslugiwana stawka VAT {item.vat_rate}% "
-                    f"(dozwolone: {sorted(VAT_RATE_TO_K_FIELDS.keys())} lub kod NP/0_WDT/0_EXP)"
-                )
-            n, v = domestic_buckets.get(item.vat_rate, (Decimal("0"), Decimal("0")))
-            domestic_buckets[item.vat_rate] = (n + net, v + vat_a)
-
-    # K_10-K_14 w kolejnosci XSD
-    _add_decimal(wiersz, "K_10", Decimal("0"))
-    _add_decimal(wiersz, "K_11", k11_net)
-    _add_decimal(wiersz, "K_12", Decimal("0"))
-    _add_decimal(wiersz, "K_13", k13_net)
-    _add_decimal(wiersz, "K_14", k14_net)
-
-    # Pary K_15/K_16 (5%), K_17/K_18 (8%), K_19/K_20 (23%)
-    for rate_key, net_field, vat_field in RATE_PAIRS_ORDER:
-        rates_matching = [r for r in domestic_buckets if VAT_RATE_TO_K_FIELDS[r][0] == net_field]
-        if not rates_matching:
-            continue
-        net_sum = sum((domestic_buckets[r][0] for r in rates_matching), Decimal("0"))
-        vat_sum = sum((domestic_buckets[r][1] for r in rates_matching), Decimal("0"))
-        _add_decimal(wiersz, net_field, net_sum)
-        _add_decimal(wiersz, vat_field, vat_sum)
-
-    # K_21, K_22 (wewnatrzwspolnotowe dostawy)
-    for f in MID_FIELDS:
-        _add_decimal(wiersz, f, Decimal("0"))
-
-    # K_33-K_36, K_360 (korekty VAT)
-    for f in POST_RATE_FIELDS:
-        _add_decimal(wiersz, f, Decimal("0"))
+    if inv.kind is InvoiceKind.VAT:
+        etree.SubElement(wiersz, _ns("DataSprzedazy")).text = inv.sale_date.isoformat()
+    _append_ksef_marker(wiersz, inv.ksef_number)
+    for gtu in sorted({i.gtu for i in inv.items if i.gtu}):
+        etree.SubElement(wiersz, _ns(gtu)).text = "1"
+    _write_fields(wiersz, fields)
 
 
-def _append_import_uslug_wiersz(ewidencja, lp: int, exp: Expense) -> None:
-    """Wiersz sprzedazy dla importu usług (samonaliczony VAT należny, odwrotne obciążenie).
-
-    Kontrahentem jest zagraniczny dostawca. Kwoty: dostawca z UE -> K_29/K_30
-    (art. 28b), spoza UE -> K_27/K_28. Pozostale pola K_* sa pomijane (minOccurs=0).
-    """
+def _append_import_uslug_wiersz(
+    ewidencja, lp: int, exp: Expense, fields: dict[str, Decimal]
+) -> None:
     wiersz = etree.SubElement(ewidencja, _ns("SprzedazWiersz"))
     etree.SubElement(wiersz, _ns("LpSprzedazy")).text = str(lp)
     etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = exp.seller_country
@@ -434,58 +364,35 @@ def _append_import_uslug_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     etree.SubElement(wiersz, _ns("DowodSprzedazy")).text = exp.document_number
     etree.SubElement(wiersz, _ns("DataWystawienia")).text = exp.issue_date.isoformat()
     etree.SubElement(wiersz, _ns("DataSprzedazy")).text = exp.issue_date.isoformat()
-
-    # Choice: NrKSeF | OFF | BFK | DI — faktura zagraniczna jest poza KSeF -> BFK
-    etree.SubElement(wiersz, _ns("BFK")).text = "1"
-
-    # Pola w kolejnosci XSD: K_10-K_14 (0.00), nastepnie para importu usług.
-    for f in PRE_RATE_FIELDS:
-        _add_decimal(wiersz, f, Decimal("0"))
-    if _is_eu(exp.seller_country):
-        _add_decimal(wiersz, "K_29", exp.total_net)
-        _add_decimal(wiersz, "K_30", exp.total_vat)
-    else:
-        _add_decimal(wiersz, "K_27", exp.total_net)
-        _add_decimal(wiersz, "K_28", exp.total_vat)
-    for f in POST_RATE_FIELDS:
-        _add_decimal(wiersz, f, Decimal("0"))
+    _append_ksef_marker(wiersz, None)  # faktura zagraniczna — poza KSeF
+    _write_fields(wiersz, fields)
 
 
 def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     wiersz = etree.SubElement(ewidencja, _ns("ZakupWiersz"))
     etree.SubElement(wiersz, _ns("LpZakupu")).text = str(lp)
     etree.SubElement(wiersz, _ns("KodKrajuNadaniaTIN")).text = exp.seller_country
-    # Dostawca bez numeru identyfikacyjnego (np. spoza UE) -> "BRAK" (XSD: minLength 1).
     etree.SubElement(wiersz, _ns("NrDostawcy")).text = exp.seller_nip or "BRAK"
     etree.SubElement(wiersz, _ns("NazwaDostawcy")).text = exp.seller_name
     etree.SubElement(wiersz, _ns("DowodZakupu")).text = exp.document_number
     etree.SubElement(wiersz, _ns("DataZakupu")).text = exp.issue_date.isoformat()
     etree.SubElement(wiersz, _ns("DataWplywu")).text = exp.receive_date.isoformat()
-
-    # Choice: NrKSeF | OFF | BFK | DI (faktura papierowa/elektroniczna -> BFK)
-    etree.SubElement(wiersz, _ns("BFK")).text = "1"
-
-    # K_42/K_43: nabycia krajowe inne niz ST (netto + VAT podlegajacy odliczeniu).
-    # Dla auta osobowego mieszanego (vat_deduction_pct=50) wykazujemy 50% kwot —
-    # zgodnie z art. 86 ust. 2 ustawy o VAT i objaśnieniami MF do JPK_V7M.
+    _append_ksef_marker(wiersz, exp.ksef_number)
+    # K_42/K_43 proporcjonalne do odliczenia (np. 50% dla auta uzywanego mieszanie).
     _add_decimal(wiersz, "K_42", exp.deductible_net)
     _add_decimal(wiersz, "K_43", exp.deductible_vat)
-
-    # K_44-K_47: korekty VAT naliczonego — zawsze wymagane (0.00 gdy brak)
     for f in ("K_44", "K_45", "K_46", "K_47"):
-        _add_decimal(wiersz, f, Decimal("0"))
+        _add_decimal(wiersz, f, ZERO)
 
 
 def _add_decimal(parent, tag: str, value: Decimal) -> None:
-    """Kwota z groszami (TKwotowy) — uzywane w wierszach ewidencji K_*."""
+    """TKwotowy — kwota z groszami (wiersze ewidencji)."""
     etree.SubElement(parent, _ns(tag)).text = f"{value:.2f}"
 
 
 def _add_int(parent, tag: str, value: Decimal) -> None:
-    """Kwota w pelnych zlotych (TKwotaC) — uzywane w deklaracji P_*.
-    Zaokraglenie: pol w gore."""
-    rounded = int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    etree.SubElement(parent, _ns(tag)).text = str(rounded)
+    """TKwotaC — pelne zlote (pola deklaracji)."""
+    etree.SubElement(parent, _ns(tag)).text = str(int(round_pln(value)))
 
 
 def save_jpk_v7m(
@@ -496,10 +403,16 @@ def save_jpk_v7m(
     correction: int = 0,
     expenses: list[Expense] | None = None,
     correction_reason: str | None = None,
+    carry_forward: Decimal = ZERO,
 ) -> Path:
-    """Wygeneruj i zapisz JPK_V7M(3) do pliku."""
     xml = generate_jpk_v7m(
-        invoices, month, year, correction, expenses=expenses, correction_reason=correction_reason
+        invoices,
+        month,
+        year,
+        correction,
+        expenses=expenses,
+        correction_reason=correction_reason,
+        carry_forward=carry_forward,
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(xml, encoding="utf-8")

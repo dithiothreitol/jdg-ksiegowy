@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from jdg_ksiegowy.tax.pit28 import format_pit28_text, generate_pit28_report
+from jdg_ksiegowy.tax.pit28 import generate_pit28_report
 
 
 @pytest.fixture(autouse=True)
@@ -17,11 +17,10 @@ def _autouse_isolated_db(isolated_db):
 
 
 def _inv(month: int, year: int, net: Decimal):
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id=f"i-{month}-{year}-{net}",
             number=f"A/{month:02d}/{year}",
             issue_date=date(year, month, 15),
@@ -39,9 +38,7 @@ def _inv(month: int, year: int, net: Decimal):
 
 class TestPIT28Report:
     def test_empty_db_returns_zero_sums(self):
-        from jdg_ksiegowy.registry.db import init_db
 
-        init_db()
         report = generate_pit28_report(2025)
         assert report.annual_sales_net == Decimal("0")
         assert report.annual_ryczalt == Decimal("0")
@@ -70,8 +67,8 @@ class TestPIT28Report:
     def test_annual_ryczalt_rounded(self):
         _inv(1, 2025, Decimal("1001"))
         report = generate_pit28_report(2025)
-        # 1001 * 12% = 120.12 → zaokrąglone do 120
-        assert report.annual_ryczalt_rounded == Decimal("120")
+        # 1001 * 12% = 120.12 -> pelne zlote (art. 63 Ordynacji)
+        assert report.annual_ryczalt == Decimal("120")
 
     def test_monthly_breakdown_has_12_months(self):
         _inv(6, 2025, Decimal("1000"))
@@ -85,10 +82,30 @@ class TestPIT28Report:
         assert june.sales_net == Decimal("3000")
         assert june.ryczalt == Decimal("360.00")
 
-    def test_format_text_contains_totals(self):
+    def test_deductions_and_advances_from_payment_ledger(self):
+        """Zaplacone skladki zmniejszaja podstawe; zaplacone zaliczki — kwote do zaplaty."""
+        from datetime import datetime
+
+        from jdg_ksiegowy.registry.repository import TaxPayment, TaxPaymentRepository
+
         _inv(4, 2025, Decimal("10000"))
+        repo = TaxPaymentRepository()
+        paid = datetime(2025, 4, 18)
+        repo.record(TaxPayment("zus_health", 2025, 3, Decimal("830.58"), date(2025, 4, 22), paid))
+        repo.record(TaxPayment("zus_social", 2025, 3, Decimal("1000.00"), date(2025, 4, 22), paid))
+        repo.record(
+            TaxPayment(
+                "ryczalt", 2025, 4, Decimal("1000"), date(2025, 5, 20), datetime(2025, 5, 19)
+            )
+        )
+
         report = generate_pit28_report(2025)
-        text = format_pit28_text(report)
-        assert "10000.00" in text
-        assert "1200.00" in text
-        assert "2025" in text
+        # odliczenie: 1000 + 50% * 830.58 = 1415.29 -> podstawa 8585 -> ryczalt 1030.20 -> 1030
+        assert report.annual_deductions == Decimal("1415.29")
+        assert report.annual_base == Decimal("8585")
+        assert report.annual_ryczalt == Decimal("1030")
+        april = next(m for m in report.monthly if m.month == 4)
+        assert april.deductions == Decimal("1415.29") and april.ryczalt == Decimal("1030")
+        assert report.advances_paid == Decimal("1000")
+        assert report.to_pay == Decimal("30")
+        assert report.deadline == date(2026, 4, 30)

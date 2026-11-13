@@ -1,22 +1,60 @@
+# Dwie uslugi z jednego obrazu:
+# - jdg-mcp: serwer MCP `jdg` (HTTP + token Bearer) — jedyny proces z sekretami (KSeF, MF, SMTP)
+#   i dostepem do bazy w ./data; bez portu na hoscie, tylko w sieci wewnetrznej `jdg`.
+# - openclaw: gateway agenta; dostaje wylacznie konfiguracje modelu i token do MCP.
+# Po pierwszym `docker compose up -d` zarejestruj serwer w OpenClaw (raz, zapisuje sie w stanie):
+#   docker compose exec openclaw sh -c 'openclaw mcp add jdg --url http://jdg-mcp:8765/mcp \
+#     --transport streamable-http --header "Authorization=Bearer $JDG_MCP_TOKEN"'
 services:
-  openclaw:
+  jdg-mcp:
     build: .
     image: jdg-ksiegowy:local
-    container_name: jdg-ksiegowy
+    container_name: jdg-mcp
     restart: unless-stopped
+    entrypoint: ["jdg", "mcp", "serve", "--transport", "http", "--host", "0.0.0.0", "--port", "8765"]
     env_file:
       - .env
     volumes:
+      - ./data:/home/node/.openclaw/workspace/data
+    networks:
+      - jdg
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  openclaw:
+    image: jdg-ksiegowy:local
+    container_name: jdg-ksiegowy
+    restart: unless-stopped
+    depends_on:
+      jdg-mcp:
+        condition: service_healthy
+    environment:
+      OPENCLAW_PROVIDER: ${OPENCLAW_PROVIDER:-}
+      OPENCLAW_MODEL: ${OPENCLAW_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JDG_MCP_TOKEN: ${JDG_MCP_TOKEN:?ustaw JDG_MCP_TOKEN w .env (np. openssl rand -hex 32)}
+    volumes:
       # Persystencja pelnego stanu OpenClaw (config, agents, identity, logs, tasks) — przezywa `docker compose down`
       - openclaw-state:/home/node/.openclaw
-      # Workspace mounty naklada ponad stan (pliki z repo, read-only dla definicji; `data/` zapisywalne)
       - ./SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
       - ./HEARTBEAT.md:/home/node/.openclaw/workspace/HEARTBEAT.md:ro
-      - ./skills:/home/node/.openclaw/workspace/skills:ro
-      - ./src:/home/node/.openclaw/workspace/src:ro
-      - ./data:/home/node/.openclaw/workspace/data
+      - ./plugins/jdg-ksiegowy/skills:/home/node/.openclaw/workspace/skills:ro
+    networks:
+      - jdg
     ports:
-      - "18789:18789"   # OpenClaw Web UI
+      - "127.0.0.1:18789:18789"   # OpenClaw Web UI — tylko lokalnie (zdalnie: tunel SSH)
+
+networks:
+  jdg:
 
 volumes:
   openclaw-state:
