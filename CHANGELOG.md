@@ -35,6 +35,10 @@ uzycia, jednym CLI `jdg`, serwerem MCP i wtyczka dla OpenClaw, Claude Code i Cod
 - **Backup** `jdg backup`: spojna kopia (`VACUUM INTO`), szyfrowanie Fernet, weryfikacja,
   retencja dzienna i miesieczna.
 - Migracje bazy (Alembic) uruchamiane automatycznie; kwoty w groszach.
+- Wysylka do KSeF: faktura przyjeta bez numeru dostaje status `pending` i blokade ponownej
+  wysylki; odrzucona (`INVALID_INPUT`) moze byc poprawiona i wyslana ponownie.
+- Kontrakty cykliczne nadrabiaja fakture za biezacy miesiac po przerwie w pracy; bledy
+  pojedynczych kontraktow trafiaja do `failed`, a pozostale sa wystawiane.
 
 ### Zmienione
 
@@ -56,3 +60,10 @@ uzycia, jednym CLI `jdg`, serwerem MCP i wtyczka dla OpenClaw, Claude Code i Cod
 - Migracja 0002 nie kasuje pozycji faktur przy wlaczonych kluczach obcych.
 - Backup zamyka polaczenia SQLite (blokada pliku tymczasowego na Windows).
 - PIT-28 i JPK_EWP: termin 30 kwietnia; ryczalt za grudzien do 20 stycznia.
+- JPK_V7M: P_37, P_38, P_48 i P_51 liczone z zaokraglonych pol (kontrole logiczne MF).
+- FA(3): kody `0_wdt`/`0_exp` jako "0 WDT"/"0 EX", usluga NP dla UE jako "np II" (spojnie
+  z K_12 w JPK); stawka 0 bez kodu = krajowe 0%; nieznany kod odrzucany przy wprowadzaniu.
+- Token wysylki e-mail obejmuje tez adresy w kopii (`cc`).
+- Migracja z 0.x odczytuje kody P_12 (np. "np I", "zw", "0 KR") z plikow FA(3).
+- Faktury korygujace in minus nie sa pokazywane jako zalegle naleznosci.
+- `jdg jpk build`: brak danych SELLER_* to `CONFIG_MISSING`, bledne dane rejestru — `INVALID_INPUT`.

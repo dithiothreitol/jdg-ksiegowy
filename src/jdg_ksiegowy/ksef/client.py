@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Literal
 from jdg_ksiegowy.config import settings
 
 if TYPE_CHECKING:
-    from ksef2.clients import AuthenticatedClient
+    from ksef2.clients import AuthenticatedClient, InvoiceSubmission
     from ksef2.models import InvoiceMetadata
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,18 @@ class KSeFResult:
     acquired_at: datetime | None = None
     upo: bytes | None = None
     error: str | None = None
+    rejected: bool = False  # KSeF odrzucil tresc — po poprawce fakture mozna wyslac ponownie
+
+
+def _download_upo(submission: InvoiceSubmission) -> bytes | None:
+    """UPO po nadaniu numeru KSeF; jego chwilowy brak nie cofa przyjecia faktury."""
+    from ksef2 import KSeFException
+
+    try:
+        return submission.download_upo()
+    except KSeFException as e:
+        logger.warning("UPO jeszcze niedostepne (%s) — numer KSeF jest juz nadany", e)
+        return None
 
 
 class KSeFClient:
@@ -91,31 +103,42 @@ class KSeFClient:
         return self._authed
 
     def send_invoice(self, xml_content: str) -> KSeFResult:
-        """Wyslij fakture FA(3), poczekaj na nadanie numeru KSeF i pobierz UPO."""
-        from ksef2 import FormSchema, KSeFException
+        """Wyslij fakture FA(3), poczekaj na nadanie numeru KSeF i pobierz UPO.
 
+        Po przyjeciu wysylki wynik zawsze niesie numer referencyjny — rowniez gdy KSeF nie
+        zdazyl nadac numeru — zeby rejestr mogl zablokowac ponowna wysylke tej faktury.
+        """
+        from ksef2 import FormSchema, KSeFException, KSeFInvoiceRejectedError
+
+        reference: str | None = None
         try:
             authed = self._authenticated_client()
             with authed.online_session(form_code=FormSchema.FA3) as session:
                 submission = session.send_invoice(xml_content.encode("utf-8"))
+                reference = submission.reference_number
                 status = submission.wait(timeout=_SUBMIT_TIMEOUT_SEC)
-                upo = submission.download_upo() if status.ksef_number else None
-        except KSeFException as e:  # blad API/sieci na granicy systemu
+                upo = _download_upo(submission)
+        except KSeFInvoiceRejectedError as e:
+            logger.error("KSeF odrzucil fakture: %s", e)
+            return KSeFResult(
+                success=False, env=self.env, reference_number=reference, rejected=True, error=str(e)
+            )
+        except KSeFException as e:  # blad API/sieci albo przekroczony czas przetwarzania
             logger.error("Blad wysylki do KSeF: %s", e)
-            return KSeFResult(success=False, env=self.env, error=str(e))
+            return KSeFResult(success=False, env=self.env, reference_number=reference, error=str(e))
 
         if not status.ksef_number:
             return KSeFResult(
                 success=False,
                 env=self.env,
-                reference_number=status.reference_number,
-                error="KSeF nie nadal numeru (faktura odrzucona lub w toku)",
+                reference_number=reference,
+                error="KSeF nie nadal jeszcze numeru (faktura w toku)",
             )
         logger.info("Faktura przyjeta w KSeF: %s", status.ksef_number)
         return KSeFResult(
             success=True,
             env=self.env,
-            reference_number=status.reference_number,
+            reference_number=reference,
             ksef_number=status.ksef_number,
             acquired_at=status.acquisition_date,
             upo=upo,

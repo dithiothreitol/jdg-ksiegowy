@@ -16,7 +16,7 @@ from lxml import etree
 from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.models import Invoice
 from jdg_ksiegowy.registry.repository import ExpenseRepository, FilingRepository, InvoiceRepository
-from jdg_ksiegowy.tax.jpk import VatSettlement, settle_vat
+from jdg_ksiegowy.tax.jpk import VatSettlement, period_fields, settle_vat
 
 ZERO = Decimal("0")
 Period = tuple[int, int]
@@ -68,8 +68,9 @@ class VatLedger:
         return self.settlement(prev).nadwyzka
 
     def settlement(self, period: Period) -> VatSettlement:
-        sales_vat = sum((i.total_vat for i in self._invoices(period)), ZERO)
-        return settle_vat(sales_vat, self._expenses(period), self.carry_forward(period))
+        expenses = self._expenses(period)
+        fields = period_fields(self._invoices(period), expenses)
+        return settle_vat(fields, expenses, self.carry_forward(period))
 
 
 def _declared_surplus(path: Path) -> Decimal:

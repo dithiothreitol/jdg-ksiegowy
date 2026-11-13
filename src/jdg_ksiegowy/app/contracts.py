@@ -75,27 +75,54 @@ def list_contracts() -> ContractList:
     return ContractList(contracts=[ContractView.of(c) for c in ContractRepository().active()])
 
 
+class ContractFailure(BaseModel):
+    contract_id: str
+    buyer: str
+    error: str
+
+
 class ContractRun(BaseModel):
     date: date
     generated: list[str]
     skipped_count: int
+    failed: list[ContractFailure] = Field(default_factory=list)
+
+
+def _due_now(contract: Contract, today: date) -> bool:
+    """Termin w tym miesiacu juz minal, a kontrakt istnial w dniu wymagalnosci.
+
+    Dzieki temu uruchomienie po przerwie (wylaczony serwer, blad w dniu terminu) nadrabia
+    fakture za biezacy miesiac, a kontrakt dodany po terminie zaczyna od nastepnego miesiaca.
+    """
+    due = issue_date_for(contract, today.year, today.month)
+    return due is not None and due <= today and contract.created_at.date() <= due
 
 
 def run(today: date | None = None) -> ContractRun:
-    """Wystaw faktury z kontraktow wymagalnych danego dnia — ten sam potok co `invoice issue`.
+    """Wystaw faktury z kontraktow wymagalnych w biezacym miesiacu — potok `invoice issue`.
 
     Idempotentne: numer faktury wynika z kontraktu i miesiaca, istniejacej nie wystawia ponownie.
+    Blad jednego kontraktu nie wstrzymuje pozostalych — trafia do `failed` i dziennika audytu.
     """
     today = today or date.today()
     repo = InvoiceRepository()
-    generated, skipped = [], 0
+    generated: list[str] = []
+    failed: list[ContractFailure] = []
+    skipped = 0
     for contract in ContractRepository().active():
-        due = issue_date_for(contract, today.year, today.month)
-        if due != today or repo.get(invoice_number_for(contract, today.month, today.year)):
+        if not _due_now(contract, today) or repo.get(
+            invoice_number_for(contract, today.month, today.year)
+        ):
             skipped += 1
             continue
-        generated.append(store_new(build_invoice(contract, today)).number)
-    return ContractRun(date=today, generated=generated, skipped_count=skipped)
+        try:
+            generated.append(store_new(build_invoice(contract, today)).number)
+        except Exception as e:  # izolacja bledu jednego kontraktu w przebiegu wsadowym
+            audit("contract.run", contract.id, "error", {"error": str(e)})
+            failed.append(
+                ContractFailure(contract_id=contract.id, buyer=contract.buyer.name, error=str(e))
+            )
+    return ContractRun(date=today, generated=generated, skipped_count=skipped, failed=failed)
 
 
 class PaymentMatch(BaseModel):

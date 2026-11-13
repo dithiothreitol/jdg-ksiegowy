@@ -120,3 +120,16 @@ def test_contract_invoice_number_with_hex_prefix_matches():
     inv = _inv("Kab12cd34/04/2026", Decimal("1230"), date(2026, 4, 30))
     row = BankRow(date(2026, 5, 20), Decimal("1"), "Zaplata Kab12cd34/04/2026")
     assert match_payments([row], [inv]).matched[0][1].number == "Kab12cd34/04/2026"
+
+
+def test_decreasing_correction_is_not_a_receivable():
+    """Korekta in minus nie jest naleznoscia: nie trafia do zaleglych ani do dopasowan."""
+    from jdg_ksiegowy.registry.payments import awaiting_payment, overdue, unpaid
+    from tests.helpers import InvoiceRow
+
+    sale = InvoiceRow(number="A1/10/2026", issue_date=date(2026, 10, 1), total_net=Decimal("100"))
+    kor = InvoiceRow(number="KOR1/11/2026", issue_date=date(2026, 11, 1), total_net=Decimal("-100"))
+    invoices = [sale.to_domain(), kor.to_domain()]
+    assert [i.number for i in overdue(invoices, date(2026, 11, 20))] == ["A1/10/2026"]
+    assert unpaid(invoices, date(2026, 9, 1)) == [invoices[0]]
+    assert not awaiting_payment(invoices[1])

@@ -8,11 +8,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ksef2.fa3 import InvoiceBuilder
+from ksef2.fa3 import InvoiceBuilder, SaleCategory
 from lxml import etree
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceKind, LineItem
+from jdg_ksiegowy.invoice.models import (
+    Buyer,
+    Invoice,
+    InvoiceKind,
+    LineItem,
+    is_article_100_service,
+)
 
 FA3_NS = "http://crd.gov.pl/wzor/2025/06/25/13775/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
@@ -26,11 +32,26 @@ def _split_address(address: str) -> tuple[str, str | None]:
     return (parts[0], parts[1] if len(parts) > 1 else None)
 
 
-def _vat_rate_for_builder(item: LineItem) -> str:
-    """Stawka VAT w formacie akceptowanym przez FA3 builder."""
+_CODE_CATEGORY = {
+    "0": SaleCategory.ZERO_DOMESTIC,  # "0 KR"
+    "0_WDT": SaleCategory.ZERO_WDT,  # "0 WDT"
+    "0_EXP": SaleCategory.ZERO_EXPORT,  # "0 EX"
+    "ZW": SaleCategory.EXEMPT,  # "zw"
+}
+
+
+def _vat_args(item: LineItem, buyer: Buyer) -> dict[str, object]:
+    """Stawka albo kategoria sprzedazy FA(3) (P_12) — spojnie z polami K_* w JPK_V7M."""
+    if item.vat_code == "NP":
+        article_100 = is_article_100_service(buyer.country_code)
+        return {
+            "sale_category": SaleCategory.OUT_OF_SCOPE_ARTICLE_100  # "np II"
+            if article_100
+            else SaleCategory.OUT_OF_SCOPE_OUTSIDE_TERRITORY  # "np I"
+        }
     if item.vat_code:
-        return item.vat_code.lower() if item.vat_code in ("NP", "ZW") else item.vat_code
-    return str(int(item.vat_rate))
+        return {"sale_category": _CODE_CATEGORY[item.vat_code]}
+    return {"vat_rate": str(int(item.vat_rate))}
 
 
 def _apply_seller(builder: InvoiceBuilder) -> InvoiceBuilder:
@@ -60,15 +81,15 @@ def _apply_buyer(builder: InvoiceBuilder, buyer: Buyer) -> InvoiceBuilder:
     return builder.buyer(**kwargs)
 
 
-def _apply_rows(std_body, items: list[LineItem]):
+def _apply_rows(std_body, items: list[LineItem], buyer: Buyer):
     rows = std_body.rows()
     for item in items:
         rows = rows.add_line(
             name=item.description,
             quantity=item.quantity,
             unit_price_net=item.unit_price_net,
-            vat_rate=_vat_rate_for_builder(item),
             unit_of_measure=item.unit,
+            **_vat_args(item, buyer),
         )
     return rows.done()
 
@@ -104,7 +125,7 @@ def generate_invoice_xml(invoice: Invoice) -> str:
         std = std.billing_period(period_start=invoice.period_from, period_end=invoice.period_to)
     else:
         std = std.date_of_supply(invoice.sale_date)
-    std = _apply_rows(std, invoice.items)
+    std = _apply_rows(std, invoice.items, invoice.buyer)
     std = _apply_payment(std, due=invoice.payment_due, paid=False)
     return std.done().to_xml()
 
@@ -134,7 +155,7 @@ def _correction_xml(correction: Invoice) -> str:
         )
         .done()
     )
-    cor = _apply_rows(cor, correction.items)
+    cor = _apply_rows(cor, correction.items, correction.buyer)
     cor = _apply_payment(cor, due=correction.payment_due, paid=False)
     return cor.done().to_xml()
 

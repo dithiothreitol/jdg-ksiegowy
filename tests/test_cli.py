@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from jdg_ksiegowy.app.errors import ExitCode
 from jdg_ksiegowy.cli.main import build_schema, cli
 from jdg_ksiegowy.cli.output import STATE
+from jdg_ksiegowy.tax.rounding import round_pln
 from tests.helpers import InvoiceRow, save_invoice, seed_parity_dataset
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -60,9 +61,12 @@ def test_parity_jpk_v7m(parity):
     assert (d["invoice_count"], d["expense_count"]) == (g["invoice_count"], g["expense_count"])
     assert D(d["sales_net"]) == D(g["sales_total_net"])
     assert D(d["sales_vat"]) == D(g["sales_total_vat"])
-    assert D(d["vat_deductible"]) == D(g["expenses_deductible_vat"])
-    assert D(d["vat_due"]) == D(g["vat_due"])
-    assert D(d["vat_to_pay"]) == D(g["vat_to_pay"])
+    # 1.0: pola deklaracji w pelnych zlotych, sumy z zaokraglonych skladnikow (kontrole MF):
+    # P_48 = round(245.16) = 245, P_51 = P_38 - P_48. 0.x podawal kwoty z groszami.
+    assert D(d["vat_deductible"]) == round_pln(D(g["expenses_deductible_vat"]))
+    assert D(d["vat_due"]) == round_pln(D(g["vat_due"]))
+    assert D(d["vat_to_pay"]) == D(d["vat_due"]) - D(d["vat_deductible"])
+    assert abs(D(d["vat_to_pay"]) - D(g["vat_to_pay"])) < 1
 
 
 def test_parity_ewp_and_pit28(parity):
@@ -113,7 +117,12 @@ def test_parity_status(parity):
             if not (skip_zus and r["label"].startswith("ZUS"))
         ]
 
-    assert rows(d["reminders"], True) == rows(g["reminders"], True)
+    # 1.0: przypomnienie VAT = P_51 deklaracji (pelne zlote); 0.x: kwota z groszami.
+    expected = [
+        (label, due, round_pln(amount) if label.startswith("VAT") else amount)
+        for label, due, amount in rows(g["reminders"], True)
+    ]
+    assert rows(d["reminders"], True) == expected
     # 1.0: ZUS = zdrowotna wg przychodu NARASTAJACO (20 833 zl -> prog do 60 tys.: 498.35)
     # + spoleczne (tryb pelny 1788.29). 0.x: tylko zdrowotna z "przychod miesiaca x 12".
     (zus,) = [r for r in d["reminders"] if r["label"].startswith("ZUS")]

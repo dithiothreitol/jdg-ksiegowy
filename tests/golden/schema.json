@@ -638,11 +638,43 @@
       "help": "Wystaw faktury z kontraktow wymagalnych danego dnia (idempotentne).",
       "name": "contract run",
       "output_schema": {
+        "$defs": {
+          "ContractFailure": {
+            "properties": {
+              "buyer": {
+                "title": "Buyer",
+                "type": "string"
+              },
+              "contract_id": {
+                "title": "Contract Id",
+                "type": "string"
+              },
+              "error": {
+                "title": "Error",
+                "type": "string"
+              }
+            },
+            "required": [
+              "contract_id",
+              "buyer",
+              "error"
+            ],
+            "title": "ContractFailure",
+            "type": "object"
+          }
+        },
         "properties": {
           "date": {
             "format": "date",
             "title": "Date",
             "type": "string"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/$defs/ContractFailure"
+            },
+            "title": "Failed",
+            "type": "array"
           },
           "generated": {
             "items": {
@@ -4070,12 +4102,36 @@
             "type": "string"
           },
           "ksef_number": {
-            "title": "Ksef Number",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ksef Number"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
           },
           "number": {
             "title": "Number",
             "type": "string"
+          },
+          "pending": {
+            "default": false,
+            "title": "Pending",
+            "type": "boolean"
           },
           "reference_number": {
             "anyOf": [

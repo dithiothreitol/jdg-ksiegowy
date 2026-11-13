@@ -22,6 +22,7 @@ from lxml import etree
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.models import Invoice
 from jdg_ksiegowy.tax.income import income_date
+from jdg_ksiegowy.tax.jpk import SellerDataMissingError
 
 TNS = "http://jpk.mf.gov.pl/wzor/2024/10/30/10301/"
 ETD = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2022/01/05/eD/DefinicjeTypy/"
@@ -74,9 +75,9 @@ def generate_jpk_ewp(
             f"Stawka ryczaltu {rate}% nie jest w slowniku MF (dozwolone: {sorted(RYCZALT_STAWKI)})"
         )
     if not seller.first_name or not seller.last_name:
-        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")
+        raise SellerDataMissingError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane dla JPK_EWP")
     if not seller.tax_office_code:
-        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany dla JPK_EWP")
+        raise SellerDataMissingError("SELLER_TAX_OFFICE_CODE wymagany dla JPK_EWP")
 
     now = datetime.now()
     root = etree.Element(_ns("JPK"), nsmap=NSMAP)

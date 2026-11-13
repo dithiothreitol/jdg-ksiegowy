@@ -10,7 +10,7 @@ deklaracji (P_*), wiec ewidencja i deklaracja nie moga sie rozjechac.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -21,7 +21,9 @@ from lxml import etree
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
-from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind, LineItem
+from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind, LineItem, is_article_100_service
+from jdg_ksiegowy.tax.rounding import round_pln
+from jdg_ksiegowy.validators import EU_COUNTRY_CODES
 
 ZERO = Decimal("0")
 
@@ -56,15 +58,14 @@ POST_FIELDS = ("K_33", "K_34", "K_35", "K_36", "K_360")
 BASE_FIELDS = ("10", "11", "13", "15", "17", "19", "21", "22", "27", "29")
 TAX_FIELDS = ("16", "18", "20", "28", "30")
 
-# Kraje UE (ISO 3166-1 alpha-2). Dostawca z UE to podatnik VAT, wiec import uslug z art. 28b
-# idzie do K_29/K_30; spoza UE do K_27/K_28.
-EU_COUNTRIES = frozenset(
-    "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
-)
+
+class SellerDataMissingError(ValueError):
+    """Brak danych podatnika wymaganych w JPK (SELLER_* w .env)."""
 
 
 def _is_eu(country_code: str | None) -> bool:
-    return (country_code or "").upper() in EU_COUNTRIES
+    """Import uslug (art. 28b): dostawca z UE -> K_29/K_30, spoza UE -> K_27/K_28."""
+    return (country_code or "").upper() in EU_COUNTRY_CODES | {"PL"}
 
 
 class ExpenseLike(Protocol):
@@ -83,26 +84,23 @@ def _cents(value: Decimal) -> Decimal:
 
 @dataclass(frozen=True)
 class VatSettlement:
-    """Rozliczenie VAT za okres — pola deklaracji."""
+    """Rozliczenie VAT okresu — pola deklaracji w pelnych zlotych.
+
+    Sumy powstaja z juz zaokraglonych pol, tak jak sprawdza je MF: P_38 = P_16 + P_18 + P_20
+    + P_28 + P_30, P_48 = P_39 + P_43, P_51 = P_38 - P_48, P_53 = P_48 - P_38.
+    """
 
     nalezny: Decimal  # P_38
     naliczony: Decimal  # P_48 (z przeniesiona nadwyzka P_39)
     to_pay: Decimal  # P_51
     nadwyzka: Decimal  # P_53 = P_62 (bez zwrotu na rachunek)
     carry_forward: Decimal = ZERO  # P_39
+    purchases_vat: Decimal = ZERO  # P_43
 
 
-def settle_vat(
-    sales_vat: Decimal, expenses: Iterable[ExpenseLike], carry_forward: Decimal = ZERO
-) -> VatSettlement:
-    """VAT nalezny/naliczony/do zaplaty z przeniesiona nadwyzka z poprzedniej deklaracji.
-
-    Import uslug (odwrotne obciazenie): nabywca nalicza VAT nalezny od calej kwoty,
-    a odlicza tylko czesc podlegajaca odliczeniu.
-    """
-    expenses = list(expenses)
-    rc_vat = sum((_dec(e.total_vat) for e in expenses if e.reverse_charge), ZERO)
-    deductible = sum(
+def deductible_vat(expenses: Iterable[ExpenseLike]) -> Decimal:
+    """VAT naliczony do odliczenia (w groszach): odliczenie czesciowe zaokraglane per faktura."""
+    return sum(
         (
             _cents(_dec(e.total_vat) * _dec(e.vat_deduction_pct) / 100)
             for e in expenses
@@ -110,14 +108,27 @@ def settle_vat(
         ),
         ZERO,
     )
-    nalezny = sales_vat + rc_vat
-    naliczony = carry_forward + deductible
+
+
+def settle_vat(
+    fields: Mapping[str, Decimal], expenses: Iterable[ExpenseLike], carry_forward: Decimal = ZERO
+) -> VatSettlement:
+    """Pola P_38..P_62 z sum ewidencji (`period_fields`) i faktur zakupu okresu.
+
+    Import uslug (odwrotne obciazenie) jest juz w `fields` jako VAT nalezny (K_28/K_30);
+    po stronie zakupow odlicza sie tylko czesc podlegajaca odliczeniu.
+    """
+    nalezny = sum((round_pln(fields.get(f"K_{n}", ZERO)) for n in TAX_FIELDS), ZERO)
+    p39 = round_pln(carry_forward)
+    p43 = round_pln(deductible_vat(expenses))
+    naliczony = p39 + p43
     return VatSettlement(
         nalezny=nalezny,
         naliczony=naliczony,
         to_pay=max(nalezny - naliczony, ZERO),
         nadwyzka=max(naliczony - nalezny, ZERO),
-        carry_forward=carry_forward,
+        carry_forward=p39,
+        purchases_vat=p43,
     )
 
 
@@ -129,8 +140,8 @@ def classify_item(item: LineItem, buyer_country: str) -> dict[str, Decimal]:
         if field is None:
             raise ValueError(f"Nieobslugiwany kod VAT {item.vat_code!r} (znane: {VAT_CODE_FIELD})")
         out = {field: item.net_value}
-        if code == "NP" and _is_eu(buyer_country) and buyer_country.upper() != "PL":
-            out["K_12"] = item.net_value  # uslugi art. 100 ust. 1 pkt 4 (VAT-UE)
+        if code == "NP" and is_article_100_service(buyer_country):
+            out["K_12"] = item.net_value  # uslugi art. 100 ust. 1 pkt 4 (VAT-UE), FA(3) "np II"
         return out
     if item.vat_rate not in VAT_RATE_TO_K_FIELDS:
         raise ValueError(
@@ -153,6 +164,17 @@ def import_fields(exp: Expense) -> dict[str, Decimal]:
     """Import uslug: samonaliczony VAT nalezny po stronie sprzedazy."""
     net_f, vat_f = ("K_29", "K_30") if _is_eu(exp.seller_country) else ("K_27", "K_28")
     return {net_f: exp.total_net, vat_f: exp.total_vat}
+
+
+def period_fields(invoices: Iterable[Invoice], expenses: Iterable[Expense]) -> dict[str, Decimal]:
+    """Sumy pol K_* ewidencji sprzedazy okresu: faktury i import uslug (odwrotne obciazenie)."""
+    rows = [invoice_fields(i) for i in invoices]
+    rows += [import_fields(e) for e in expenses if e.reverse_charge]
+    totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for row in rows:
+        for field, value in row.items():
+            totals[field] += value
+    return dict(totals)
 
 
 def _ns(tag: str) -> str:
@@ -188,16 +210,10 @@ def generate_jpk_v7m(
     sales_rows = [invoice_fields(inv) for inv in invoices]
     rc = [e for e in expenses if e.reverse_charge]
     rc_rows = [import_fields(e) for e in rc]
-    totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
-    for row in (*sales_rows, *rc_rows):
-        for field, value in row.items():
-            totals[field] += value
-
-    sales_vat = sum((totals[f"K_{n}"] for n in ("16", "18", "20")), ZERO)
-    settlement = settle_vat(sales_vat, expenses, carry_forward)
+    totals: dict[str, Decimal] = defaultdict(lambda: ZERO, period_fields(invoices, expenses))
+    settlement = settle_vat(totals, expenses, carry_forward)
     deductible = [e for e in expenses if e.vat_deduction_pct > 0]
     purchases_net = sum((e.deductible_net for e in deductible), ZERO)
-    purchases_vat = settlement.naliczony - carry_forward
 
     root = etree.Element(_ns("JPK"), nsmap=NSMAP)
     _append_naglowek(root, seller, datetime.now(), month, year, correction)
@@ -219,15 +235,16 @@ def generate_jpk_v7m(
               "27", "28", "29", "30"):  # fmt: skip
         if totals[f"K_{n}"]:
             _add_int(poz, f"P_{n}", totals[f"K_{n}"])
-    _add_int(poz, "P_37", sum((totals[f"K_{n}"] for n in BASE_FIELDS), ZERO))
+    # P_37 i P_38 to sumy juz zaokraglonych pol (kontrola logiczna MF)
+    _add_int(poz, "P_37", sum((round_pln(totals[f"K_{n}"]) for n in BASE_FIELDS), ZERO))
     _add_int(poz, "P_38", settlement.nalezny)
-    if carry_forward:
-        _add_int(poz, "P_39", carry_forward)
+    if settlement.carry_forward:
+        _add_int(poz, "P_39", settlement.carry_forward)
     if deductible:
         _add_int(poz, "P_40", ZERO)  # nabycie srodkow trwalych — nieobslugiwane
         _add_int(poz, "P_41", ZERO)
         _add_int(poz, "P_42", purchases_net)
-        _add_int(poz, "P_43", purchases_vat)
+        _add_int(poz, "P_43", settlement.purchases_vat)
     _add_int(poz, "P_48", settlement.naliczony)
     _add_int(poz, "P_51", settlement.to_pay)
     if settlement.nadwyzka:
@@ -246,13 +263,14 @@ def generate_jpk_v7m(
         _append_import_uslug_wiersz(ewidencja, lp, exp, fields)
     ctrl = etree.SubElement(ewidencja, _ns("SprzedazCtrl"))
     etree.SubElement(ctrl, _ns("LiczbaWierszySprzedazy")).text = str(lp)
-    _add_decimal(ctrl, "PodatekNalezny", settlement.nalezny)
+    # Sumy kontrolne ewidencji sa w groszach (suma pol wierszy), nie w pelnych zlotych.
+    _add_decimal(ctrl, "PodatekNalezny", sum((totals[f"K_{n}"] for n in TAX_FIELDS), ZERO))
 
     for lp_zakupu, exp in enumerate(deductible, start=1):
         _append_zakup_wiersz(ewidencja, lp_zakupu, exp)
     ctrl_zak = etree.SubElement(ewidencja, _ns("ZakupCtrl"))
     etree.SubElement(ctrl_zak, _ns("LiczbaWierszyZakupow")).text = str(len(deductible))
-    _add_decimal(ctrl_zak, "PodatekNaliczony", purchases_vat)
+    _add_decimal(ctrl_zak, "PodatekNaliczony", deductible_vat(deductible))
 
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True).decode(
         "utf-8"
@@ -261,11 +279,11 @@ def generate_jpk_v7m(
 
 def _require_seller_fields(seller) -> None:
     if not seller.tax_office_code:
-        raise ValueError("SELLER_TAX_OFFICE_CODE wymagany (np. 1471)")
+        raise SellerDataMissingError("SELLER_TAX_OFFICE_CODE wymagany (np. 1471)")
     if not seller.first_name or not seller.last_name:
-        raise ValueError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane")
+        raise SellerDataMissingError("SELLER_FIRST_NAME i SELLER_LAST_NAME wymagane")
     if not seller.birth_date:
-        raise ValueError("SELLER_BIRTH_DATE wymagana (YYYY-MM-DD)")
+        raise SellerDataMissingError("SELLER_BIRTH_DATE wymagana (YYYY-MM-DD)")
 
 
 def _append_naglowek(root, seller, now, month, year, correction) -> None:
@@ -373,8 +391,8 @@ def _add_decimal(parent, tag: str, value: Decimal) -> None:
 
 
 def _add_int(parent, tag: str, value: Decimal) -> None:
-    """TKwotaC — pelne zlote, zaokraglenie pol w gore (pola deklaracji)."""
-    etree.SubElement(parent, _ns(tag)).text = str(int(value.quantize(Decimal("1"), ROUND_HALF_UP)))
+    """TKwotaC — pelne zlote (pola deklaracji)."""
+    etree.SubElement(parent, _ns(tag)).text = str(int(round_pln(value)))
 
 
 def save_jpk_v7m(

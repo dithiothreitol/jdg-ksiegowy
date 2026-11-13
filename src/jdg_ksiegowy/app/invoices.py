@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -26,6 +27,7 @@ from jdg_ksiegowy.invoice.models import Buyer, Invoice, InvoiceKind, InvoiceStat
 from jdg_ksiegowy.invoice.pdf import PDFConversionError, docx_to_pdf
 from jdg_ksiegowy.invoice.whitelist import WhiteListError, lookup
 from jdg_ksiegowy.ksef.qr import verification_url
+from jdg_ksiegowy.registry.payments import awaiting_payment
 from jdg_ksiegowy.registry.repository import (
     BuyerRepository,
     InvoiceNotFoundError,
@@ -308,7 +310,7 @@ def list_invoices(
 ) -> InvoiceList:
     items = InvoiceRepository().list(year=year, month=month, by=by)
     if unpaid:
-        items = [i for i in items if i.paid_at is None]
+        items = [i for i in items if awaiting_payment(i)]
     return InvoiceList(
         count=len(items),
         total_net=sum((i.total_net for i in items), Decimal("0")),
@@ -379,10 +381,12 @@ def mail_invoice(
     if not inv.docx_path or not Path(inv.docx_path).exists():
         raise NotFoundError(f"Brak pliku DOCX faktury {number}")
 
+    # Token wiaze tresc faktury i WSZYSTKICH adresatow — zmiana kopii wymaga nowej zgody.
+    addressees = json.dumps({"to": recipient, "cc": sorted(cc or [])}).encode()
     require_confirmation(
         action="invoice.mail",
         target=number,
-        payload_digest=sha256_hex(Path(inv.docx_path).read_bytes() + recipient.encode()),
+        payload_digest=sha256_hex(Path(inv.docx_path).read_bytes() + addressees),
         env="smtp",
         summary={
             "faktura": number,
@@ -409,7 +413,7 @@ def mail_invoice(
     if not result.success:
         audit("invoice.mail", number, "error", {"to": recipient, "error": result.error})
         raise ExternalServiceError(f"Wysylka e-mail nie powiodla sie: {result.error}")
-    audit("invoice.mail", number, "ok", {"to": recipient})
+    audit("invoice.mail", number, "ok", {"to": recipient, "cc": cc or []})
     return MailResult(
         number=number, to=recipient, subject=result.subject, pdf_path=str(pdf), status="sent"
     )

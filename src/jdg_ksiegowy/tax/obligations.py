@@ -12,11 +12,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 from jdg_ksiegowy.invoice.models import Invoice
 from jdg_ksiegowy.registry.repository import TaxPayment
 from jdg_ksiegowy.tax.income import income_date
+from jdg_ksiegowy.tax.rounding import round_pln
 from jdg_ksiegowy.tax.zus import (
     ZUSHealthTier,
     ZUSSocialMode,
@@ -26,11 +27,6 @@ from jdg_ksiegowy.tax.zus import (
 
 ZERO = Decimal("0")
 HEALTH_DEDUCTIBLE_SHARE = Decimal("0.5")
-
-
-def round_pln(amount: Decimal) -> Decimal:
-    """Zaokraglenie do pelnych zlotych (art. 63 § 1 Ordynacji podatkowej)."""
-    return amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 def revenue(invoices: Iterable[Invoice], year: int, month: int | None = None) -> Decimal:

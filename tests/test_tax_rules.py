@@ -178,3 +178,34 @@ def test_sale_classification_k12_k21_k22_zw_and_gtu(seller):
 def test_invalid_gtu_rejected():
     with pytest.raises(ValueError, match="GTU"):
         LineItem(description="x", unit_price_net=Decimal("1"), gtu="GTU_14")
+
+
+@pytest.mark.parametrize(
+    ("country", "code", "p_12", "fields"),
+    [
+        ("DE", "np", "np II", {"K_11", "K_12"}),  # usluga dla podatnika z UE: art. 100
+        ("US", "np", "np I", {"K_11"}),
+        ("DE", "0_wdt", "0 WDT", {"K_21"}),
+        ("US", "0_exp", "0 EX", {"K_22"}),
+        ("PL", "zw", "zw", {"K_10"}),
+        ("PL", None, "0 KR", {"K_13"}),  # stawka 0 bez kodu = krajowe 0%
+    ],
+)
+def test_fa3_marker_and_jpk_fields_agree(seller, country, code, p_12, fields):
+    from jdg_ksiegowy.invoice.generator_xml import generate_invoice_xml
+    from jdg_ksiegowy.tax.jpk import invoice_fields
+
+    if country == "PL":
+        buyer = Buyer(name="K", nip="5260250274", address="ul. X 1, 00-001 Warszawa")
+    else:
+        buyer = Buyer(name="Kunde", address="Hauptstr. 1, Berlin", country_code=country)
+    item = LineItem(description="x", unit_price_net=Decimal("100"), vat_code=code, vat_rate=0)
+    invoice = _invoice(buyer, [item])
+    xml = etree.fromstring(generate_invoice_xml(invoice).encode())
+    assert [e.text for e in xml.iter("{*}P_12")] == [p_12]
+    assert set(invoice_fields(invoice)) == fields
+
+
+def test_unknown_vat_code_is_rejected_at_input():
+    with pytest.raises(ValueError, match="kod VAT"):
+        LineItem(description="x", unit_price_net=Decimal("1"), vat_code="0_KR")

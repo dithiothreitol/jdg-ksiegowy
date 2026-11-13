@@ -86,7 +86,8 @@ o polnocy i przestaje pasowac po zmianie pliku lub srodowiska — wtedy pokaz no
 
 Kolejnosc: najpierw KSeF, potem mail. Po wysylce do KSeF rejestr ma numer KSeF (do JPK jako
 NrKSeF), UPO w `data/upo/ksef/`, a DOCX/PDF dostaje numer KSeF i kod QR weryfikacji. Faktury
-z numerem KSeF nie wysyla sie ponownie (`CONFLICT`). Mail faktury bez numeru KSeF (wystawionej
+z numerem KSeF nie wysyla sie ponownie (`CONFLICT`). Wynik z `pending: true` znaczy: KSeF przyjal
+fakture, ale nie nadal jeszcze numeru — nie wysylaj ponownie; numer uzupelni `jdg ksef backfill --apply`. Mail faktury bez numeru KSeF (wystawionej
 od 1.04.2026) jest blokowany — najpierw `jdg ksef send`.
 
 ## Zaplaty
@@ -102,7 +103,9 @@ od 1.04.2026) jest blokowany — najpierw `jdg ksef send`.
 - `jdg contract add --buyer-name ... --buyer-nip ... --buyer-address ... --description ... --net 2000`
   (`--day-of-month -1` = ostatni dzien roboczy).
 - `jdg contract list` — aktywne kontrakty.
-- `jdg contract run [--on RRRR-MM-DD]` wystawia faktury wymagalne danego dnia (idempotentnie).
+- `jdg contract run [--on RRRR-MM-DD]` wystawia faktury wymagalne w biezacym miesiacu (idempotentnie,
+  nadrabia termin, ktory minal np. przy wylaczonym serwerze). Kontrakty z bledem sa w `failed` —
+  pokaz userowi przyczyne.
   Wysylka do KSeF i mailem nadal wymaga potwierdzenia jak wyzej.
 
 ## Dane z .env

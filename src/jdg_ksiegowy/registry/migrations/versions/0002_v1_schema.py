@@ -67,6 +67,23 @@ def _resolve(path_str: str | None, data_dir: Path | None) -> Path | None:
     return None
 
 
+# P_12 FA(3) bez stawki liczbowej -> kod pozycji 1.0 (stawka 0)
+_P12_CODES = {
+    "np I": "NP",
+    "np II": "NP",
+    "zw": "ZW",
+    "0 KR": "0",
+    "0 WDT": "0_WDT",
+    "0 EX": "0_EXP",
+}
+
+
+def _rate_and_code(p12: str) -> tuple[Decimal, str | None]:
+    if p12 in _P12_CODES:
+        return Decimal("0"), _P12_CODES[p12]
+    return Decimal(p12), None
+
+
 def _items_from_xml(
     path: Path, total_net: Decimal, total_vat: Decimal
 ) -> list[dict[str, Any]] | None:
@@ -75,7 +92,7 @@ def _items_from_xml(
         rows = etree.parse(str(path)).getroot().findall(".//{*}FaWiersz")
         items: list[dict[str, Any]] = []
         for pos, row in enumerate(rows, start=1):
-            rate = Decimal(row.findtext("{*}P_12") or "")
+            rate, code = _rate_and_code(row.findtext("{*}P_12") or "")
             qty = Decimal(row.findtext("{*}P_8B") or "1")
             price = Decimal(row.findtext("{*}P_9A") or "")
             net = (qty * price).quantize(_CENT, rounding=ROUND_HALF_UP)
@@ -88,6 +105,7 @@ def _items_from_xml(
                     "unit": row.findtext("{*}P_8A") or "usl.",
                     "unit_price_net": str(price),
                     "vat_rate": _cents(rate),
+                    "vat_code": code,
                     "net": _cents(net),
                     "vat": _cents(vat),
                     "gross": _cents(net + vat),
@@ -113,6 +131,7 @@ def _fallback_item(row: sa.RowMapping) -> dict[str, Any]:
         "unit": "usl.",
         "unit_price_net": str(net.quantize(_CENT)),
         "vat_rate": _cents(_dec(row["vat_rate"] if row["vat_rate"] is not None else 23)),
+        "vat_code": None,  # 0.2 nie zapisywal kodu; stawka 0 -> krajowe 0% przy odczycie
         "net": _cents(net),
         "vat": _cents(vat),
         "gross": _cents(_dec(row["total_gross"])),

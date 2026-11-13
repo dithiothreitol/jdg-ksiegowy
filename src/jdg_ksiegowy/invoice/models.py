@@ -10,7 +10,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
-from jdg_ksiegowy.validators import check_ksef_number, validate_nip
+from jdg_ksiegowy.validators import EU_COUNTRY_CODES, check_ksef_number, validate_nip
 
 
 class InvoiceStatus(StrEnum):
@@ -77,6 +77,18 @@ class Buyer(BaseModel):
         return value
 
 
+# Kody pozycji bez VAT naleznego: poza terytorium, zwolnione, krajowe 0%, WDT, eksport.
+VAT_CODES = ("NP", "ZW", "0", "0_WDT", "0_EXP")
+
+
+def is_article_100_service(buyer_country: str) -> bool:
+    """Usluga NP dla nabywcy z innego kraju UE (art. 100 ust. 1 pkt 4): FA(3) "np II", JPK K_12.
+
+    Pozycje NP traktujemy jak uslugi (profil JDG uslugowej); dla nabywcy spoza UE — "np I".
+    """
+    return buyer_country.upper() in EU_COUNTRY_CODES
+
+
 class LineItem(BaseModel):
     """Pozycja na fakturze."""
 
@@ -91,8 +103,12 @@ class LineItem(BaseModel):
 
     @model_validator(mode="after")
     def _no_vat_for_codes(self) -> LineItem:
+        if self.vat_code is None and self.vat_rate == 0:
+            self.vat_code = "0"  # stawka 0% bez kodu = krajowa 0% (FA(3) "0 KR", JPK K_13)
         if self.vat_code:
             self.vat_code = self.vat_code.upper()
+            if self.vat_code not in VAT_CODES:
+                raise ValueError(f"Nieznany kod VAT {self.vat_code!r} (dozwolone: {VAT_CODES})")
             self.vat_rate = Decimal("0")
         if self.gtu and not re.fullmatch(r"GTU_(0[1-9]|1[0-3])", self.gtu):
             raise ValueError(f"Nieprawidlowe oznaczenie GTU: {self.gtu!r} (GTU_01..GTU_13)")

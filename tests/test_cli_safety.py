@@ -15,6 +15,7 @@ from jdg_ksiegowy.app.errors import ExitCode
 from jdg_ksiegowy.cli.main import cli
 from jdg_ksiegowy.cli.output import STATE
 from jdg_ksiegowy.ksef.client import KSeFClient, KSeFResult
+from jdg_ksiegowy.registry.repository import InvoiceRepository
 
 runner = CliRunner()
 MF = "https://test-e-dokumenty.mf.gov.pl"
@@ -323,6 +324,16 @@ def test_mail_requires_confirmation(monkeypatch):
     assert payload["error"]["details"]["summary"]["do"] == "klient@example.com"
     assert sent_mail == []
 
+    # Token zatwierdzony bez kopii nie przechodzi po dopisaniu adresu w cc
+    token = payload["error"]["details"]["token"]
+    code, payload = jdg(
+        "invoice", "mail", number, "--to", "klient@example.com", "--cc", "inny@example.com",
+        "--confirm", token,
+    )  # fmt: skip
+    assert code == ExitCode.CONFIRMATION and sent_mail == []
+    assert payload["error"]["details"]["summary"]["kopia"] == ["inny@example.com"]
+    assert payload["error"]["details"]["token"] != token
+
 
 def test_dry_run_expense_add_writes_nothing():
     code, payload = jdg(
@@ -359,3 +370,50 @@ def test_status_today_default_works():
     assert code == 0 and payload["data"]["today"] == date.today().isoformat()
     assert isinstance(payload["data"]["reminders"], list)
     assert Decimal(payload["data"]["month_sales_net"]) >= 0
+
+
+def _send_returning(monkeypatch, result: KSeFResult) -> list[str]:
+    calls: list[str] = []
+
+    def fake_send(self, xml_content):
+        calls.append(xml_content)
+        return result
+
+    monkeypatch.setattr(KSeFClient, "send_invoice", fake_send)
+    return calls
+
+
+def _send_confirmed(number: str) -> tuple[int, dict]:
+    _, pending = jdg("ksef", "send", number)
+    return jdg("ksef", "send", number, "--confirm", pending["error"]["details"]["token"])
+
+
+def test_accepted_without_number_is_pending_and_blocks_resend(monkeypatch):
+    calls = _send_returning(
+        monkeypatch,
+        KSeFResult(success=False, env="test", reference_number="20261110-EE-REF", error="timeout"),
+    )
+    number = _issue()
+    code, payload = _send_confirmed(number)
+    assert (
+        code == 0 and payload["data"]["pending"] is True and payload["data"]["ksef_number"] is None
+    )
+    assert InvoiceRepository().get(number).ksef_reference == "20261110-EE-REF"
+    code, again = jdg("ksef", "send", number)
+    assert code == ExitCode.DOMAIN and again["error"]["code"] == "CONFLICT" and len(calls) == 1
+    assert _audit_outcomes("ksef.send")[-1] == "pending"
+
+
+def test_rejected_invoice_is_not_blocked_from_resend(monkeypatch):
+    _send_returning(
+        monkeypatch,
+        KSeFResult(
+            success=False, env="test", reference_number="REF", rejected=True, error="450: NIP"
+        ),
+    )
+    number = _issue()
+    code, payload = _send_confirmed(number)
+    assert code == ExitCode.DOMAIN and payload["error"]["code"] == "INVALID_INPUT"
+    assert InvoiceRepository().get(number).ksef_reference is None
+    code, again = jdg("ksef", "send", number)
+    assert again["error"]["code"] == "CONFIRMATION_REQUIRED"  # mozna wyslac po poprawce

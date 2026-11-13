@@ -135,3 +135,28 @@ def test_submit_requires_pesel(isolated_db, monkeypatch):
     monkeypatch.setattr(settings.mf, "pesel", "")
     with pytest.raises(ConfigMissingError, match="MF_PESEL"):
         jpk_app._authorization()
+
+
+def test_jpk_build_reports_config_and_data_errors_as_app_errors(isolated_db, monkeypatch, tmp_path):
+    from datetime import date as d
+    from decimal import Decimal
+
+    from jdg_ksiegowy.app.errors import InvalidInputError
+    from jdg_ksiegowy.config import settings
+    from tests.helpers import InvoiceRow, save_invoice
+
+    monkeypatch.setattr(jpk_app, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(settings.seller, "tax_office_code", "")
+    with pytest.raises(ConfigMissingError, match="SELLER_TAX_OFFICE_CODE"):
+        jpk_app.build_v7m(2026, 10)
+    with pytest.raises(ConfigMissingError, match="SELLER_"):
+        jpk_app.build_ewp(2026)
+
+    monkeypatch.setattr(settings.seller, "tax_office_code", "1471")
+    monkeypatch.setattr(settings.seller, "first_name", "Jan")
+    monkeypatch.setattr(settings.seller, "last_name", "Kowalski")
+    monkeypatch.setattr(settings.seller, "birth_date", "1980-01-01")
+    row = InvoiceRow(number="A1/10/2026", issue_date=d(2026, 10, 5), total_net=Decimal("100"))
+    save_invoice(row.__class__(**{**row.__dict__, "vat_rate": Decimal("12")}))
+    with pytest.raises(InvalidInputError, match="stawka VAT 12"):
+        jpk_app.build_v7m(2026, 10)

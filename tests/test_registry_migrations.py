@@ -123,6 +123,44 @@ def test_v02_database_migrates_with_data(tmp_path, monkeypatch):
     assert exp.reverse_charge is False
 
 
+def test_v02_codes_in_fa3_become_item_vat_codes(tmp_path, monkeypatch):
+    """P_12 'np II' / '0 WDT' z FA(3) 0.x -> kody NP / 0_WDT (a nie stawka 0 bez kodu)."""
+    import jdg_ksiegowy.registry.db as db_module
+    from jdg_ksiegowy.config import settings
+    from jdg_ksiegowy.registry.repository import InvoiceRepository
+
+    path = tmp_path / "legacy.db"
+    engine = create_engine(f"sqlite:///{path}")
+    _create_v02_schema(engine)
+    xml = tmp_path / "faktura_ue.xml"
+    xml.write_text(
+        '<Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/"><Fa>'
+        "<FaWiersz><P_7>Dev</P_7><P_8B>1</P_8B><P_9A>5000</P_9A><P_12>np II</P_12></FaWiersz>"
+        "<FaWiersz><P_7>Towar</P_7><P_8B>1</P_8B><P_9A>300</P_9A><P_12>0 WDT</P_12></FaWiersz>"
+        "</Fa></Faktura>",
+        encoding="utf-8",
+    )
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE invoices SET xml_path = :p, total_net = 5300, total_vat = 0,"
+                " total_gross = 5300, vat_rate = 0"
+            ),
+            {"p": str(xml)},
+        )
+    engine.dispose()
+    monkeypatch.setattr(settings, "db_url", f"sqlite:///{path}")
+    monkeypatch.setattr(db_module, "_engine", None)
+    monkeypatch.setattr(db_module, "_SessionFactory", None)
+    db_module.init_db()
+
+    inv = InvoiceRepository().get("A1/05/2026")
+    assert [(i.description, i.vat_code, i.vat_rate) for i in inv.items] == [
+        ("Dev", "NP", Decimal("0")),
+        ("Towar", "0_WDT", Decimal("0")),
+    ]
+
+
 def test_migration_is_idempotent(tmp_path):
     engine = _engine(tmp_path)
     db.upgrade(engine)

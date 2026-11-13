@@ -30,14 +30,19 @@ class MatchResult:
     unmatched_invoices: list[Invoice] = field(default_factory=list)
 
 
+def awaiting_payment(invoice: Invoice) -> bool:
+    """Naleznosc do zaplaty: niezaplacona i na plus (korekta zmniejszajaca nie jest naleznoscia)."""
+    return invoice.paid_at is None and invoice.total_gross > 0
+
+
 def overdue(invoices: list[Invoice], today: date) -> list[Invoice]:
-    """Niezaplacone po terminie."""
-    return [i for i in invoices if not i.paid_at and i.payment_due < today]
+    """Naleznosci po terminie."""
+    return [i for i in invoices if awaiting_payment(i) and i.payment_due < today]
 
 
 def unpaid(invoices: list[Invoice], today: date) -> list[Invoice]:
-    """Niezaplacone przed terminem."""
-    return [i for i in invoices if not i.paid_at and i.payment_due >= today]
+    """Naleznosci przed terminem."""
+    return [i for i in invoices if awaiting_payment(i) and i.payment_due >= today]
 
 
 def _amount(raw: str) -> Decimal:
@@ -111,7 +116,7 @@ def match_payments(bank_rows: list[BankRow], invoices: list[Invoice]) -> MatchRe
     2. kwota brutto + data w oknie +-30 dni od terminu platnosci.
     """
     result = MatchResult()
-    pending = {inv.number: inv for inv in invoices if not inv.paid_at}
+    pending = {inv.number: inv for inv in invoices if awaiting_payment(inv)}
     used_invoices: set[str] = set()
     used_rows: set[int] = set()
 

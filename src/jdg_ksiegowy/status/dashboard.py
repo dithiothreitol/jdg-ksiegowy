@@ -14,6 +14,7 @@ from enum import StrEnum
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.registry.payments import overdue, unpaid
 from jdg_ksiegowy.registry.repository import TaxPayment, TaxPaymentRepository
 from jdg_ksiegowy.tax.deadlines import monthly_deadlines
 from jdg_ksiegowy.tax.obligations import monthly_contributions, monthly_ryczalt, social_mode_on
@@ -68,12 +69,8 @@ class Dashboard:
         prev_year, prev_month = previous((year, month))
 
         snap = DashboardSnapshot(today=self.today)
-        snap.unpaid_invoices = [
-            i for i in invoices if not i.paid_at and i.payment_due >= self.today
-        ]
-        snap.overdue_invoices = [
-            i for i in invoices if not i.paid_at and i.payment_due < self.today
-        ]
+        snap.unpaid_invoices = unpaid(invoices, self.today)
+        snap.overdue_invoices = overdue(invoices, self.today)
         current = [i for i in invoices if (i.sale_date.year, i.sale_date.month) == (year, month)]
         snap.month_sales_net = sum((i.total_net for i in current), ZERO)
         snap.month_sales_vat = sum((i.total_vat for i in current), ZERO)

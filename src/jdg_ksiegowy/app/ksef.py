@@ -18,6 +18,7 @@ from jdg_ksiegowy.app.errors import (
     ConfigMissingError,
     ConflictError,
     ExternalServiceError,
+    InvalidInputError,
     NotFoundError,
 )
 from jdg_ksiegowy.app.invoices import get_invoice, refresh_visualization
@@ -43,10 +44,12 @@ def _client() -> KSeFClient:
 class KsefSendResult(BaseModel):
     number: str
     env: str
-    ksef_number: str
+    ksef_number: str | None  # None = przyjeta, numer KSeF w toku (`pending`)
     reference_number: str | None
     acquired_at: datetime | None
     upo_path: str | None
+    pending: bool = False
+    note: str | None = None
 
 
 def send_invoice(number: str, *, confirm: str | None = None) -> KsefSendResult:
@@ -81,9 +84,19 @@ def send_invoice(number: str, *, confirm: str | None = None) -> KsefSendResult:
         confirm=confirm,
     )
     result = client.send_invoice(xml.decode("utf-8"))
-    if not result.success or not result.ksef_number:
+    if result.rejected:
         audit("ksef.send", number, "error", {"env": client.env, "error": result.error})
-        raise ExternalServiceError(f"KSeF odrzucil fakture {number}: {result.error}")
+        raise InvalidInputError(
+            f"KSeF odrzucil fakture {number}: {result.error}",
+            hint="Popraw dane faktury (np. NIP, stawki) i wyslij ponownie.",
+        )
+    if not result.ksef_number and result.reference_number:
+        return _accepted_without_number(number, client.env, result.reference_number, result.error)
+    if not result.ksef_number:
+        audit("ksef.send", number, "error", {"env": client.env, "error": result.error})
+        raise ExternalServiceError(
+            f"Wysylka faktury {number} do KSeF nie powiodla sie: {result.error}"
+        )
 
     upo_path = None
     if result.upo:
@@ -110,6 +123,27 @@ def send_invoice(number: str, *, confirm: str | None = None) -> KsefSendResult:
         reference_number=result.reference_number,
         acquired_at=result.acquired_at,
         upo_path=upo_path,
+    )
+
+
+def _accepted_without_number(
+    number: str, env: str, reference: str, error: str | None
+) -> KsefSendResult:
+    """KSeF przyjal wysylke bez numeru (jeszcze): zapisz referencje, zablokuj ponowienie."""
+    InvoiceRepository().mark_sent_ksef(number, reference=reference, ksef_number=None)
+    audit("ksef.send", number, "pending", {"env": env, "reference": reference, "error": error})
+    return KsefSendResult(
+        number=number,
+        env=env,
+        ksef_number=None,
+        reference_number=reference,
+        acquired_at=None,
+        upo_path=None,
+        pending=True,
+        note=(
+            "KSeF przyjal fakture do przetwarzania, numer KSeF jeszcze nie nadany. Nie wysylaj "
+            "ponownie — numer uzupelni `jdg ksef backfill --apply`."
+        ),
     )
 
 

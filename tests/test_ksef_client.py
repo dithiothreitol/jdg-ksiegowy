@@ -5,7 +5,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-from ksef2 import KSeFException
+from ksef2 import KSeFException, KSeFInvoiceProcessingTimeoutError, KSeFInvoiceRejectedError
 
 from jdg_ksiegowy.ksef.backfill import backfill_ksef_numbers
 from jdg_ksiegowy.ksef.client import KSeFClient
@@ -16,13 +16,18 @@ KSEF_NUMBER = "1234567890-20261013-0A1B2C-3D4E5F-6A"
 
 
 class _Submission:
-    def __init__(self, status):
-        self._status = status
+    def __init__(self, status, *, wait_error=None, upo_error=None):
+        self._status, self._wait_error, self._upo_error = status, wait_error, upo_error
+        self.reference_number = "20261013-EE-REF"
 
     def wait(self, timeout):
+        if self._wait_error:
+            raise self._wait_error
         return self._status
 
     def download_upo(self):
+        if self._upo_error:
+            raise self._upo_error
         return b"<UPO/>"
 
 
@@ -67,6 +72,39 @@ def test_send_returns_ksef_number_acquisition_date_and_upo(monkeypatch):
     assert result.acquired_at == acquired
     assert result.upo == b"<UPO/>"
     assert session.sent == [b"<Faktura/>"]
+
+
+def _rejected() -> KSeFInvoiceRejectedError:
+    status = SimpleNamespace(
+        status=SimpleNamespace(code=450, description="Blad semantyki", details=[], extensions=None),
+        ksef_number=None,
+    )
+    return KSeFInvoiceRejectedError(invoice_reference_number="20261013-EE-REF", status=status)
+
+
+def test_processing_timeout_keeps_reference_for_duplicate_guard(monkeypatch):
+    timeout = KSeFInvoiceProcessingTimeoutError(
+        invoice_reference_number="20261013-EE-REF", timeout=120
+    )
+    session = _Session(_Submission(None, wait_error=timeout))
+    result = _client_with(monkeypatch, session).send_invoice("<Faktura/>")
+    assert (result.success, result.rejected, result.ksef_number) == (False, False, None)
+    assert result.reference_number == "20261013-EE-REF"
+
+
+def test_rejection_is_marked_so_invoice_can_be_fixed_and_resent(monkeypatch):
+    session = _Session(_Submission(None, wait_error=_rejected()))
+    result = _client_with(monkeypatch, session).send_invoice("<Faktura/>")
+    assert result.rejected is True and "450" in (result.error or "")
+
+
+def test_missing_upo_does_not_lose_assigned_ksef_number(monkeypatch):
+    status = SimpleNamespace(
+        ksef_number=KSEF_NUMBER, reference_number="20261013-EE-REF", acquisition_date=None
+    )
+    session = _Session(_Submission(status, upo_error=KSeFException("UPO not ready")))
+    result = _client_with(monkeypatch, session).send_invoice("<Faktura/>")
+    assert result.success is True and result.ksef_number == KSEF_NUMBER and result.upo is None
 
 
 def test_send_rejection_is_reported_not_raised(monkeypatch):

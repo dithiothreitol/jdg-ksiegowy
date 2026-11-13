@@ -8,6 +8,8 @@ dokonczy sprawdzanie bez ponownej wysylki.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -35,7 +37,12 @@ from jdg_ksiegowy.registry.repository import (
     InvoiceRepository,
 )
 from jdg_ksiegowy.tax.ewp import save_jpk_ewp
-from jdg_ksiegowy.tax.jpk import save_jpk_v7m, settle_vat
+from jdg_ksiegowy.tax.jpk import (
+    SellerDataMissingError,
+    period_fields,
+    save_jpk_v7m,
+    settle_vat,
+)
 from jdg_ksiegowy.tax.validation import schema_name, validate_jpk
 from jdg_ksiegowy.tax.vat_period import VatLedger
 
@@ -89,18 +96,19 @@ def build_v7m(
     stem = f"JPK_V7M_{year}_{month:02d}"
     number, path = _next_correction_path(stem) if correction else (0, _jpk_dir() / f"{stem}.xml")
     carry = VatLedger.load().carry_forward((year, month))
-    save_jpk_v7m(
-        invoices,
-        month,
-        year,
-        path,
-        correction=number,
-        expenses=expenses,
-        correction_reason=reason,
-        carry_forward=carry,
-    )
+    with _domain_errors():
+        save_jpk_v7m(
+            invoices,
+            month,
+            year,
+            path,
+            correction=number,
+            expenses=expenses,
+            correction_reason=reason,
+            carry_forward=carry,
+        )
     sales_vat = sum((i.total_vat for i in invoices), Decimal("0"))
-    settlement = settle_vat(sales_vat, expenses, carry)
+    settlement = settle_vat(period_fields(invoices, expenses), expenses, carry)
     check = validate_jpk(path.read_bytes())
     audit("jpk.build", str(path.name), "ok" if check.valid else "error", {"valid": check.valid})
     return JpkBuildResult(
@@ -124,6 +132,17 @@ def build_v7m(
     )
 
 
+@contextmanager
+def _domain_errors() -> Iterator[None]:
+    """Bledy generatora JPK -> bledy aplikacji: brak danych w .env albo dane rejestru."""
+    try:
+        yield
+    except SellerDataMissingError as e:
+        raise ConfigMissingError(str(e), hint="Uzupelnij dane podatnika SELLER_* w .env.") from e
+    except ValueError as e:
+        raise InvalidInputError(str(e)) from e
+
+
 def build_ewp(
     year: int, *, ryczalt_rate: Decimal | None = None, correction: bool = False
 ) -> JpkBuildResult:
@@ -131,10 +150,8 @@ def build_ewp(
     invoices = InvoiceRepository().list(year=year, by="income")
     stem = f"JPK_EWP_{year}"
     number, path = _next_correction_path(stem) if correction else (0, _jpk_dir() / f"{stem}.xml")
-    try:
+    with _domain_errors():
         save_jpk_ewp(invoices, year, path, ryczalt_rate=ryczalt_rate, correction=number)
-    except ValueError as e:
-        raise InvalidInputError(str(e)) from e
     check = validate_jpk(path.read_bytes())
     revenue = sum((i.total_net for i in invoices), Decimal("0"))
     return JpkBuildResult(
