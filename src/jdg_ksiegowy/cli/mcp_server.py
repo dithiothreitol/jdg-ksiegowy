@@ -36,8 +36,10 @@ LOOPBACK = ("127.0.0.1", "localhost", "::1")
 
 CONFIRM_PROTOCOL = (
     "Czynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca "
-    "błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie "
-    "userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej "
+    "błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż userowi całe "
+    "podsumowanie, w tym porównanie z poprzednim okresem lub poprzednią fakturą nabywcy "
+    "(`poprzednio`, `poprzednia_faktura`) i ostrzeżenie `uwaga`, jeśli jest, a potem zakończ "
+    "odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej "
     "turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user "
     "zobaczył podsumowanie, nie wystarcza."
 )

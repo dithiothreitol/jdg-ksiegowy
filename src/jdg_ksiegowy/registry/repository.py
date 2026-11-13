@@ -204,6 +204,27 @@ class InvoiceRepository:
         }[by]
         return sorted(invoices, key=key, reverse=True)
 
+    def previous_for_buyer(self, invoice: Invoice) -> Invoice | None:
+        """Ostatnia wczesniejsza faktura VAT tego samego nabywcy (po NIP, bez NIP po nazwie)."""
+        buyer = (
+            InvoiceRecord.buyer_nip == invoice.buyer.nip
+            if invoice.buyer.nip
+            else InvoiceRecord.buyer_name == invoice.buyer.name
+        )
+        with self._session() as s:
+            r = s.scalars(
+                select(InvoiceRecord)
+                .where(
+                    buyer,
+                    InvoiceRecord.kind == InvoiceKind.VAT.value,
+                    InvoiceRecord.number != invoice.number,
+                    InvoiceRecord.issue_date <= invoice.issue_date,
+                )
+                .order_by(InvoiceRecord.issue_date.desc(), InvoiceRecord.created_at.desc())
+                .limit(1)
+            ).first()
+            return _invoice_to_domain(r) if r else None
+
     def next_number(self, month: int, year: int, prefix: str = "A") -> str:
         """Kolejny numer w serii: {prefix}{n}/MM/RRRR."""
         with self._session() as s:

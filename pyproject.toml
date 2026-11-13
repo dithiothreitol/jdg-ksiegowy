@@ -1,6 +1,6 @@
 [project]
 name = "jdg-ksiegowy"
-version = "1.0.1"
+version = "1.0.2"
 description = "AI Asystent Ksiegowy JDG — faktury, KSeF, JPK, podatki"
 requires-python = ">=3.12"
 license = "MIT"

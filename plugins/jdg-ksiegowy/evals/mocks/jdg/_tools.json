@@ -864,7 +864,7 @@
     {
       "name": "invoice_mail",
       "title": "jdg invoice mail",
-      "description": "Wyślij fakturę PDF mailem (wymaga potwierdzenia).\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
+      "description": "Wyślij fakturę PDF mailem (wymaga potwierdzenia).\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż userowi całe podsumowanie, w tym porównanie z poprzednim okresem lub poprzednią fakturą nabywcy (`poprzednio`, `poprzednia_faktura`) i ostrzeżenie `uwaga`, jeśli jest, a potem zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1122,7 +1122,7 @@
     {
       "name": "jpk_submit",
       "title": "jdg jpk submit",
-      "description": "Wyślij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
+      "description": "Wyślij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż userowi całe podsumowanie, w tym porównanie z poprzednim okresem lub poprzednią fakturą nabywcy (`poprzednio`, `poprzednia_faktura`) i ostrzeżenie `uwaga`, jeśli jest, a potem zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1356,7 +1356,7 @@
     {
       "name": "ksef_send",
       "title": "jdg ksef send",
-      "description": "Wyślij fakturę do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż podsumowanie userowi i zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
+      "description": "Wyślij fakturę do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.\n\nCzynność nieodwracalna, dwufazowa: wywołanie bez `confirm` niczego nie wysyła i zwraca błąd CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaż userowi całe podsumowanie, w tym porównanie z poprzednim okresem lub poprzednią fakturą nabywcy (`poprzednio`, `poprzednia_faktura`) i ostrzeżenie `uwaga`, jeśli jest, a potem zakończ odpowiedź pytaniem o zgodę; `confirm=<token>` przekaż dopiero w kolejnej turze, po jego wyraźnym 'tak' na to podsumowanie. Zgoda udzielona z góry, zanim user zobaczył podsumowanie, nie wystarcza.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

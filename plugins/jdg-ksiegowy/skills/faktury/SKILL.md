@@ -75,8 +75,12 @@ w miesiacu pierwotnej sprzedazy. Przed korekta upewnij sie, ze oryginal ma numer
 `jdg ksef send <numer>` i `jdg invoice mail <numer> [--to adres]` dzialaja dwufazowo:
 
 1. Pierwsze wywolanie nic nie wysyla. Zwraca `CONFIRMATION_REQUIRED` (CLI: kod 4) i
-   `error.details`: `summary` (srodowisko, kwoty, adresat) oraz `token`.
+   `error.details`: `summary` (srodowisko, kwoty, adresat) oraz `token`. Przy `ksef send`
+   `summary.poprzednia_faktura` to ostatnia wczesniejsza faktura tego nabywcy (numer, data,
+   brutto ze zmiana, opis) albo informacja, ze to pierwsza faktura dla nabywcy.
 2. **Pokaz userowi podsumowanie i zapytaj o zgode.** Szczegolnie wyraznie, gdy `env` = `prod`.
+   Wskaz zmiane kwoty lub opisu wzgledem poprzedniej faktury nabywcy, bo przy fakturach
+   cyklicznych to najczestszy sygnal pomylki.
 3. Dopiero po wyraznym "tak" wywolaj to samo z `--confirm <token>` (MCP: `confirm`).
 
 Nigdy nie dodawaj `--confirm` bez zgody usera i nie uzywaj tokena z innej rozmowy. Zgoda "z gory"

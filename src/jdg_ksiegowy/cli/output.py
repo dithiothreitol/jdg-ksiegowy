@@ -22,9 +22,10 @@ from typing import Any
 
 import typer
 from pydantic import BaseModel
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from jdg_ksiegowy.app.errors import AppError, ConfirmationRequiredError, ExitCode
 
@@ -98,11 +99,25 @@ def emit_error(err: AppError) -> None:
 
 
 def _summary_panel(err: ConfirmationRequiredError) -> Panel:
+    return Panel(
+        _summary_grid(err.summary), title=f"Do potwierdzenia: {err.action}", border_style="yellow"
+    )
+
+
+def _summary_grid(summary: dict[str, Any]) -> Table:
+    """Klucz i wartosc; porownanie z poprzednim okresem jako wcieta podtabela."""
     table = Table.grid(padding=(0, 2))
-    for key, value in err.summary.items():
-        style = "bold red" if key == "env" and value == "prod" else ""
-        table.add_row(f"[dim]{key}[/]", f"[{style}]{value}[/]" if style else str(value))
-    return Panel(table, title=f"Do potwierdzenia: {err.action}", border_style="yellow")
+    for key, value in summary.items():
+        alarm = key == "uwaga" or (key == "env" and value == "prod")
+        table.add_row(f"[dim]{key}[/]", _summary_value(value, "bold red" if alarm else ""))
+    return table
+
+
+def _summary_value(value: Any, style: str) -> RenderableType:
+    if isinstance(value, dict):
+        return _summary_grid(value)
+    text = "\n".join(map(str, value)) if isinstance(value, list) else str(value)
+    return Text(text, style=style)  # Text: nawiasy w opisie faktury nie sa znacznikami Rich
 
 
 # --- renderowanie dla czlowieka ----------------------------------------------------------

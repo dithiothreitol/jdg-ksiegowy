@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from jdg_ksiegowy.app.audit import audit
@@ -20,6 +21,12 @@ from jdg_ksiegowy.app.errors import ConfirmationRequiredError
 
 def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def with_change(before: Decimal, now: Decimal) -> str:
+    """Wartosc do porownania w podsumowaniu: "230 (zmiana -115)" albo "0 (bez zmian)"."""
+    delta = now - before
+    return f"{before} (zmiana {delta:+})" if delta else f"{before} (bez zmian)"
 
 
 def confirmation_token(

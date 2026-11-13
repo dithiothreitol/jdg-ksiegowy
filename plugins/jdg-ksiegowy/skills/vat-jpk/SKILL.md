@@ -34,9 +34,15 @@ jdg jpk submit data/jpk/JPK_V7M_2026_10.xml            # kod 4: summary + token
 jdg jpk submit data/jpk/JPK_V7M_2026_10.xml --confirm <token>
 ```
 
-1. Pierwsze wywolanie (bez `--confirm` / `confirm`) waliduje XSD i zwraca podsumowanie (formularz, okres, cel, P_38/P_48/P_51,
-   srodowisko) oraz token. Nic nie wysyla.
-2. **Pokaz podsumowanie i zapytaj usera o zgode.** `env: prod` = realna deklaracja w urzedzie.
+1. Pierwsze wywolanie (bez `--confirm` / `confirm`) waliduje XSD i zwraca podsumowanie (formularz, okres, cel, P_38/P_48/P_51/P_62,
+   srodowisko) oraz token. Nic nie wysyla. W podsumowaniu sa tez:
+   - `poprzednio` — obowiazujaca deklaracja do porownania (przy zlozeniu: za poprzedni okres,
+     przy korekcie: korygowana) z wartoscia i zmiana kazdego pola, albo informacja, ze jej brak;
+   - `uwaga` (tylko przy rozbieznosci) — kwoty pliku roznia sie od rejestru, np. deklaracja
+     zerowa mimo faktur za okres albo plik zbudowany przed dopisaniem faktury.
+2. **Pokaz podsumowanie razem ze zmianami wzgledem `poprzednio` i zapytaj usera o zgode.**
+   `env: prod` = realna deklaracja w urzedzie. Pole `uwaga` pokaz na poczatku i zapytaj wprost,
+   czy wysylac mimo niego; zwykle wlasciwe jest przebudowanie pliku (`jdg jpk build`).
 3. Dopiero po wyraznym "tak" na to podsumowanie — `--confirm <token>`. Nigdy bez zgody; zgoda
    "z gory", zanim user zobaczyl podsumowanie, nie wystarcza.
 

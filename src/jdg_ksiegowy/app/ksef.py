@@ -13,7 +13,7 @@ from lxml import etree
 from pydantic import BaseModel
 
 from jdg_ksiegowy.app.audit import audit
-from jdg_ksiegowy.app.confirm import require_confirmation, sha256_hex
+from jdg_ksiegowy.app.confirm import require_confirmation, sha256_hex, with_change
 from jdg_ksiegowy.app.errors import (
     ConfigMissingError,
     ConflictError,
@@ -26,6 +26,7 @@ from jdg_ksiegowy.config import DATA_DIR
 from jdg_ksiegowy.expenses.ksef_mapper import metadata_to_expense, needs_manual_review
 from jdg_ksiegowy.expenses.models import ExpenseCategory
 from jdg_ksiegowy.expenses.ocr import clean_text
+from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind
 from jdg_ksiegowy.ksef.backfill import backfill_ksef_numbers
 from jdg_ksiegowy.ksef.client import KSeFClient
 from jdg_ksiegowy.registry.repository import ExpenseRepository, InvoiceRepository
@@ -79,6 +80,7 @@ def send_invoice(number: str, *, confirm: str | None = None) -> KsefSendResult:
             "netto": str(inv.total_net),
             "vat": str(inv.total_vat),
             "brutto": str(inv.total_gross),
+            "poprzednia_faktura": _previous_invoice(inv),
             "plik": inv.xml_path,
         },
         confirm=confirm,
@@ -124,6 +126,21 @@ def send_invoice(number: str, *, confirm: str | None = None) -> KsefSendResult:
         acquired_at=result.acquired_at,
         upo_path=upo_path,
     )
+
+
+def _previous_invoice(inv: Invoice) -> dict[str, str] | str:
+    """Ostatnia wczesniejsza faktura nabywcy: przy fakturach cyklicznych widac nietypowa kwote."""
+    if inv.kind == InvoiceKind.KOR:
+        return "nie dotyczy faktury korygującej"
+    prev = InvoiceRepository().previous_for_buyer(inv)
+    if prev is None:
+        return "brak, to pierwsza faktura dla tego nabywcy"
+    return {
+        "numer": prev.number,
+        "data": prev.issue_date.isoformat(),
+        "brutto": with_change(prev.total_gross, inv.total_gross),
+        "opis": "; ".join(item.description for item in prev.items),
+    }
 
 
 def _accepted_without_number(

@@ -19,7 +19,7 @@ from lxml import etree
 from pydantic import BaseModel
 
 from jdg_ksiegowy.app.audit import audit
-from jdg_ksiegowy.app.confirm import require_confirmation, sha256_hex
+from jdg_ksiegowy.app.confirm import require_confirmation, sha256_hex, with_change
 from jdg_ksiegowy.app.errors import (
     ConfigMissingError,
     ConflictError,
@@ -44,7 +44,7 @@ from jdg_ksiegowy.tax.jpk import (
     settle_vat,
 )
 from jdg_ksiegowy.tax.validation import schema_name, validate_jpk
-from jdg_ksiegowy.tax.vat_period import VatLedger
+from jdg_ksiegowy.tax.vat_period import VatLedger, previous
 
 Form = Literal["JPK_V7M", "JPK_EWP"]
 JPK_DIR_NAME = "jpk"
@@ -224,7 +224,7 @@ class FilingView(BaseModel):
         return cls(
             id=f.id,
             form=f.form,
-            period=f"{f.year}-{f.month:02d}" if f.month else str(f.year),
+            period=_period(f.year, f.month),
             purpose=f.purpose,
             env=f.env,
             status=f.status,
@@ -262,6 +262,60 @@ def _facts(xml: bytes) -> _JpkFacts:
         month = None
         totals = {"SumaPrzychodow": root.findtext(".//{*}EWPCtrl/{*}SumaPrzychodow") or "0"}
     return _JpkFacts(form=form, year=year, month=month, purpose=purpose, totals=totals)
+
+
+def _period(year: int, month: int | None) -> str:
+    return f"{year}-{month:02d}" if month else str(year)
+
+
+def _compared(repo: FilingRepository, facts: _JpkFacts, env: str) -> dict[str, str] | str:
+    """Obowiazujaca deklaracja do porownania: korygowana (korekta) albo za poprzedni okres."""
+    if facts.purpose == 2:
+        year, month = facts.year, facts.month
+    elif facts.month:
+        year, month = previous((facts.year, facts.month))
+    else:
+        year, month = facts.year - 1, None
+    accepted = [
+        f
+        for f in repo.list(form=facts.form, year=year, month=month)
+        if f.env == env and f.status == "accepted"
+    ]
+    if not accepted:
+        return f"brak przyjętej deklaracji za {_period(year, month)}"
+    filing = accepted[0]  # lista od najnowszych: obowiazuje ostatnia przyjeta
+    path = Path(filing.file_path)
+    if not path.exists():
+        return f"brak pliku przyjętej deklaracji za {_period(year, month)}: {path}"
+    before = _facts(path.read_bytes()).totals
+    kind = " (korekta)" if filing.purpose == 2 else ""
+    filed = filing.submitted_at or filing.created_at
+    return {
+        "deklaracja": f"{_period(year, month)}{kind}, złożona {filed:%Y-%m-%d}",
+        **{
+            tag: with_change(Decimal(before[tag]), Decimal(now))
+            for tag, now in facts.totals.items()
+        },
+    }
+
+
+def _registry_note(facts: _JpkFacts) -> str | None:
+    """Rozbieznosc kwot pliku z rejestrem, np. deklaracja zerowa mimo faktur za okres."""
+    if facts.month is None:  # JPK_EWP: tylko porownanie z poprzednim rokiem
+        return None
+    s = VatLedger.load().settlement((facts.year, facts.month))
+    expected = {"P_38": s.nalezny, "P_48": s.naliczony, "P_51": s.to_pay, "P_62": s.nadwyzka}
+    diffs = [
+        f"{tag} {facts.totals[tag]} zamiast {value}"
+        for tag, value in expected.items()
+        if Decimal(facts.totals[tag]) != value
+    ]
+    if not diffs:
+        return None
+    return (
+        f"Kwoty w pliku różnią się od rejestru za {_period(facts.year, facts.month)}: "
+        f"{', '.join(diffs)}. Przebuduj plik (`jdg jpk build`) albo uzupełnij rejestr."
+    )
 
 
 def _authorization() -> AuthorizationData:
@@ -341,6 +395,7 @@ def submit(
         )
     auth = _authorization()
 
+    note = _registry_note(facts)
     require_confirmation(
         action="jpk.submit",
         target=path.name,
@@ -348,9 +403,11 @@ def submit(
         env=env,
         summary={
             "formularz": facts.form,
-            "okres": f"{facts.year}-{facts.month:02d}" if facts.month else str(facts.year),
+            "okres": _period(facts.year, facts.month),
             "cel": "korekta" if facts.purpose == 2 else "złożenie",
             **facts.totals,
+            "poprzednio": _compared(repo, facts, env),
+            **({"uwaga": note} if note else {}),
             "plik": str(path),
         },
         confirm=confirm,

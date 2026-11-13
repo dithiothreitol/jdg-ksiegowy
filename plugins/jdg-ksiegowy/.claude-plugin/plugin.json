@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "jdg-ksiegowy",
   "displayName": "JDG Ksiegowy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Ksiegowosc JDG na ryczalcie: faktury FA(3) i KSeF, koszty z KSeF i OCR, JPK_V7M/JPK_EWP z wysylka do MF, ZUS, PIT-28 i terminy. Narzedzia MCP z dwufazowym potwierdzaniem wysylek.",
   "author": {
     "name": "JDG Ksiegowy Contributors",
