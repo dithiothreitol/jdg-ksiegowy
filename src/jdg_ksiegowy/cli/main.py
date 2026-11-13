@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -20,12 +20,12 @@ from rich.logging import RichHandler
 from jdg_ksiegowy import __version__
 from jdg_ksiegowy.app import audit as audit_app
 from jdg_ksiegowy.app import system as app
-from jdg_ksiegowy.app.errors import ExitCode
+from jdg_ksiegowy.app.errors import ConfigMissingError, ExitCode
 from jdg_ksiegowy.cli.expenses import expense
 from jdg_ksiegowy.cli.invoices import buyer, invoice, payment
 from jdg_ksiegowy.cli.jpk import jpk
 from jdg_ksiegowy.cli.ksef import ksef
-from jdg_ksiegowy.cli.output import STATE, command, stderr
+from jdg_ksiegowy.cli.output import STATE, command, emit_error, stderr
 from jdg_ksiegowy.cli.params import day
 from jdg_ksiegowy.cli.tax import contract, tax
 
@@ -36,6 +36,7 @@ cli = typer.Typer(
     pretty_exceptions_enable=False,
 )
 calendar = typer.Typer(help="Terminy podatkowe w Google Calendar.", no_args_is_help=True)
+mcp = typer.Typer(help="Serwer MCP: komendy jdg jako narzedzia agenta.", no_args_is_help=True)
 
 for group, name in (
     (invoice, "invoice"),
@@ -47,6 +48,7 @@ for group, name in (
     (tax, "tax"),
     (contract, "contract"),
     (calendar, "calendar"),
+    (mcp, "mcp"),
 ):
     cli.add_typer(group, name=name)
 
@@ -76,7 +78,7 @@ def root(
     )
 
 
-@command(cli, "status", output=app.StatusView, prefix="")
+@command(cli, "status", output=app.StatusView, prefix="", read_only=True)
 def status(
     on: Annotated[date | None, typer.Option(parser=day, help="Dzien odniesienia.")] = None,
 ) -> app.StatusView:
@@ -84,7 +86,7 @@ def status(
     return app.status(on)
 
 
-@command(cli, "doctor", output=app.DoctorView, prefix="")
+@command(cli, "doctor", output=app.DoctorView, prefix="", read_only=True)
 def doctor() -> app.DoctorView:
     """Diagnostyka konfiguracji (.env, KSeF, bramka MF, SMTP, OCR, kalendarz)."""
     return app.doctor()
@@ -100,7 +102,7 @@ def backup(
     return app.backup(output_dir=output_dir, keep_days=keep_days, keep_monthly=keep_monthly)
 
 
-@command(cli, "config", output=app.ConfigView, prefix="")
+@command(cli, "config", output=app.ConfigView, prefix="", read_only=True)
 def config() -> app.ConfigView:
     """Efektywna konfiguracja (sekrety tylko jako ustawiony/nieustawiony)."""
     return app.show_config()
@@ -118,7 +120,7 @@ class AuditList(BaseModel):
     entries: list[AuditEntry]
 
 
-@command(cli, "audit", output=AuditList, prefix="")
+@command(cli, "audit", output=AuditList, prefix="", read_only=True)
 def audit(limit: Annotated[int, typer.Option(min=1, max=1000)] = 30) -> AuditList:
     """Ostatnie wpisy dziennika czynnosci."""
     return AuditList(
@@ -142,6 +144,41 @@ def calendar_sync(
 ) -> app.CalendarSyncView:
     """Uzgodnij terminy podatkowe z kalendarzem Google 'JDG Podatki'."""
     return app.calendar_sync(dry_run=dry_run, today=on)
+
+
+# --- MCP ---------------------------------------------------------------------------
+
+
+class Transport(StrEnum):
+    STDIO = "stdio"
+    HTTP = "http"
+
+
+@mcp.command("serve")
+def mcp_serve(
+    transport: Annotated[
+        Transport, typer.Option(help="stdio (Claude Code, Codex) albo http (docker compose).")
+    ] = Transport.STDIO,
+    host: Annotated[str, typer.Option(help="Adres nasluchu dla http.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port dla http.")] = 8765,
+) -> None:
+    """Uruchom serwer MCP; narzedzia = komendy z `jdg schema` (ta sama koperta wyniku)."""
+    from jdg_ksiegowy.cli import mcp_server
+    from jdg_ksiegowy.config import settings
+
+    if transport is Transport.STDIO:
+        mcp_server.serve_stdio()
+        return
+    if not settings.mcp_token:
+        emit_error(
+            ConfigMissingError(
+                "Brak JDG_MCP_TOKEN",
+                hint="Serwer HTTP wymaga tokenu Bearer: ustaw JDG_MCP_TOKEN (np. `openssl rand "
+                "-hex 32`) w .env i ten sam naglowek w kliencie MCP.",
+            )
+        )
+        raise typer.Exit(ExitCode.CONFIG)
+    mcp_server.serve_http(host, port, settings.mcp_token)
 
 
 # --- schema ------------------------------------------------------------------------
@@ -191,6 +228,7 @@ def build_schema() -> Schema:
                 "name": spec.path,
                 "help": (cmd.help or "").strip().splitlines()[0] if cmd.help else "",
                 "confirmable": spec.confirmable,
+                "read_only": spec.read_only,
                 "params": [_param(p) for p in cmd.params if p.name != "json_output"],
                 "output_schema": spec.output.model_json_schema() if spec.output else None,
             }

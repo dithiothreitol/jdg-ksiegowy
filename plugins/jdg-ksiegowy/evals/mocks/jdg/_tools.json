@@ -1,0 +1,1800 @@
+{
+  "ttlMs": 0,
+  "cacheScope": "private",
+  "tools": [
+    {
+      "name": "audit",
+      "title": "jdg audit",
+      "description": "Ostatnie wpisy dziennika czynnosci.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 30,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "audit",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "backup",
+      "title": "jdg backup",
+      "description": "Szyfrowany backup bazy i dokumentow (weryfikowany po zapisie).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "output_dir": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Katalog docelowy.",
+            "title": "Output Dir"
+          },
+          "keep_days": {
+            "default": 30,
+            "minimum": 1,
+            "title": "Keep Days",
+            "type": "integer"
+          },
+          "keep_monthly": {
+            "default": 12,
+            "minimum": 1,
+            "title": "Keep Monthly",
+            "type": "integer"
+          }
+        },
+        "title": "backup",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "buyer_lookup",
+      "title": "jdg buyer lookup",
+      "description": "Status VAT, nazwa, adres i rachunki kontrahenta z Bialej listy MF.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "nip": {
+            "description": "NIP kontrahenta.",
+            "title": "Nip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nip"
+        ],
+        "title": "buyer_lookup",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "calendar_sync",
+      "title": "jdg calendar sync",
+      "description": "Uzgodnij terminy podatkowe z kalendarzem Google 'JDG Podatki'.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "description": "Pokaz roznice bez zapisu.",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "On"
+          }
+        },
+        "title": "calendar_sync",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "config",
+      "title": "jdg config",
+      "description": "Efektywna konfiguracja (sekrety tylko jako ustawiony/nieustawiony).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "config",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "contract_add",
+      "title": "jdg contract add",
+      "description": "Dodaj kontrakt cykliczny.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "buyer_nip": {
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "buyer_address": {
+            "title": "Buyer Address",
+            "type": "string"
+          },
+          "description": {
+            "description": "Opis uslugi na fakturze.",
+            "title": "Description",
+            "type": "string"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "vat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "23",
+            "title": "Vat Rate"
+          },
+          "buyer_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Buyer Email"
+          },
+          "day_of_month": {
+            "default": -1,
+            "description": "-1 = ostatni dzien roboczy.",
+            "maximum": 28,
+            "minimum": -1,
+            "title": "Day Of Month",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "buyer_name",
+          "buyer_nip",
+          "buyer_address",
+          "description",
+          "net"
+        ],
+        "title": "contract_add",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "contract_list",
+      "title": "jdg contract list",
+      "description": "Aktywne kontrakty.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "contract_list",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "contract_run",
+      "title": "jdg contract run",
+      "description": "Wystaw faktury z kontraktow wymagalnych danego dnia (idempotentne).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Dzien (domyslnie dzis).",
+            "title": "On"
+          }
+        },
+        "title": "contract_run",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "doctor",
+      "title": "jdg doctor",
+      "description": "Diagnostyka konfiguracji (.env, KSeF, bramka MF, SMTP, OCR, kalendarz).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "doctor",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "expense_add",
+      "title": "jdg expense add",
+      "description": "Zarejestruj fakture zakupu.",
+      "inputSchema": {
+        "$defs": {
+          "ExpenseCategory": {
+            "description": "Kategorie kosztow JDG (uproszczone, do raportowania wewnetrznego).",
+            "enum": [
+              "uslugi_obce",
+              "materialy",
+              "media",
+              "paliwo",
+              "samochod",
+              "biuro",
+              "sprzet",
+              "szkolenia",
+              "inne"
+            ],
+            "title": "ExpenseCategory",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "seller_name": {
+            "title": "Seller Name",
+            "type": "string"
+          },
+          "seller_nip": {
+            "description": "NIP lub numer VAT-UE sprzedawcy.",
+            "title": "Seller Nip",
+            "type": "string"
+          },
+          "document_number": {
+            "description": "Numer faktury sprzedawcy.",
+            "title": "Document Number",
+            "type": "string"
+          },
+          "issue_date": {
+            "format": "date",
+            "title": "Issue Date",
+            "type": "string"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Kwota VAT.",
+            "title": "Vat"
+          },
+          "vat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "23",
+            "title": "Vat Rate"
+          },
+          "receive_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data wplywu — okres odliczenia.",
+            "title": "Receive Date"
+          },
+          "seller_country": {
+            "default": "PL",
+            "title": "Seller Country",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/$defs/ExpenseCategory",
+            "default": "inne"
+          },
+          "vat_deduction_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "100",
+            "title": "Vat Deduction Pct"
+          },
+          "reverse_charge": {
+            "default": false,
+            "description": "Import uslug: VAT nalezny i naliczony po stronie nabywcy.",
+            "title": "Reverse Charge",
+            "type": "boolean"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Dowod (PDF/JPG/XML).",
+            "title": "File Path"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "seller_name",
+          "seller_nip",
+          "document_number",
+          "issue_date",
+          "net"
+        ],
+        "title": "expense_add",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "expense_list",
+      "title": "jdg expense list",
+      "description": "Koszty wg miesiaca wplywu.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          }
+        },
+        "title": "expense_list",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "expense_scan",
+      "title": "jdg expense scan",
+      "description": "Odczytaj fakture zakupu przez OCR (lokalny model, fallback Claude).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "description": "Faktura PDF/JPG/PNG.",
+            "format": "path",
+            "title": "File",
+            "type": "string"
+          },
+          "save": {
+            "default": false,
+            "description": "Zapisz (domyslnie podglad do akceptacji).",
+            "title": "Save",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "expense_scan",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "invoice_correct",
+      "title": "jdg invoice correct",
+      "description": "Faktura korygujaca: pozycje roznicowe (ujemna cena = zmniejszenie).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Numer korygowanej faktury.",
+            "title": "Number",
+            "type": "string"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pozycja 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
+            "title": "Item"
+          },
+          "reason": {
+            "description": "Przyczyna korekty (trafia do FA(3)).",
+            "title": "Reason",
+            "type": "string"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data wystawienia korekty.",
+            "title": "Issue Date"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Pokaz korekte bez zapisu.",
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "number",
+          "item",
+          "reason"
+        ],
+        "title": "invoice_correct",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "invoice_issue",
+      "title": "jdg invoice issue",
+      "description": "Wystaw fakture VAT: XML FA(3) + DOCX + wpis w rejestrze (bez wysylki do KSeF).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "buyer_nip": {
+            "default": "",
+            "description": "NIP nabywcy (PL).",
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Netto jednej pozycji (zamiast --item).",
+            "title": "Net"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Pozycja 'opis;ilosc;jm;cena netto;stawka[;GTU_xx]' (powtarzalne). Stawka: 23/8/5 albo kod np (poza terytorium), zw, 0, 0_wdt, 0_exp.",
+            "title": "Item"
+          },
+          "buyer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Nazwa (domyslnie z rejestru).",
+            "title": "Buyer Name"
+          },
+          "buyer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Adres nabywcy.",
+            "title": "Buyer Address"
+          },
+          "buyer_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "E-mail do wysylki faktury.",
+            "title": "Buyer Email"
+          },
+          "buyer_country": {
+            "default": "PL",
+            "description": "Kod kraju nabywcy (ISO).",
+            "title": "Buyer Country",
+            "type": "string"
+          },
+          "buyer_eu_vat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Numer VAT-UE nabywcy z UE.",
+            "title": "Buyer Eu Vat"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Opis uslugi (z --net).",
+            "title": "Description"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data wystawienia.",
+            "title": "Issue Date"
+          },
+          "sale_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data sprzedazy — okres JPK.",
+            "title": "Sale Date"
+          },
+          "payment_due": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Termin platnosci.",
+            "title": "Payment Due"
+          },
+          "period_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Okres uslugi od (P_6 okres na fakturze).",
+            "title": "Period From"
+          },
+          "period_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Okres uslugi do.",
+            "title": "Period To"
+          },
+          "lookup": {
+            "default": true,
+            "description": "Nowy nabywca bez nazwy: dane z Bialej listy MF.",
+            "title": "Lookup",
+            "type": "boolean"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Pokaz fakture bez zapisu.",
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "title": "invoice_issue",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "invoice_list",
+      "title": "jdg invoice list",
+      "description": "Lista faktur z okresu (domyslnie wg daty sprzedazy, jak w JPK).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Rok.",
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Miesiac (z --year).",
+            "title": "Month"
+          },
+          "by": {
+            "default": "sale_date",
+            "description": "sale_date | issue_date | income",
+            "title": "By",
+            "type": "string"
+          },
+          "unpaid": {
+            "default": false,
+            "description": "Tylko niezaplacone.",
+            "title": "Unpaid",
+            "type": "boolean"
+          }
+        },
+        "title": "invoice_list",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "invoice_mail",
+      "title": "jdg invoice mail",
+      "description": "Wyslij fakture PDF mailem (wymaga potwierdzenia).\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Numer faktury.",
+            "title": "Number",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Adresat (domyslnie e-mail nabywcy).",
+            "title": "To"
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Kopia (mozna powtorzyc).",
+            "title": "Cc"
+          },
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Token z podsumowania.",
+            "title": "Confirm"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "title": "invoice_mail",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "invoice_show",
+      "title": "jdg invoice show",
+      "description": "Szczegoly faktury z rejestru.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Numer faktury, np. A1/11/2026.",
+            "title": "Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "title": "invoice_show",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "jpk_build",
+      "title": "jdg jpk build",
+      "description": "Zbuduj JPK_V7M za miesiac z rejestru i zwaliduj XSD.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Rok (domyslnie poprzedni miesiac).",
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          },
+          "correction": {
+            "default": false,
+            "description": "Korekta (CelZlozenia=2).",
+            "title": "Correction",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Uzasadnienie korekty (P_ORDZU).",
+            "title": "Reason"
+          }
+        },
+        "title": "jpk_build",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "jpk_build_ewp",
+      "title": "jdg jpk build-ewp",
+      "description": "Zbuduj roczna ewidencje przychodow JPK_EWP (sklada sie do 30.04).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "description": "Rok podatkowy.",
+            "title": "Year",
+            "type": "integer"
+          },
+          "ryczalt_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Stawka (domyslnie z .env).",
+            "title": "Ryczalt Rate"
+          },
+          "correction": {
+            "default": false,
+            "title": "Correction",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "title": "jpk_build_ewp",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "jpk_status",
+      "title": "jdg jpk status",
+      "description": "Zlozone deklaracje; niezakonczone dopytuje w bramce MF.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Numer referencyjny MF.",
+            "title": "Reference"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          },
+          "wait": {
+            "default": 0,
+            "description": "Czekaj na wynik do N sekund.",
+            "title": "Wait",
+            "type": "integer"
+          }
+        },
+        "title": "jpk_status",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "jpk_submit",
+      "title": "jdg jpk submit",
+      "description": "Wyslij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Plik JPK do wyslania.",
+            "format": "path",
+            "title": "Path",
+            "type": "string"
+          },
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Token z podsumowania.",
+            "title": "Confirm"
+          },
+          "wait": {
+            "default": 600,
+            "description": "Ile sekund czekac na UPO.",
+            "title": "Wait",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "jpk_submit",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "jpk_validate",
+      "title": "jdg jpk validate",
+      "description": "Walidacja XSD offline (schemat z naglowka pliku).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Plik JPK (XML).",
+            "format": "path",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "jpk_validate",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "ksef_backfill",
+      "title": "jdg ksef backfill",
+      "description": "Uzupelnij numery KSeF faktur wyslanych przed wersja 1.0.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "apply": {
+            "default": false,
+            "description": "Zapisz numery (domyslnie podglad).",
+            "title": "Apply",
+            "type": "boolean"
+          }
+        },
+        "title": "ksef_backfill",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ksef_inbox",
+      "title": "jdg ksef inbox",
+      "description": "Faktury z KSeF (domyslnie zakupowe, biezacy miesiac); bez --save tylko podglad.",
+      "inputSchema": {
+        "$defs": {
+          "ExpenseCategory": {
+            "description": "Kategorie kosztow JDG (uproszczone, do raportowania wewnetrznego).",
+            "enum": [
+              "uslugi_obce",
+              "materialy",
+              "media",
+              "paliwo",
+              "samochod",
+              "biuro",
+              "sprzet",
+              "szkolenia",
+              "inne"
+            ],
+            "title": "ExpenseCategory",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Rok (z --month).",
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Poczatek zakresu.",
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Koniec zakresu.",
+            "title": "Date To"
+          },
+          "role": {
+            "default": "buyer",
+            "description": "buyer (zakupy) | seller (sprzedaz)",
+            "title": "Role",
+            "type": "string"
+          },
+          "include_corrections": {
+            "default": false,
+            "title": "Include Corrections",
+            "type": "boolean"
+          },
+          "seller_nip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filtr po NIP sprzedawcy.",
+            "title": "Seller Nip"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExpenseCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "vat_deduction_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "100",
+            "description": "Odliczenie VAT %: 100 | 50 (auto) | 0.",
+            "title": "Vat Deduction Pct"
+          },
+          "save": {
+            "default": false,
+            "description": "Zapisz nowe faktury jako koszty.",
+            "title": "Save",
+            "type": "boolean"
+          }
+        },
+        "title": "ksef_inbox",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ksef_send",
+      "title": "jdg ksef send",
+      "description": "Wyslij fakture do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.\n\nCzynnosc nieodwracalna, dwufazowa: wywolanie bez `confirm` niczego nie wysyla i zwraca blad CONFIRMATION_REQUIRED z `details.summary` i `details.token`. Pokaz podsumowanie userowi i zakoncz odpowiedz pytaniem o zgode; `confirm=<token>` przekaz dopiero w kolejnej turze, po jego wyraznym 'tak' na to podsumowanie. Zgoda udzielona z gory, zanim user zobaczyl podsumowanie, nie wystarcza.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Numer faktury z rejestru.",
+            "title": "Number",
+            "type": "string"
+          },
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Token z podsumowania.",
+            "title": "Confirm"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "title": "ksef_send",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "payment_import",
+      "title": "jdg payment import",
+      "description": "Dopasuj wplywy z wyciagu do niezaplaconych faktur.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "csv_path": {
+            "description": "Wyciag CSV z banku (mBank lub generyczny).",
+            "format": "path",
+            "title": "Csv Path",
+            "type": "string"
+          },
+          "auto_mark": {
+            "default": false,
+            "description": "Oznacz dopasowane jako zaplacone.",
+            "title": "Auto Mark",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "csv_path"
+        ],
+        "title": "payment_import",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "payment_mark",
+      "title": "jdg payment mark",
+      "description": "Oznacz fakture jako zaplacona.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "description": "Numer faktury.",
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data zaplaty.",
+            "title": "Paid On"
+          }
+        },
+        "required": [
+          "number"
+        ],
+        "title": "payment_mark",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "status",
+      "title": "jdg status",
+      "description": "Terminy, niezaplacone faktury i podsumowanie miesiaca.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Dzien odniesienia.",
+            "title": "On"
+          }
+        },
+        "title": "status",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "tax_calc",
+      "title": "jdg tax calc",
+      "description": "VAT, ryczalt, ZUS i terminy dla kwoty netto.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Kwota netto.",
+            "title": "Net"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          },
+          "vat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Rate"
+          },
+          "ryczalt_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ryczalt Rate"
+          },
+          "annual_revenue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Roczny przychod (prog zdrowotnej).",
+            "title": "Annual Revenue"
+          }
+        },
+        "required": [
+          "net"
+        ],
+        "title": "tax_calc",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "tax_deadlines",
+      "title": "jdg tax deadlines",
+      "description": "Terminy ryczaltu, ZUS i VAT za miesiac.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Miesiac rozliczeniowy.",
+            "title": "Month"
+          }
+        },
+        "title": "tax_deadlines",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "tax_pay",
+      "title": "jdg tax pay",
+      "description": "Zapisz zaplate podatku lub skladki (gasi przypomnienie, wchodzi do odliczen).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "ryczalt | vat | zus_health | zus_social",
+            "title": "Kind",
+            "type": "string"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Zaplacona kwota.",
+            "title": "Amount"
+          },
+          "year": {
+            "description": "Rok okresu, ktorego dotyczy zaplata.",
+            "title": "Year",
+            "type": "integer"
+          },
+          "month": {
+            "description": "Miesiac okresu.",
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Month",
+            "type": "integer"
+          },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Data zaplaty.",
+            "title": "Paid On"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "year",
+          "month"
+        ],
+        "title": "tax_pay",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "tax_payments",
+      "title": "jdg tax payments",
+      "description": "Ewidencja zaplat podatkow i skladek.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          }
+        },
+        "title": "tax_payments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "tax_pit28",
+      "title": "jdg tax pit28",
+      "description": "Podsumowanie roczne ryczaltu (PIT-28) z rejestru.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "description": "Rok podatkowy.",
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "title": "tax_pit28",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "tax_zus",
+      "title": "jdg tax zus",
+      "description": "Skladki ZUS za miesiac: zdrowotna wg przychodu narastajaco + spoleczne.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Rok (domyslnie poprzedni miesiac).",
+            "title": "Year"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Month"
+          }
+        },
+        "title": "tax_zus",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    }
+  ],
+  "resultType": "complete"
+}

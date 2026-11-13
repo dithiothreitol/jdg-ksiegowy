@@ -5,7 +5,10 @@ description: Deklaracja VAT JPK_V7M (miesiecznie) i ewidencja JPK_EWP (rocznie) 
 
 # JPK_V7M i JPK_EWP
 
-CLI `jdg` (lub `uv run jdg`); kontrakt wyjscia i kody bledow jak w `jdg schema`.
+Narzedzia: serwer MCP `jdg`, gdy jest dostepny — kazda komenda z tego opisu to narzedzie
+o nazwie z podkreslnikami (`jdg invoice issue` → `invoice_issue`, `--buyer-nip` → `buyer_nip`).
+Bez MCP: CLI `jdg` (gdy nie ma go w PATH: `uv run jdg` w katalogu repozytorium).
+Kontrakt wyniku i kody bledow: `jdg schema`.
 
 ## Budowa
 
@@ -31,10 +34,11 @@ jdg jpk submit data/jpk/JPK_V7M_2026_10.xml            # kod 4: summary + token
 jdg jpk submit data/jpk/JPK_V7M_2026_10.xml --confirm <token>
 ```
 
-1. Pierwsze wywolanie waliduje XSD i zwraca podsumowanie (formularz, okres, cel, P_38/P_48/P_51,
+1. Pierwsze wywolanie (bez `--confirm` / `confirm`) waliduje XSD i zwraca podsumowanie (formularz, okres, cel, P_38/P_48/P_51,
    srodowisko) oraz token. Nic nie wysyla.
 2. **Pokaz podsumowanie i zapytaj usera o zgode.** `env: prod` = realna deklaracja w urzedzie.
-3. Dopiero po wyraznym "tak" — `--confirm <token>`. Nigdy bez zgody.
+3. Dopiero po wyraznym "tak" na to podsumowanie — `--confirm <token>`. Nigdy bez zgody; zgoda
+   "z gory", zanim user zobaczyl podsumowanie, nie wystarcza.
 
 Odpowiedz z wysylki zapisuje sie w rejestrze deklaracji. Status `submitted` (MF jeszcze przetwarza)
 → pozniej `jdg jpk status --reference <numer>` albo `jdg jpk status --year 2026 --month 10`

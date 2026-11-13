@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "jdg-ksiegowy",
+  "description": "Asystent ksiegowy JDG (ryczalt): faktury i KSeF, JPK, ZUS, PIT-28.",
+  "owner": {
+    "name": "JDG Ksiegowy Contributors",
+    "url": "https://github.com/dithiothreitol/jdg-ksiegowy"
+  },
+  "plugins": [
+    {
+      "name": "jdg-ksiegowy",
+      "source": "./plugins/jdg-ksiegowy",
+      "description": "Faktury FA(3) i KSeF, koszty, JPK_V7M/JPK_EWP z wysylka do MF, ZUS, PIT-28 i terminy — skille + serwer MCP `jdg`."
+    }
+  ]
+}

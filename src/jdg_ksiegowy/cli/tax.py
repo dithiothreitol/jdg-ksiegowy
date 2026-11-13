@@ -17,7 +17,7 @@ tax = typer.Typer(help="Podatki: kalkulator, terminy, PIT-28, DRA ZUS.", no_args
 contract = typer.Typer(help="Kontrakty cykliczne (faktury co miesiac).", no_args_is_help=True)
 
 
-@command(tax, "calc", output=app.TaxCalc, prefix="tax")
+@command(tax, "calc", output=app.TaxCalc, prefix="tax", read_only=True)
 def calc(
     net: Annotated[Decimal, typer.Option(parser=money, help="Kwota netto.")],
     year: Annotated[int | None, typer.Option()] = None,
@@ -40,7 +40,7 @@ def calc(
     )
 
 
-@command(tax, "deadlines", output=app.Deadlines, prefix="tax")
+@command(tax, "deadlines", output=app.Deadlines, prefix="tax", read_only=True)
 def deadlines(
     year: Annotated[int | None, typer.Option()] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12, help="Miesiac rozliczeniowy.")] = None,
@@ -50,13 +50,13 @@ def deadlines(
     return app.deadlines(month or today.month, year or today.year)
 
 
-@command(tax, "pit28", output=app.Pit28View, prefix="tax")
+@command(tax, "pit28", output=app.Pit28View, prefix="tax", read_only=True)
 def pit28(year: Annotated[int, typer.Option(help="Rok podatkowy.")]) -> app.Pit28View:
     """Podsumowanie roczne ryczaltu (PIT-28) z rejestru."""
     return app.pit28(year)
 
 
-@command(tax, "zus", output=app.ZusView, prefix="tax")
+@command(tax, "zus", output=app.ZusView, prefix="tax", read_only=True)
 def zus(
     year: Annotated[int | None, typer.Option(help="Rok (domyslnie poprzedni miesiac).")] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12)] = None,
@@ -80,7 +80,7 @@ def pay(
     return app.record_payment(kind, year, month, amount, paid_on)  # type: ignore[arg-type]
 
 
-@command(tax, "payments", output=app.PaymentList, prefix="tax")
+@command(tax, "payments", output=app.PaymentList, prefix="tax", read_only=True)
 def payments(year: Annotated[int | None, typer.Option()] = None) -> app.PaymentList:
     """Ewidencja zaplat podatkow i skladek."""
     return app.list_payments(year)
@@ -114,7 +114,7 @@ def add(
     )
 
 
-@command(contract, "list", output=contracts_app.ContractList, prefix="contract")
+@command(contract, "list", output=contracts_app.ContractList, prefix="contract", read_only=True)
 def list_() -> contracts_app.ContractList:
     """Aktywne kontrakty."""
     return contracts_app.list_contracts()

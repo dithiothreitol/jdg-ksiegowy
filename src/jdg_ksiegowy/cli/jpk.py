@@ -46,7 +46,7 @@ def build_ewp(
     return app.build_ewp(year, ryczalt_rate=ryczalt_rate, correction=correction)
 
 
-@command(jpk, "validate", output=app.ValidationView, prefix="jpk")
+@command(jpk, "validate", output=app.ValidationView, prefix="jpk", read_only=True)
 def validate(path: Annotated[Path, typer.Argument(help="Plik JPK (XML).")]) -> app.ValidationView:
     """Walidacja XSD offline (schemat z naglowka pliku)."""
     return app.validate_file(path)
