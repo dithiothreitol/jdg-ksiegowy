@@ -122,19 +122,19 @@ Verified against the actual codebase on 2026-04-17:
 | KSeF submission (online session + UPO) | **Shipped + E2E** | [ksef/client.py](src/jdg_ksiegowy/ksef/client.py), sandbox test 2026-04-17 |
 | Invoice corrections (FA KOR) | **Shipped** | [test_invoice_correction.py](tests/test_invoice_correction.py) |
 | Foreign invoices (NP, EU VAT, BrakID) | **Shipped** | [test_foreign_invoices.py](tests/test_foreign_invoices.py) |
-| Recurring contracts (auto-invoicing) | **Shipped** | [skills/contracts/](skills/contracts/) |
+| Recurring contracts (auto-invoicing) | **Shipped** | `jdg contract` — [contracts/runner.py](src/jdg_ksiegowy/contracts/runner.py) |
 | OCR purchase invoices (Pixtral + Claude) | **Shipped** | [expenses/ocr.py](src/jdg_ksiegowy/expenses/ocr.py) |
 | Email delivery (LibreOffice PDF + SMTP) | **Shipped** | [invoice/mailer.py](src/jdg_ksiegowy/invoice/mailer.py), [invoice/pdf.py](src/jdg_ksiegowy/invoice/pdf.py) |
 | Expense registry + VAT deduction in JPK | **Shipped** | [expenses/models.py](src/jdg_ksiegowy/expenses/models.py), [test_jpk_with_expenses.py](tests/test_jpk_with_expenses.py) |
-| Payment tracking + bank CSV import | **Shipped** | [skills/contracts/scripts/import_bank.py](skills/contracts/scripts/import_bank.py) |
+| Payment tracking + bank CSV import | **Shipped** | `jdg payment` — [registry/payments.py](src/jdg_ksiegowy/registry/payments.py) |
 | JPK_V7M v3 (TNS 14090) | **Shipped** | [tax/jpk.py](src/jdg_ksiegowy/tax/jpk.py) |
 | JPK_EWP v4 (TNS 10301) | **Shipped** | [tax/ewp.py](src/jdg_ksiegowy/tax/ewp.py) |
 | MF Gateway submit (AES+RSA, UPO) | **Shipped + E2E** | [mf_gateway/crypto.py](src/jdg_ksiegowy/mf_gateway/crypto.py), [test_mf_crypto.py](tests/test_mf_crypto.py), sandbox |
-| ZUS DRA (KEDU v5.05) | **Shipped** | [skills/zus-dra/](skills/zus-dra/) |
-| PIT-28 annual report | **Shipped** | [skills/pit28/](skills/pit28/) |
-| `jdg-status` dashboard | **Shipped** | [skills/jdg-status/](skills/jdg-status/) |
+| ZUS DRA (KEDU v5.05) | **Shipped** | `jdg tax dra` — [zus/dra.py](src/jdg_ksiegowy/zus/dra.py) |
+| PIT-28 annual report | **Shipped** | `jdg tax pit28` — [tax/pit28.py](src/jdg_ksiegowy/tax/pit28.py) |
+| Status dashboard | **Shipped** | `jdg status` — [status/dashboard.py](src/jdg_ksiegowy/status/dashboard.py) |
 | Tax calculator (2026 rates) | **Shipped** | [tax/zus.py](src/jdg_ksiegowy/tax/zus.py) |
-| `doctor` preflight | **Shipped** | [skills/doctor/](skills/doctor/) |
+| `doctor` preflight | **Shipped** | `jdg doctor` — [doctor.py](src/jdg_ksiegowy/doctor.py) |
 | NIP/PESEL validation | **Shipped** | [validators.py](src/jdg_ksiegowy/validators.py) |
 | Cron / HEARTBEAT reminders | **Docs only** | Manual setup per [CRON.md](CRON.md) |
 | Push alerts for overdue payments | **Missing** | Detection logic works; no notifier hooked up |
@@ -170,23 +170,13 @@ jdg-ksiegowy/
 ├── CRON.md                     # Scheduled jobs setup guide
 ├── setup.sh                    # One-command installation
 │
-├── skills/                     # OpenClaw AgentSkills (Python entry points)
-│   ├── tax-calculator/         #   VAT, ryczalt, ZUS, deadlines
-│   ├── invoice/                #   DOCX + XML FA(3) generation
-│   ├── invoice-send/           #   PDF + SMTP email delivery
-│   ├── expense/                #   Register purchase invoices (manual + OCR)
-│   ├── contracts/              #   Recurring contracts + bank CSV import
-│   ├── ksef/                   #   Submit sales invoice to KSeF
-│   ├── jpk/                    #   Generate JPK_V7M (monthly VAT)
-│   ├── jpk-ewp/                #   Generate JPK_EWP (annual ryczalt)
-│   ├── jpk-submit/             #   Submit JPK to MF Gateway, fetch UPO
-│   ├── zus-dra/                #   ZUS DRA KEDU v5.05
-│   ├── pit28/                  #   Annual ryczalt report
-│   ├── jdg-status/             #   Upcoming deadlines + dashboard
-│   └── doctor/                 #   Preflight config check
+├── plugins/jdg-ksiegowy/       # Agent skills (OpenClaw, Claude Code, Codex)
+│   └── skills/                 #   faktury, koszty, vat-jpk, podatki, administracja
 │
 ├── src/jdg_ksiegowy/           # Python library (core, reusable)
-│   ├── config.py               #   Pydantic Settings from .env
+│   ├── app/                    #   Use cases with typed input/output (CLI + MCP adapters)
+│   ├── cli/                    #   `jdg` CLI (Typer + Rich, JSON for agents)
+│   ├── config.py               #   Pydantic Settings from .env (JDG_HOME)
 │   ├── validators.py           #   NIP / PESEL mod-11 validation
 │   ├── doctor.py               #   Config preflight
 │   ├── invoice/                #   Models, DOCX, FA(3) via ksef2 builder, PDF, SMTP
@@ -197,7 +187,7 @@ jdg-ksiegowy/
 │   ├── tax/                    #   JPK_V7M v3, JPK_EWP v4, ZUS, PIT-28
 │   ├── zus/                    #   ZUS DRA KEDU builder
 │   ├── status/                 #   Dashboard aggregations
-│   └── registry/               #   SQLite registry (invoices, expenses)
+│   └── registry/               #   SQLite registry, Alembic migrations, repositories
 │
 ├── tests/                      # Pytest — 180 unit + integration tests
 └── data/                       # Database + generated files (git-ignored)
@@ -226,42 +216,32 @@ The script installs Ollama, pulls a model, installs OpenClaw, installs Python de
 
 ### Try it without OpenClaw / AI
 
-You can use the Python skills as plain CLI tools &mdash; no AI runtime required:
+`jdg` is a plain CLI &mdash; no AI runtime required. In a terminal it prints tables and asks
+before anything irreversible; piped or with `--json` it returns a JSON envelope for scripts and
+agents (`jdg schema` describes every command, its parameters, output and exit codes).
 
 ```bash
-pip install -e .
+uv sync
 cp .env.example .env && nano .env
 
-# Tax calc
-python3 skills/tax-calculator/scripts/calculate.py --netto 10500
+jdg doctor                                    # what is missing in .env
+jdg tax calc --net 10500                      # VAT, ryczalt, ZUS, deadlines
 
-# Invoice generation (DOCX + FA(3) XML + registry row)
-python3 skills/invoice/scripts/generate.py \
-  --buyer-name "Acme Sp. z o.o." --buyer-nip "1234567890" --netto 10500
+jdg invoice issue --buyer-nip 5260250274 --buyer-name "Acme Sp. z o.o."   --buyer-address "ul. Prosta 1, 00-001 Warszawa" --description "Consulting" --net 10500
+jdg ksef send A1/11/2026                      # shows a summary, asks for confirmation
 
-# Register a cost invoice
-python3 skills/expense/scripts/add.py \
-  --seller-name "Hetzner" --seller-nip "DE812871812" \
-  --netto 50 --vat 11.50 --category infrastructure --vat-deductible true
+jdg ksef inbox --save                         # purchase invoices from KSeF -> expenses
+jdg expense scan faktura_hetzner.pdf          # OCR preview (Pixtral locally, Claude fallback)
 
-# JPK_V7M for April 2026 (pulls invoices + deductible expenses from SQLite)
-python3 skills/jpk/scripts/generate_jpk.py --month 4 --year 2026
+jdg jpk build                                 # JPK_V7M for the previous month + XSD check
+jdg jpk submit data/jpk/JPK_V7M_2026_10.xml   # MF gateway, UPO saved; `jdg jpk status` resumes
 
-# Submit the generated JPK to MF Gateway (dry-run available)
-python3 skills/jpk-submit/scripts/submit.py --file data/jpk/2026_04.xml --dry-run
-
-# OCR a purchase invoice (Pixtral lokalnie lub Claude Haiku fallback)
-python3 skills/expense/scripts/add.py --file faktura_hetzner.pdf --ocr
-
-# Submit the generated invoice XML to KSeF sandbox
-python3 skills/ksef/scripts/submit.py --xml-path data/faktury/2026/04/faktura_A1_04_2026.xml
-
-# Current-state dashboard (upcoming deadlines + unpaid invoices)
-python3 skills/jdg-status/scripts/status.py
-
-# Preflight config check before going to prod
-python3 skills/doctor/scripts/check.py
+jdg status                                    # upcoming deadlines, unpaid invoices
 ```
+
+Irreversible commands (`ksef send`, `jpk submit`, `invoice mail`) are two-phase: without a
+terminal they exit with code 4 and a confirmation token; the action runs only when repeated
+with `--confirm <token>` after a human approves the summary.
 
 Full guide: [INSTALL.md](INSTALL.md)
 

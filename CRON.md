@@ -1,25 +1,34 @@
-# Cron Jobs — konfiguracja harmonogramu
+# Harmonogram
 
-Zarejestruj te cron joby w OpenClaw gateway po uruchomieniu:
+Zasada: **czynnosci deterministyczne uruchamia cron bezposrednio (`jdg`), agent AI tylko
+powiadamia i rozmawia.** Wysylki nieodwracalne (KSeF, bramka MF, e-mail) nigdy nie startuja
+z crona — wymagaja potwierdzenia czlowieka (`--confirm <token>`), wiec cron moze najwyzej
+przygotowac podsumowanie.
 
-```
-# Przypomnienie: ryczalt + ZUS (3 dni przed terminem 20-go)
-openclaw cron add "0 9 17 * *" "Oblicz i przypomnij o ryczalcie i ZUS zdrowotnej za poprzedni miesiac. Uzyj skill tax-calculator."
+## Zadania systemowe (crontab hosta lub kontenera)
 
-# Termin: ryczalt + ZUS (20-ty)
-openclaw cron add "0 8 20 * *" "DZIS termin ryczaltu i ZUS zdrowotnej! Podaj kwoty i numer mikrorachunku."
-
-# Generuj JPK_V7M + przypomnienie VAT (22-ty)
-openclaw cron add "0 9 22 * *" "Wygeneruj JPK_V7M za poprzedni miesiac uzywajac skill jpk-generator. Przypomnij o terminie VAT za 3 dni."
-
-# Termin: VAT JPK_V7M (25-ty)
-openclaw cron add "0 8 25 * *" "DZIS termin VAT JPK_V7M! Podaj kwote VAT i przypomnij o wyslaniu przez e-Deklaracje."
-
-# Generowanie faktur cyklicznych (28-go)
-openclaw cron add "0 9 28 * *" "Sprawdz aktywne kontrakty i wygeneruj faktury za biezacy miesiac uzywajac skill invoice-generator. Wyslij do KSeF uzywajac skill ksef-submit."
-
-# Synchronizacja terminow podatkowych z Google Calendar (codziennie 07:00)
-openclaw cron add "0 7 * * *" "Zsynchronizuj terminy podatkowe z Google Calendar uzywajac skill calendar-sync."
+```cron
+# Faktury z kontraktow cyklicznych — wystawienie (bez wysylki), codziennie 07:00
+0 7 * * *   cd /home/node/.openclaw/workspace && jdg contract run
+# Terminy podatkowe w Google Calendar — codziennie 07:05
+5 7 * * *   cd /home/node/.openclaw/workspace && jdg calendar sync
+# Szyfrowany backup bazy i dokumentow — codziennie 02:30
+30 2 * * *  cd /home/node/.openclaw/workspace && jdg backup
+# Dokonczenie statusu wyslanych JPK (gdy MF przetwarzal dluzej) — co godzine
+0 * * * *   cd /home/node/.openclaw/workspace && jdg jpk status
 ```
 
-Te komendy wystarczy wykonac raz — OpenClaw persystuje cron joby miedzy restartami.
+W kontenerze `jdg` jest w `PATH`, a `JDG_HOME` wskazuje workspace z `data/`.
+
+## Powiadomienia przez agenta (OpenClaw)
+
+Rejestrowane raz; OpenClaw przechowuje je miedzy restartami.
+
+```bash
+openclaw cron add "0 9 17 * *" "Uruchom \`jdg status\` i przypomnij o ryczalcie i ZUS (termin 20.) z kwotami."
+openclaw cron add "0 9 22 * *" "Uruchom \`jdg jpk build\`, pokaz P_51 i zapytaj, czy wyslac JPK (skill vat-jpk)."
+openclaw cron add "0 9 28 * *" "Uruchom \`jdg invoice list --unpaid\` i \`jdg status\`; zapytaj, czy wyslac do KSeF faktury bez numeru KSeF."
+```
+
+Agent wysyla cos dopiero po odpowiedzi "tak" od uzytkownika — skille opisuja protokol
+dwufazowy (kod wyjscia 4 + token).

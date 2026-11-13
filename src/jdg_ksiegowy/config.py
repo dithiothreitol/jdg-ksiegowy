@@ -205,6 +205,8 @@ class Settings(BaseSettings):
     calendar: CalendarConfig = CalendarConfig()
     anthropic_api_key: str = ""
     libreoffice_bin: str = Field(default="", alias="LIBREOFFICE_BIN")
+    backup_key: str = ""  # klucz Fernet szyfrowania backupow (BACKUP_KEY)
+    backup_dir: str = ""  # katalog docelowy backupow (BACKUP_DIR); pusty -> OneDrive/~
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 

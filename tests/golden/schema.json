@@ -1,0 +1,4834 @@
+{
+  "commands": [
+    {
+      "confirmable": false,
+      "help": "Ostatnie wpisy dziennika czynnosci.",
+      "name": "audit",
+      "output_schema": {
+        "$defs": {
+          "AuditEntry": {
+            "properties": {
+              "action": {
+                "title": "Action",
+                "type": "string"
+              },
+              "actor": {
+                "title": "Actor",
+                "type": "string"
+              },
+              "outcome": {
+                "title": "Outcome",
+                "type": "string"
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Target"
+              },
+              "ts": {
+                "title": "Ts",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ts",
+              "actor",
+              "action",
+              "target",
+              "outcome"
+            ],
+            "title": "AuditEntry",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/AuditEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "AuditList",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": 30,
+          "flags": [
+            "--limit"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "limit",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Szyfrowany backup bazy i dokumentow (weryfikowany po zapisie).",
+      "name": "backup",
+      "output_schema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "plain_bytes": {
+            "title": "Plain Bytes",
+            "type": "integer"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "size_bytes",
+          "plain_bytes",
+          "verified",
+          "removed"
+        ],
+        "title": "BackupView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--output-dir"
+          ],
+          "help": "Katalog docelowy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "output_dir",
+          "required": false,
+          "type": "Path"
+        },
+        {
+          "choices": null,
+          "default": 30,
+          "flags": [
+            "--keep-days"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "keep_days",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": 12,
+          "flags": [
+            "--keep-monthly"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "keep_monthly",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Uzgodnij terminy podatkowe z kalendarzem Google 'JDG Podatki'.",
+      "name": "calendar sync",
+      "output_schema": {
+        "properties": {
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "deleted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deleted",
+            "type": "array"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "unchanged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unchanged",
+            "type": "array"
+          },
+          "updated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dry_run",
+          "created",
+          "updated",
+          "deleted",
+          "unchanged"
+        ],
+        "title": "CalendarSyncView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--dry-run",
+            "--no-dry-run"
+          ],
+          "help": "Pokaz roznice bez zapisu.",
+          "kind": "option",
+          "multiple": false,
+          "name": "dry_run",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--on"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "on",
+          "required": false,
+          "type": "date"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Efektywna konfiguracja (sekrety tylko jako ustawiony/nieustawiony).",
+      "name": "config",
+      "output_schema": {
+        "properties": {
+          "data_dir": {
+            "title": "Data Dir",
+            "type": "string"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "env_file": {
+            "title": "Env File",
+            "type": "string"
+          },
+          "env_file_exists": {
+            "title": "Env File Exists",
+            "type": "boolean"
+          },
+          "jdg_home": {
+            "title": "Jdg Home",
+            "type": "string"
+          },
+          "ksef_env": {
+            "title": "Ksef Env",
+            "type": "string"
+          },
+          "mf_env": {
+            "title": "Mf Env",
+            "type": "string"
+          },
+          "secrets_set": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Secrets Set",
+            "type": "object"
+          },
+          "seller_name": {
+            "title": "Seller Name",
+            "type": "string"
+          },
+          "seller_nip": {
+            "title": "Seller Nip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jdg_home",
+          "env_file",
+          "env_file_exists",
+          "data_dir",
+          "database",
+          "ksef_env",
+          "mf_env",
+          "seller_nip",
+          "seller_name",
+          "secrets_set"
+        ],
+        "title": "ConfigView",
+        "type": "object"
+      },
+      "params": []
+    },
+    {
+      "confirmable": false,
+      "help": "Dodaj kontrakt cykliczny.",
+      "name": "contract add",
+      "output_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "buyer_nip": {
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "day_of_month": {
+            "title": "Day Of Month",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "vat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat Rate"
+          }
+        },
+        "required": [
+          "id",
+          "buyer_name",
+          "buyer_nip",
+          "description",
+          "net",
+          "vat_rate",
+          "day_of_month",
+          "active"
+        ],
+        "title": "ContractView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-name"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_name",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-nip"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_nip",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-address"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_address",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--description"
+          ],
+          "help": "Opis uslugi na fakturze.",
+          "kind": "option",
+          "multiple": false,
+          "name": "description",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--net"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "net",
+          "required": true,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": "23",
+          "flags": [
+            "--vat-rate"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "vat_rate",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-email"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_email",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": -1,
+          "flags": [
+            "--day-of-month"
+          ],
+          "help": "-1 = ostatni dzien roboczy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "day_of_month",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Aktywne kontrakty.",
+      "name": "contract list",
+      "output_schema": {
+        "$defs": {
+          "ContractView": {
+            "properties": {
+              "active": {
+                "title": "Active",
+                "type": "boolean"
+              },
+              "buyer_name": {
+                "title": "Buyer Name",
+                "type": "string"
+              },
+              "buyer_nip": {
+                "title": "Buyer Nip",
+                "type": "string"
+              },
+              "day_of_month": {
+                "title": "Day Of Month",
+                "type": "integer"
+              },
+              "description": {
+                "title": "Description",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "vat_rate": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat Rate"
+              }
+            },
+            "required": [
+              "id",
+              "buyer_name",
+              "buyer_nip",
+              "description",
+              "net",
+              "vat_rate",
+              "day_of_month",
+              "active"
+            ],
+            "title": "ContractView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "contracts": {
+            "items": {
+              "$ref": "#/$defs/ContractView"
+            },
+            "title": "Contracts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contracts"
+        ],
+        "title": "ContractList",
+        "type": "object"
+      },
+      "params": []
+    },
+    {
+      "confirmable": false,
+      "help": "Wystaw faktury z kontraktow wymagalnych danego dnia (idempotentne).",
+      "name": "contract run",
+      "output_schema": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "generated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Generated",
+            "type": "array"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "generated",
+          "skipped_count"
+        ],
+        "title": "ContractRun",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--on"
+          ],
+          "help": "Dzien (domyslnie dzis).",
+          "kind": "option",
+          "multiple": false,
+          "name": "on",
+          "required": false,
+          "type": "date"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Diagnostyka konfiguracji (.env, KSeF, bramka MF, SMTP, OCR, kalendarz).",
+      "name": "doctor",
+      "output_schema": {
+        "$defs": {
+          "FindingView": {
+            "properties": {
+              "area": {
+                "title": "Area",
+                "type": "string"
+              },
+              "level": {
+                "title": "Level",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              }
+            },
+            "required": [
+              "level",
+              "area",
+              "message"
+            ],
+            "title": "FindingView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/FindingView"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "ok_count": {
+            "title": "Ok Count",
+            "type": "integer"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok_count",
+          "warnings",
+          "errors",
+          "findings"
+        ],
+        "title": "DoctorView",
+        "type": "object"
+      },
+      "params": []
+    },
+    {
+      "confirmable": false,
+      "help": "Zarejestruj fakture zakupu.",
+      "name": "expense add",
+      "output_schema": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "deductible_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Deductible Vat"
+          },
+          "document_number": {
+            "title": "Document Number",
+            "type": "string"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Gross"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "issue_date": {
+            "format": "date",
+            "title": "Issue Date",
+            "type": "string"
+          },
+          "ksef_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ksef Number"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "receive_date": {
+            "format": "date",
+            "title": "Receive Date",
+            "type": "string"
+          },
+          "reverse_charge": {
+            "title": "Reverse Charge",
+            "type": "boolean"
+          },
+          "seller_country": {
+            "title": "Seller Country",
+            "type": "string"
+          },
+          "seller_name": {
+            "title": "Seller Name",
+            "type": "string"
+          },
+          "seller_nip": {
+            "title": "Seller Nip",
+            "type": "string"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat"
+          },
+          "vat_deduction_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat Deduction Pct"
+          }
+        },
+        "required": [
+          "id",
+          "seller_name",
+          "seller_nip",
+          "seller_country",
+          "document_number",
+          "issue_date",
+          "receive_date",
+          "category",
+          "net",
+          "vat",
+          "gross",
+          "vat_deduction_pct",
+          "deductible_vat",
+          "reverse_charge",
+          "ksef_number",
+          "file_path"
+        ],
+        "title": "ExpenseView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--seller-name"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "seller_name",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--seller-nip"
+          ],
+          "help": "NIP lub numer VAT-UE sprzedawcy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "seller_nip",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--document-number"
+          ],
+          "help": "Numer faktury sprzedawcy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "document_number",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--issue-date"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "issue_date",
+          "required": true,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--net"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "net",
+          "required": true,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--vat"
+          ],
+          "help": "Kwota VAT.",
+          "kind": "option",
+          "multiple": false,
+          "name": "vat",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": "23",
+          "flags": [
+            "--vat-rate"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "vat_rate",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--receive-date"
+          ],
+          "help": "Data wplywu — okres odliczenia.",
+          "kind": "option",
+          "multiple": false,
+          "name": "receive_date",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": "PL",
+          "flags": [
+            "--seller-country"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "seller_country",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": "",
+          "flags": [
+            "--description"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "description",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": [
+            "uslugi_obce",
+            "materialy",
+            "media",
+            "paliwo",
+            "samochod",
+            "biuro",
+            "sprzet",
+            "szkolenia",
+            "inne"
+          ],
+          "default": "inne",
+          "flags": [
+            "--category"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "category",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": "100",
+          "flags": [
+            "--vat-deduction-pct"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "vat_deduction_pct",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--reverse-charge",
+            "--no-reverse-charge"
+          ],
+          "help": "Import uslug: VAT nalezny i naliczony po stronie nabywcy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "reverse_charge",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--file-path"
+          ],
+          "help": "Dowod (PDF/JPG/XML).",
+          "kind": "option",
+          "multiple": false,
+          "name": "file_path",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--notes"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "notes",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--dry-run",
+            "--no-dry-run"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "dry_run",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Koszty wg miesiaca wplywu.",
+      "name": "expense list",
+      "output_schema": {
+        "$defs": {
+          "ExpenseView": {
+            "properties": {
+              "category": {
+                "title": "Category",
+                "type": "string"
+              },
+              "deductible_vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Deductible Vat"
+              },
+              "document_number": {
+                "title": "Document Number",
+                "type": "string"
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "File Path"
+              },
+              "gross": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Gross"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "issue_date": {
+                "format": "date",
+                "title": "Issue Date",
+                "type": "string"
+              },
+              "ksef_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Ksef Number"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "receive_date": {
+                "format": "date",
+                "title": "Receive Date",
+                "type": "string"
+              },
+              "reverse_charge": {
+                "title": "Reverse Charge",
+                "type": "boolean"
+              },
+              "seller_country": {
+                "title": "Seller Country",
+                "type": "string"
+              },
+              "seller_name": {
+                "title": "Seller Name",
+                "type": "string"
+              },
+              "seller_nip": {
+                "title": "Seller Nip",
+                "type": "string"
+              },
+              "vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat"
+              },
+              "vat_deduction_pct": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat Deduction Pct"
+              }
+            },
+            "required": [
+              "id",
+              "seller_name",
+              "seller_nip",
+              "seller_country",
+              "document_number",
+              "issue_date",
+              "receive_date",
+              "category",
+              "net",
+              "vat",
+              "gross",
+              "vat_deduction_pct",
+              "deductible_vat",
+              "reverse_charge",
+              "ksef_number",
+              "file_path"
+            ],
+            "title": "ExpenseView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "deductible_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Deductible Vat"
+          },
+          "expenses": {
+            "items": {
+              "$ref": "#/$defs/ExpenseView"
+            },
+            "title": "Expenses",
+            "type": "array"
+          },
+          "total_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Net"
+          },
+          "total_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Vat"
+          }
+        },
+        "required": [
+          "count",
+          "total_net",
+          "total_vat",
+          "deductible_vat",
+          "expenses"
+        ],
+        "title": "ExpenseList",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Odczytaj fakture zakupu przez OCR (lokalny model, fallback Claude).",
+      "name": "expense scan",
+      "output_schema": {
+        "$defs": {
+          "ExpenseView": {
+            "properties": {
+              "category": {
+                "title": "Category",
+                "type": "string"
+              },
+              "deductible_vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Deductible Vat"
+              },
+              "document_number": {
+                "title": "Document Number",
+                "type": "string"
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "File Path"
+              },
+              "gross": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Gross"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "issue_date": {
+                "format": "date",
+                "title": "Issue Date",
+                "type": "string"
+              },
+              "ksef_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Ksef Number"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "receive_date": {
+                "format": "date",
+                "title": "Receive Date",
+                "type": "string"
+              },
+              "reverse_charge": {
+                "title": "Reverse Charge",
+                "type": "boolean"
+              },
+              "seller_country": {
+                "title": "Seller Country",
+                "type": "string"
+              },
+              "seller_name": {
+                "title": "Seller Name",
+                "type": "string"
+              },
+              "seller_nip": {
+                "title": "Seller Nip",
+                "type": "string"
+              },
+              "vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat"
+              },
+              "vat_deduction_pct": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat Deduction Pct"
+              }
+            },
+            "required": [
+              "id",
+              "seller_name",
+              "seller_nip",
+              "seller_country",
+              "document_number",
+              "issue_date",
+              "receive_date",
+              "category",
+              "net",
+              "vat",
+              "gross",
+              "vat_deduction_pct",
+              "deductible_vat",
+              "reverse_charge",
+              "ksef_number",
+              "file_path"
+            ],
+            "title": "ExpenseView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "expense": {
+            "$ref": "#/$defs/ExpenseView"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "saved",
+          "expense"
+        ],
+        "title": "ScanResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "file"
+          ],
+          "help": "Faktura PDF/JPG/PNG.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "file",
+          "required": true,
+          "type": "Path"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--save",
+            "--no-save"
+          ],
+          "help": "Zapisz (domyslnie podglad do akceptacji).",
+          "kind": "option",
+          "multiple": false,
+          "name": "save",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Wystaw fakture VAT: DOCX + XML FA(3) + wpis w rejestrze (bez wysylki do KSeF).",
+      "name": "invoice issue",
+      "output_schema": {
+        "properties": {
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "buyer_nip": {
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "docx_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docx Path"
+          },
+          "gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Gross"
+          },
+          "issue_date": {
+            "format": "date",
+            "title": "Issue Date",
+            "type": "string"
+          },
+          "ksef_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ksef Number"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payment_due": {
+            "format": "date",
+            "title": "Payment Due",
+            "type": "string"
+          },
+          "sale_date": {
+            "format": "date",
+            "title": "Sale Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat"
+          },
+          "xml_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xml Path"
+          }
+        },
+        "required": [
+          "number",
+          "issue_date",
+          "sale_date",
+          "payment_due",
+          "buyer_name",
+          "buyer_nip",
+          "net",
+          "vat",
+          "gross",
+          "status",
+          "ksef_number",
+          "paid_at",
+          "docx_path",
+          "xml_path"
+        ],
+        "title": "InvoiceView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-nip"
+          ],
+          "help": "NIP nabywcy (10 cyfr).",
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_nip",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--net"
+          ],
+          "help": "Kwota netto (PLN).",
+          "kind": "option",
+          "multiple": false,
+          "name": "net",
+          "required": true,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-name"
+          ],
+          "help": "Nazwa (domyslnie z rejestru).",
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_name",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-address"
+          ],
+          "help": "Adres nabywcy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_address",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--buyer-email"
+          ],
+          "help": "E-mail do wysylki faktury.",
+          "kind": "option",
+          "multiple": false,
+          "name": "buyer_email",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--description"
+          ],
+          "help": "Opis uslugi.",
+          "kind": "option",
+          "multiple": false,
+          "name": "description",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--issue-date"
+          ],
+          "help": "Data wystawienia.",
+          "kind": "option",
+          "multiple": false,
+          "name": "issue_date",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--sale-date"
+          ],
+          "help": "Data sprzedazy — okres JPK.",
+          "kind": "option",
+          "multiple": false,
+          "name": "sale_date",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--payment-due"
+          ],
+          "help": "Termin platnosci.",
+          "kind": "option",
+          "multiple": false,
+          "name": "payment_due",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--period-from"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "period_from",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--period-to"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "period_to",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--dry-run",
+            "--no-dry-run"
+          ],
+          "help": "Pokaz fakture bez zapisu.",
+          "kind": "option",
+          "multiple": false,
+          "name": "dry_run",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Lista faktur z okresu (domyslnie wg daty sprzedazy, jak w JPK).",
+      "name": "invoice list",
+      "output_schema": {
+        "$defs": {
+          "InvoiceView": {
+            "properties": {
+              "buyer_name": {
+                "title": "Buyer Name",
+                "type": "string"
+              },
+              "buyer_nip": {
+                "title": "Buyer Nip",
+                "type": "string"
+              },
+              "docx_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Docx Path"
+              },
+              "gross": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Gross"
+              },
+              "issue_date": {
+                "format": "date",
+                "title": "Issue Date",
+                "type": "string"
+              },
+              "ksef_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Ksef Number"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "number": {
+                "title": "Number",
+                "type": "string"
+              },
+              "paid_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Paid At"
+              },
+              "payment_due": {
+                "format": "date",
+                "title": "Payment Due",
+                "type": "string"
+              },
+              "sale_date": {
+                "format": "date",
+                "title": "Sale Date",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat"
+              },
+              "xml_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Xml Path"
+              }
+            },
+            "required": [
+              "number",
+              "issue_date",
+              "sale_date",
+              "payment_due",
+              "buyer_name",
+              "buyer_nip",
+              "net",
+              "vat",
+              "gross",
+              "status",
+              "ksef_number",
+              "paid_at",
+              "docx_path",
+              "xml_path"
+            ],
+            "title": "InvoiceView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "invoices": {
+            "items": {
+              "$ref": "#/$defs/InvoiceView"
+            },
+            "title": "Invoices",
+            "type": "array"
+          },
+          "total_gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Gross"
+          },
+          "total_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Net"
+          },
+          "total_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Vat"
+          }
+        },
+        "required": [
+          "count",
+          "total_net",
+          "total_vat",
+          "total_gross",
+          "invoices"
+        ],
+        "title": "InvoiceList",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": "Rok.",
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": "Miesiac (z --year).",
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": "sale_date",
+          "flags": [
+            "--by"
+          ],
+          "help": "sale_date | issue_date | income",
+          "kind": "option",
+          "multiple": false,
+          "name": "by",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--unpaid",
+            "--no-unpaid"
+          ],
+          "help": "Tylko niezaplacone.",
+          "kind": "option",
+          "multiple": false,
+          "name": "unpaid",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": true,
+      "help": "Wyslij fakture PDF mailem (wymaga potwierdzenia).",
+      "name": "invoice mail",
+      "output_schema": {
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "pdf_path": {
+            "title": "Pdf Path",
+            "type": "string"
+          },
+          "status": {
+            "const": "sent",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "to",
+          "subject",
+          "pdf_path",
+          "status"
+        ],
+        "title": "MailResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "number"
+          ],
+          "help": "Numer faktury.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "number",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--to"
+          ],
+          "help": "Adresat (domyslnie e-mail nabywcy).",
+          "kind": "option",
+          "multiple": false,
+          "name": "to",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--cc"
+          ],
+          "help": "Kopia (mozna powtorzyc).",
+          "kind": "option",
+          "multiple": true,
+          "name": "cc",
+          "required": false,
+          "type": "list"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--confirm"
+          ],
+          "help": "Token z podsumowania.",
+          "kind": "option",
+          "multiple": false,
+          "name": "confirm",
+          "required": false,
+          "type": "str"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Szczegoly faktury z rejestru.",
+      "name": "invoice show",
+      "output_schema": {
+        "properties": {
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "buyer_nip": {
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "docx_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docx Path"
+          },
+          "gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Gross"
+          },
+          "issue_date": {
+            "format": "date",
+            "title": "Issue Date",
+            "type": "string"
+          },
+          "ksef_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ksef Number"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payment_due": {
+            "format": "date",
+            "title": "Payment Due",
+            "type": "string"
+          },
+          "sale_date": {
+            "format": "date",
+            "title": "Sale Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat"
+          },
+          "xml_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xml Path"
+          }
+        },
+        "required": [
+          "number",
+          "issue_date",
+          "sale_date",
+          "payment_due",
+          "buyer_name",
+          "buyer_nip",
+          "net",
+          "vat",
+          "gross",
+          "status",
+          "ksef_number",
+          "paid_at",
+          "docx_path",
+          "xml_path"
+        ],
+        "title": "InvoiceView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "number"
+          ],
+          "help": "Numer faktury, np. A1/11/2026.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "number",
+          "required": true,
+          "type": "str"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Zbuduj JPK_V7M za miesiac z rejestru i zwaliduj XSD.",
+      "name": "jpk build",
+      "output_schema": {
+        "properties": {
+          "correction_no": {
+            "title": "Correction No",
+            "type": "integer"
+          },
+          "expense_count": {
+            "title": "Expense Count",
+            "type": "integer"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "form": {
+            "enum": [
+              "JPK_V7M",
+              "JPK_EWP"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "invoice_count": {
+            "title": "Invoice Count",
+            "type": "integer"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "integer"
+          },
+          "revenue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revenue"
+          },
+          "sales_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Sales Net"
+          },
+          "sales_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Sales Vat"
+          },
+          "vat_deductible": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Deductible"
+          },
+          "vat_due": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Due"
+          },
+          "vat_surplus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Surplus"
+          },
+          "vat_to_pay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat To Pay"
+          },
+          "xsd_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Xsd Errors",
+            "type": "array"
+          },
+          "xsd_valid": {
+            "title": "Xsd Valid",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "form",
+          "year",
+          "month",
+          "purpose",
+          "correction_no",
+          "file_path",
+          "invoice_count",
+          "expense_count",
+          "sales_net",
+          "sales_vat",
+          "xsd_valid",
+          "xsd_errors"
+        ],
+        "title": "JpkBuildResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": "Rok (domyslnie poprzedni miesiac).",
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--correction",
+            "--no-correction"
+          ],
+          "help": "Korekta (CelZlozenia=2).",
+          "kind": "option",
+          "multiple": false,
+          "name": "correction",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--reason"
+          ],
+          "help": "Uzasadnienie korekty (P_ORDZU).",
+          "kind": "option",
+          "multiple": false,
+          "name": "reason",
+          "required": false,
+          "type": "str"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Zbuduj roczna ewidencje przychodow JPK_EWP (sklada sie do 30.04).",
+      "name": "jpk build-ewp",
+      "output_schema": {
+        "properties": {
+          "correction_no": {
+            "title": "Correction No",
+            "type": "integer"
+          },
+          "expense_count": {
+            "title": "Expense Count",
+            "type": "integer"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "form": {
+            "enum": [
+              "JPK_V7M",
+              "JPK_EWP"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "invoice_count": {
+            "title": "Invoice Count",
+            "type": "integer"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "integer"
+          },
+          "revenue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revenue"
+          },
+          "sales_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Sales Net"
+          },
+          "sales_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Sales Vat"
+          },
+          "vat_deductible": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Deductible"
+          },
+          "vat_due": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Due"
+          },
+          "vat_surplus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat Surplus"
+          },
+          "vat_to_pay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vat To Pay"
+          },
+          "xsd_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Xsd Errors",
+            "type": "array"
+          },
+          "xsd_valid": {
+            "title": "Xsd Valid",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "form",
+          "year",
+          "month",
+          "purpose",
+          "correction_no",
+          "file_path",
+          "invoice_count",
+          "expense_count",
+          "sales_net",
+          "sales_vat",
+          "xsd_valid",
+          "xsd_errors"
+        ],
+        "title": "JpkBuildResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": "Rok podatkowy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": true,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--ryczalt-rate"
+          ],
+          "help": "Stawka (domyslnie z .env).",
+          "kind": "option",
+          "multiple": false,
+          "name": "ryczalt_rate",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--correction",
+            "--no-correction"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "correction",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Zlozone deklaracje; niezakonczone dopytuje w bramce MF.",
+      "name": "jpk status",
+      "output_schema": {
+        "$defs": {
+          "FilingView": {
+            "properties": {
+              "env": {
+                "title": "Env",
+                "type": "string"
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Error"
+              },
+              "file_path": {
+                "title": "File Path",
+                "type": "string"
+              },
+              "form": {
+                "title": "Form",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "period": {
+                "title": "Period",
+                "type": "string"
+              },
+              "purpose": {
+                "title": "Purpose",
+                "type": "integer"
+              },
+              "reference_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Reference Number"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "status_code": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Status Code"
+              },
+              "submitted_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Submitted At"
+              },
+              "updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Updated At"
+              },
+              "upo_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Upo Path"
+              }
+            },
+            "required": [
+              "id",
+              "form",
+              "period",
+              "purpose",
+              "env",
+              "status",
+              "reference_number",
+              "status_code",
+              "upo_path",
+              "error",
+              "file_path",
+              "submitted_at",
+              "updated_at"
+            ],
+            "title": "FilingView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "filings": {
+            "items": {
+              "$ref": "#/$defs/FilingView"
+            },
+            "title": "Filings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "filings"
+        ],
+        "title": "FilingList",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--reference"
+          ],
+          "help": "Numer referencyjny MF.",
+          "kind": "option",
+          "multiple": false,
+          "name": "reference",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": 0,
+          "flags": [
+            "--wait"
+          ],
+          "help": "Czekaj na wynik do N sekund.",
+          "kind": "option",
+          "multiple": false,
+          "name": "wait",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": true,
+      "help": "Wyslij JPK do bramki MF (wymaga potwierdzenia); zapisuje numer i UPO.",
+      "name": "jpk submit",
+      "output_schema": {
+        "properties": {
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "form": {
+            "title": "Form",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "integer"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Code"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "upo_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upo Path"
+          }
+        },
+        "required": [
+          "id",
+          "form",
+          "period",
+          "purpose",
+          "env",
+          "status",
+          "reference_number",
+          "status_code",
+          "upo_path",
+          "error",
+          "file_path",
+          "submitted_at",
+          "updated_at"
+        ],
+        "title": "FilingView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "path"
+          ],
+          "help": "Plik JPK do wyslania.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "path",
+          "required": true,
+          "type": "Path"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--confirm"
+          ],
+          "help": "Token z podsumowania.",
+          "kind": "option",
+          "multiple": false,
+          "name": "confirm",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": 600,
+          "flags": [
+            "--wait"
+          ],
+          "help": "Ile sekund czekac na UPO.",
+          "kind": "option",
+          "multiple": false,
+          "name": "wait",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Walidacja XSD offline (schemat z naglowka pliku).",
+      "name": "jpk validate",
+      "output_schema": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "schema_name": {
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file_path",
+          "schema_name",
+          "valid",
+          "errors"
+        ],
+        "title": "ValidationView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "path"
+          ],
+          "help": "Plik JPK (XML).",
+          "kind": "argument",
+          "multiple": false,
+          "name": "path",
+          "required": true,
+          "type": "Path"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Uzupelnij numery KSeF faktur wyslanych przed wersja 1.0.",
+      "name": "ksef backfill",
+      "output_schema": {
+        "$defs": {
+          "BackfillItem": {
+            "properties": {
+              "acquired_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Acquired At"
+              },
+              "invoice_number": {
+                "title": "Invoice Number",
+                "type": "string"
+              },
+              "ksef_number": {
+                "title": "Ksef Number",
+                "type": "string"
+              }
+            },
+            "required": [
+              "invoice_number",
+              "ksef_number",
+              "acquired_at"
+            ],
+            "title": "BackfillItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "matched": {
+            "items": {
+              "$ref": "#/$defs/BackfillItem"
+            },
+            "title": "Matched",
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "env",
+          "applied",
+          "matched",
+          "missing"
+        ],
+        "title": "BackfillView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--apply",
+            "--no-apply"
+          ],
+          "help": "Zapisz numery (domyslnie podglad).",
+          "kind": "option",
+          "multiple": false,
+          "name": "apply",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Faktury z KSeF (domyslnie zakupowe, biezacy miesiac); bez --save tylko podglad.",
+      "name": "ksef inbox",
+      "output_schema": {
+        "$defs": {
+          "InboxItem": {
+            "properties": {
+              "category": {
+                "title": "Category",
+                "type": "string"
+              },
+              "currency": {
+                "title": "Currency",
+                "type": "string"
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "File Path"
+              },
+              "gross": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Gross"
+              },
+              "invoice_number": {
+                "title": "Invoice Number",
+                "type": "string"
+              },
+              "issue_date": {
+                "format": "date",
+                "title": "Issue Date",
+                "type": "string"
+              },
+              "ksef_number": {
+                "title": "Ksef Number",
+                "type": "string"
+              },
+              "manual_reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Manual Reason"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Notes"
+              },
+              "receive_date": {
+                "format": "date",
+                "title": "Receive Date",
+                "type": "string"
+              },
+              "seller_name": {
+                "title": "Seller Name",
+                "type": "string"
+              },
+              "seller_nip": {
+                "title": "Seller Nip",
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "new",
+                  "exists",
+                  "manual",
+                  "saved"
+                ],
+                "title": "Status",
+                "type": "string"
+              },
+              "vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat"
+              },
+              "vat_deduction_pct": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat Deduction Pct"
+              }
+            },
+            "required": [
+              "ksef_number",
+              "invoice_number",
+              "seller_name",
+              "seller_nip",
+              "issue_date",
+              "receive_date",
+              "net",
+              "vat",
+              "gross",
+              "currency",
+              "category",
+              "vat_deduction_pct",
+              "status",
+              "manual_reason",
+              "notes",
+              "file_path"
+            ],
+            "title": "InboxItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "date_from": {
+            "format": "date",
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "format": "date",
+            "title": "Date To",
+            "type": "string"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "invoices": {
+            "items": {
+              "$ref": "#/$defs/InboxItem"
+            },
+            "title": "Invoices",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "saved_count": {
+            "title": "Saved Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "env",
+          "role",
+          "date_from",
+          "date_to",
+          "saved_count",
+          "invoices"
+        ],
+        "title": "InboxResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": "Rok (z --month).",
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--date-from"
+          ],
+          "help": "Poczatek zakresu.",
+          "kind": "option",
+          "multiple": false,
+          "name": "date_from",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--date-to"
+          ],
+          "help": "Koniec zakresu.",
+          "kind": "option",
+          "multiple": false,
+          "name": "date_to",
+          "required": false,
+          "type": "date"
+        },
+        {
+          "choices": null,
+          "default": "buyer",
+          "flags": [
+            "--role"
+          ],
+          "help": "buyer (zakupy) | seller (sprzedaz)",
+          "kind": "option",
+          "multiple": false,
+          "name": "role",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--include-corrections",
+            "--no-include-corrections"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "include_corrections",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--seller-nip"
+          ],
+          "help": "Filtr po NIP sprzedawcy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "seller_nip",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": [
+            "uslugi_obce",
+            "materialy",
+            "media",
+            "paliwo",
+            "samochod",
+            "biuro",
+            "sprzet",
+            "szkolenia",
+            "inne"
+          ],
+          "default": null,
+          "flags": [
+            "--category"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "category",
+          "required": false,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": "100",
+          "flags": [
+            "--vat-deduction-pct"
+          ],
+          "help": "Odliczenie VAT %: 100 | 50 (auto) | 0.",
+          "kind": "option",
+          "multiple": false,
+          "name": "vat_deduction_pct",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--save",
+            "--no-save"
+          ],
+          "help": "Zapisz nowe faktury jako koszty.",
+          "kind": "option",
+          "multiple": false,
+          "name": "save",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": true,
+      "help": "Wyslij fakture do KSeF (wymaga potwierdzenia); zapisuje numer KSeF i UPO.",
+      "name": "ksef send",
+      "output_schema": {
+        "properties": {
+          "acquired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acquired At"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "ksef_number": {
+            "title": "Ksef Number",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "upo_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upo Path"
+          }
+        },
+        "required": [
+          "number",
+          "env",
+          "ksef_number",
+          "reference_number",
+          "acquired_at",
+          "upo_path"
+        ],
+        "title": "KsefSendResult",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "number"
+          ],
+          "help": "Numer faktury z rejestru.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "number",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--confirm"
+          ],
+          "help": "Token z podsumowania.",
+          "kind": "option",
+          "multiple": false,
+          "name": "confirm",
+          "required": false,
+          "type": "str"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Dopasuj wplywy z wyciagu do niezaplaconych faktur.",
+      "name": "payment import",
+      "output_schema": {
+        "$defs": {
+          "PaymentMatch": {
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Amount"
+              },
+              "date": {
+                "format": "date",
+                "title": "Date",
+                "type": "string"
+              },
+              "description": {
+                "title": "Description",
+                "type": "string"
+              },
+              "invoice": {
+                "title": "Invoice",
+                "type": "string"
+              },
+              "marked_paid": {
+                "title": "Marked Paid",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "invoice",
+              "amount",
+              "date",
+              "description",
+              "marked_paid"
+            ],
+            "title": "PaymentMatch",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "matched": {
+            "items": {
+              "$ref": "#/$defs/PaymentMatch"
+            },
+            "title": "Matched",
+            "type": "array"
+          },
+          "unmatched_bank_rows": {
+            "title": "Unmatched Bank Rows",
+            "type": "integer"
+          },
+          "unmatched_invoices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmatched Invoices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matched",
+          "unmatched_bank_rows",
+          "unmatched_invoices"
+        ],
+        "title": "PaymentImport",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "csv_path"
+          ],
+          "help": "Wyciag CSV z banku (mBank lub generyczny).",
+          "kind": "argument",
+          "multiple": false,
+          "name": "csv_path",
+          "required": true,
+          "type": "Path"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--auto-mark",
+            "--no-auto-mark"
+          ],
+          "help": "Oznacz dopasowane jako zaplacone.",
+          "kind": "option",
+          "multiple": false,
+          "name": "auto_mark",
+          "required": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Oznacz fakture jako zaplacona.",
+      "name": "payment mark",
+      "output_schema": {
+        "properties": {
+          "buyer_name": {
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "buyer_nip": {
+            "title": "Buyer Nip",
+            "type": "string"
+          },
+          "docx_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docx Path"
+          },
+          "gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Gross"
+          },
+          "issue_date": {
+            "format": "date",
+            "title": "Issue Date",
+            "type": "string"
+          },
+          "ksef_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ksef Number"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payment_due": {
+            "format": "date",
+            "title": "Payment Due",
+            "type": "string"
+          },
+          "sale_date": {
+            "format": "date",
+            "title": "Sale Date",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat"
+          },
+          "xml_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xml Path"
+          }
+        },
+        "required": [
+          "number",
+          "issue_date",
+          "sale_date",
+          "payment_due",
+          "buyer_name",
+          "buyer_nip",
+          "net",
+          "vat",
+          "gross",
+          "status",
+          "ksef_number",
+          "paid_at",
+          "docx_path",
+          "xml_path"
+        ],
+        "title": "InvoiceView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "number"
+          ],
+          "help": "Numer faktury.",
+          "kind": "argument",
+          "multiple": false,
+          "name": "number",
+          "required": true,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--paid-on"
+          ],
+          "help": "Data zaplaty.",
+          "kind": "option",
+          "multiple": false,
+          "name": "paid_on",
+          "required": false,
+          "type": "date"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Terminy, niezaplacone faktury i podsumowanie miesiaca.",
+      "name": "status",
+      "output_schema": {
+        "$defs": {
+          "InvoiceView": {
+            "properties": {
+              "buyer_name": {
+                "title": "Buyer Name",
+                "type": "string"
+              },
+              "buyer_nip": {
+                "title": "Buyer Nip",
+                "type": "string"
+              },
+              "docx_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Docx Path"
+              },
+              "gross": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Gross"
+              },
+              "issue_date": {
+                "format": "date",
+                "title": "Issue Date",
+                "type": "string"
+              },
+              "ksef_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Ksef Number"
+              },
+              "net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Net"
+              },
+              "number": {
+                "title": "Number",
+                "type": "string"
+              },
+              "paid_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Paid At"
+              },
+              "payment_due": {
+                "format": "date",
+                "title": "Payment Due",
+                "type": "string"
+              },
+              "sale_date": {
+                "format": "date",
+                "title": "Sale Date",
+                "type": "string"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "vat": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Vat"
+              },
+              "xml_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Xml Path"
+              }
+            },
+            "required": [
+              "number",
+              "issue_date",
+              "sale_date",
+              "payment_due",
+              "buyer_name",
+              "buyer_nip",
+              "net",
+              "vat",
+              "gross",
+              "status",
+              "ksef_number",
+              "paid_at",
+              "docx_path",
+              "xml_path"
+            ],
+            "title": "InvoiceView",
+            "type": "object"
+          },
+          "ReminderView": {
+            "properties": {
+              "amount": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Amount"
+              },
+              "days_until": {
+                "title": "Days Until",
+                "type": "integer"
+              },
+              "due_date": {
+                "format": "date",
+                "title": "Due Date",
+                "type": "string"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "label": {
+                "title": "Label",
+                "type": "string"
+              },
+              "level": {
+                "title": "Level",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "due_date",
+              "amount",
+              "level",
+              "days_until"
+            ],
+            "title": "ReminderView",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "estimated_ryczalt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Estimated Ryczalt"
+          },
+          "estimated_zus_health": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Estimated Zus Health"
+          },
+          "month_expenses_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Month Expenses Net"
+          },
+          "month_expenses_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Month Expenses Vat"
+          },
+          "month_sales_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Month Sales Net"
+          },
+          "month_sales_vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Month Sales Vat"
+          },
+          "overdue_invoices": {
+            "items": {
+              "$ref": "#/$defs/InvoiceView"
+            },
+            "title": "Overdue Invoices",
+            "type": "array"
+          },
+          "reminders": {
+            "items": {
+              "$ref": "#/$defs/ReminderView"
+            },
+            "title": "Reminders",
+            "type": "array"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "unpaid_invoices": {
+            "items": {
+              "$ref": "#/$defs/InvoiceView"
+            },
+            "title": "Unpaid Invoices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "today",
+          "reminders",
+          "unpaid_invoices",
+          "overdue_invoices",
+          "month_sales_net",
+          "month_sales_vat",
+          "month_expenses_net",
+          "month_expenses_vat",
+          "estimated_ryczalt",
+          "estimated_zus_health"
+        ],
+        "title": "StatusView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--on"
+          ],
+          "help": "Dzien odniesienia.",
+          "kind": "option",
+          "multiple": false,
+          "name": "on",
+          "required": false,
+          "type": "date"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "VAT, ryczalt, ZUS i terminy dla kwoty netto.",
+      "name": "tax calc",
+      "output_schema": {
+        "properties": {
+          "deadline_ryczalt_zus": {
+            "format": "date",
+            "title": "Deadline Ryczalt Zus",
+            "type": "string"
+          },
+          "deadline_vat_jpk": {
+            "format": "date",
+            "title": "Deadline Vat Jpk",
+            "type": "string"
+          },
+          "estimated_annual_revenue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Estimated Annual Revenue"
+          },
+          "gross": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Gross"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Net"
+          },
+          "ryczalt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Ryczalt"
+          },
+          "ryczalt_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Ryczalt Rate"
+          },
+          "total_monthly_burden": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total Monthly Burden"
+          },
+          "vat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat"
+          },
+          "vat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Vat Rate"
+          },
+          "zus_health_deductible_monthly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Zus Health Deductible Monthly"
+          },
+          "zus_health_monthly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Zus Health Monthly"
+          },
+          "zus_social_mode": {
+            "title": "Zus Social Mode",
+            "type": "string"
+          },
+          "zus_social_monthly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Zus Social Monthly"
+          },
+          "zus_tier": {
+            "title": "Zus Tier",
+            "type": "string"
+          },
+          "zus_total_monthly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Zus Total Monthly"
+          }
+        },
+        "required": [
+          "net",
+          "vat_rate",
+          "vat",
+          "gross",
+          "ryczalt_rate",
+          "ryczalt",
+          "zus_health_monthly",
+          "zus_tier",
+          "zus_health_deductible_monthly",
+          "zus_social_mode",
+          "zus_social_monthly",
+          "zus_total_monthly",
+          "estimated_annual_revenue",
+          "deadline_ryczalt_zus",
+          "deadline_vat_jpk",
+          "total_monthly_burden"
+        ],
+        "title": "TaxCalc",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--net"
+          ],
+          "help": "Kwota netto.",
+          "kind": "option",
+          "multiple": false,
+          "name": "net",
+          "required": true,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--vat-rate"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "vat_rate",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--ryczalt-rate"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "ryczalt_rate",
+          "required": false,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--annual-revenue"
+          ],
+          "help": "Roczny przychod (prog zdrowotnej).",
+          "kind": "option",
+          "multiple": false,
+          "name": "annual_revenue",
+          "required": false,
+          "type": "Decimal"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Terminy ryczaltu, ZUS i VAT za miesiac.",
+      "name": "tax deadlines",
+      "output_schema": {
+        "properties": {
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "ryczalt": {
+            "format": "date",
+            "title": "Ryczalt",
+            "type": "string"
+          },
+          "vat_jpk": {
+            "format": "date",
+            "title": "Vat Jpk",
+            "type": "string"
+          },
+          "zus": {
+            "format": "date",
+            "title": "Zus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "ryczalt",
+          "zus",
+          "vat_jpk"
+        ],
+        "title": "Deadlines",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": "Miesiac rozliczeniowy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Deklaracja DRA ZUS (KEDU) do importu w PUE ZUS.",
+      "name": "tax dra",
+      "output_schema": {
+        "properties": {
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "health_contribution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Health Contribution"
+          },
+          "how_to_send": {
+            "title": "How To Send",
+            "type": "string"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "social_contribution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Social Contribution"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Total"
+          },
+          "xml_path": {
+            "title": "Xml Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "xml_path",
+          "health_contribution",
+          "social_contribution",
+          "total",
+          "deadline",
+          "how_to_send"
+        ],
+        "title": "DraView",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--month"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "month",
+          "required": true,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": null,
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": true,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--annual-prior-income"
+          ],
+          "help": "Przychod za poprzedni rok (prog zdrowotnej).",
+          "kind": "option",
+          "multiple": false,
+          "name": "annual_prior_income",
+          "required": true,
+          "type": "Decimal"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "flags": [
+            "--include-social",
+            "--no-include-social"
+          ],
+          "help": "Dolicz skladki spoleczne.",
+          "kind": "option",
+          "multiple": false,
+          "name": "include_social",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--output"
+          ],
+          "help": "Plik XML (domyslnie data/zus/).",
+          "kind": "option",
+          "multiple": false,
+          "name": "output",
+          "required": false,
+          "type": "Path"
+        }
+      ]
+    },
+    {
+      "confirmable": false,
+      "help": "Podsumowanie roczne ryczaltu (PIT-28) z rejestru.",
+      "name": "tax pit28",
+      "output_schema": {
+        "$defs": {
+          "Pit28Month": {
+            "properties": {
+              "month": {
+                "title": "Month",
+                "type": "integer"
+              },
+              "ryczalt": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Ryczalt"
+              },
+              "sales_net": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Sales Net"
+              }
+            },
+            "required": [
+              "month",
+              "sales_net",
+              "ryczalt"
+            ],
+            "title": "Pit28Month",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "annual_ryczalt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Annual Ryczalt"
+          },
+          "annual_ryczalt_rounded": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Annual Ryczalt Rounded"
+          },
+          "annual_sales_net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Annual Sales Net"
+          },
+          "monthly": {
+            "items": {
+              "$ref": "#/$defs/Pit28Month"
+            },
+            "title": "Monthly",
+            "type": "array"
+          },
+          "ryczalt_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Ryczalt Rate"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "ryczalt_rate",
+          "annual_sales_net",
+          "annual_ryczalt",
+          "annual_ryczalt_rounded",
+          "monthly"
+        ],
+        "title": "Pit28View",
+        "type": "object"
+      },
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "flags": [
+            "--year"
+          ],
+          "help": "Rok podatkowy.",
+          "kind": "option",
+          "multiple": false,
+          "name": "year",
+          "required": true,
+          "type": "int"
+        }
+      ]
+    }
+  ],
+  "exit_codes": {
+    "config": 3,
+    "confirmation": 4,
+    "domain": 1,
+    "external": 5,
+    "ok": 0,
+    "usage": 2
+  },
+  "name": "jdg",
+  "output_envelope": {
+    "error": {
+      "error": {
+        "code": "str",
+        "details": "object (CONFIRMATION_REQUIRED: action, token, summary)",
+        "hint": "str|null",
+        "message": "str",
+        "retryable": "bool"
+      },
+      "ok": false
+    },
+    "ok": {
+      "data": "<output_schema>",
+      "ok": true
+    }
+  }
+}

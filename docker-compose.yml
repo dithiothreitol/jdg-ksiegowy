@@ -12,7 +12,7 @@ services:
       # Workspace mounty naklada ponad stan (pliki z repo, read-only dla definicji; `data/` zapisywalne)
       - ./SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
       - ./HEARTBEAT.md:/home/node/.openclaw/workspace/HEARTBEAT.md:ro
-      - ./skills:/home/node/.openclaw/workspace/skills:ro
+      - ./plugins/jdg-ksiegowy/skills:/home/node/.openclaw/workspace/skills:ro
       - ./data:/home/node/.openclaw/workspace/data
     ports:
       - "127.0.0.1:18789:18789"   # OpenClaw Web UI — tylko lokalnie (zdalnie: tunel SSH)

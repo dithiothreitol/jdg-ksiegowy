@@ -17,10 +17,15 @@ dependencies = [
     "pydantic>=2.14.3",
     "pydantic-settings>=2.16.2",
     "python-docx>=1.2.0",
+    "rich>=15.0.0",
     "sqlalchemy>=2.1.8",
+    "typer>=0.29.1",
     "tzdata>=2026.1 ; sys_platform == 'win32'",
     "xmlschema>=4.3.2",
 ]
+
+[project.scripts]
+jdg = "jdg_ksiegowy.cli.main:main"
 
 [dependency-groups]
 dev = [
