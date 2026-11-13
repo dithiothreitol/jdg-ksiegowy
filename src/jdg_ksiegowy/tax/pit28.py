@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
 from jdg_ksiegowy.config import settings
-from jdg_ksiegowy.registry.db import InvoiceRecord, get_invoices, init_db
+from jdg_ksiegowy.invoice.models import Invoice
+from jdg_ksiegowy.registry.repository import InvoiceRepository
 from jdg_ksiegowy.tax.income import income_date
 
 
@@ -47,15 +48,14 @@ class PIT28Report:
         return self.annual_ryczalt.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
-def _month_sales(invoices: list[InvoiceRecord], year: int, month: int) -> Decimal:
+def _month_sales(invoices: list[Invoice], year: int, month: int) -> Decimal:
     filtered = [i for i in invoices if (d := income_date(i)).year == year and d.month == month]
-    return sum((Decimal(str(i.total_net)) for i in filtered), Decimal("0"))
+    return sum((i.total_net for i in filtered), Decimal("0"))
 
 
 def generate_pit28_report(year: int) -> PIT28Report:
     """Wygeneruj raport PIT-28 za wskazany rok z danych SQLite."""
-    init_db()
-    invoices = get_invoices()
+    invoices = InvoiceRepository().list(year=year, by="income")
     seller = settings.seller
     rate = seller.ryczalt_rate / 100
 

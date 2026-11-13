@@ -1,6 +1,6 @@
 """Testy skilla inbox.py — preview/save, dedup, flagi manual, not-configured.
 
-KSeFClient.query_inbox/download_invoice_xml/is_configured sa mockowane — zero sieci.
+KSeFClient.query_metadata/download_invoice_xml/is_configured sa mockowane — zero sieci.
 """
 
 import importlib.util
@@ -22,7 +22,7 @@ _spec.loader.exec_module(inbox)
 
 def _meta(**over):
     base = dict(
-        ksef_number="5261040567-20260525-AAAAAA-01",
+        ksef_number="5261040567-20260525-AAAAAA-AAAAAA-01",
         invoice_number="FV/2026/05/123",
         issue_date=date(2026, 5, 25),
         invoicing_date=datetime(2026, 5, 25, 16, 5),
@@ -46,7 +46,7 @@ def _patch_client(monkeypatch, *, metadata, downloads=None, configured=True):
     monkeypatch.setattr(inbox.KSeFClient, "is_configured", lambda self: configured)
     monkeypatch.setattr(
         inbox.KSeFClient,
-        "query_inbox",
+        "query_metadata",
         lambda self, date_from, date_to, role="buyer", include_corrections=False, seller_nip=None: (
             list(metadata)
         ),
@@ -67,7 +67,7 @@ def _run(monkeypatch, capsys, argv):
 
 
 def test_preview_lists_new_without_saving(isolated_db, monkeypatch, capsys):
-    from jdg_ksiegowy.registry.db import get_expenses
+    from jdg_ksiegowy.registry.repository import ExpenseRepository
 
     _patch_client(monkeypatch, metadata=[_meta()])
     out = _run(monkeypatch, capsys, ["--month", "5", "--year", "2026"])
@@ -77,11 +77,11 @@ def test_preview_lists_new_without_saving(isolated_db, monkeypatch, capsys):
     assert out["count"] == 1
     assert out["invoices"][0]["status"] == "new"
     assert out["invoices"][0]["category"] == "paliwo"
-    assert get_expenses() == []  # preview nic nie zapisuje
+    assert ExpenseRepository().list() == []  # preview nic nie zapisuje
 
 
 def test_save_persists_with_ksef_number_and_xml(isolated_db, monkeypatch, capsys, tmp_path):
-    from jdg_ksiegowy.registry.db import get_expenses
+    from jdg_ksiegowy.registry.repository import ExpenseRepository
 
     monkeypatch.setattr(inbox, "XML_DIR", tmp_path / "xml")
     _patch_client(monkeypatch, metadata=[_meta()])
@@ -95,13 +95,13 @@ def test_save_persists_with_ksef_number_and_xml(isolated_db, monkeypatch, capsys
     assert inv["file_path"] is not None
     assert Path(inv["file_path"]).exists()
 
-    records = get_expenses()
+    records = ExpenseRepository().list()
     assert len(records) == 1
-    assert records[0].ksef_number == "5261040567-20260525-AAAAAA-01"
+    assert records[0].ksef_number == "5261040567-20260525-AAAAAA-AAAAAA-01"
 
 
 def test_save_is_idempotent(isolated_db, monkeypatch, capsys, tmp_path):
-    from jdg_ksiegowy.registry.db import get_expenses
+    from jdg_ksiegowy.registry.repository import ExpenseRepository
 
     monkeypatch.setattr(inbox, "XML_DIR", tmp_path / "xml")
     _patch_client(monkeypatch, metadata=[_meta()])
@@ -111,11 +111,11 @@ def test_save_is_idempotent(isolated_db, monkeypatch, capsys, tmp_path):
 
     assert out2["saved_count"] == 0
     assert out2["invoices"][0]["status"] == "exists"
-    assert len(get_expenses()) == 1
+    assert len(ExpenseRepository().list()) == 1
 
 
 def test_foreign_currency_marked_manual_and_not_saved(isolated_db, monkeypatch, capsys, tmp_path):
-    from jdg_ksiegowy.registry.db import get_expenses
+    from jdg_ksiegowy.registry.repository import ExpenseRepository
 
     monkeypatch.setattr(inbox, "XML_DIR", tmp_path / "xml")
     downloads: list[str] = []
@@ -127,7 +127,7 @@ def test_foreign_currency_marked_manual_and_not_saved(isolated_db, monkeypatch, 
     assert inv["status"] == "manual"
     assert "EUR" in inv["manual_reason"]
     assert out["saved_count"] == 0
-    assert get_expenses() == []
+    assert ExpenseRepository().list() == []
     assert downloads == []  # nie pobieramy XML dla pozycji do recznej obslugi
 
 
@@ -141,7 +141,7 @@ def test_include_corrections_flag_passed_through(isolated_db, monkeypatch, capsy
         seen["seller_nip"] = seller_nip
         return []
 
-    monkeypatch.setattr(inbox.KSeFClient, "query_inbox", _query)
+    monkeypatch.setattr(inbox.KSeFClient, "query_metadata", _query)
 
     _run(
         monkeypatch,

@@ -3,11 +3,7 @@
 
 import argparse
 import json
-import sys
 from datetime import date
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.tax.pit28 import format_pit28_text, generate_pit28_report
 

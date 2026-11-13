@@ -55,6 +55,7 @@ def zip_xml(xml_content: bytes, inner_filename: str = "jpk.xml") -> bytes:
 def load_mf_public_key(cert_path: Path | str) -> RSAPublicKey:
     """Wczytaj klucz publiczny MF z PEM/DER (certyfikat X.509 lub raw public key)."""
     raw = Path(cert_path).read_bytes()
+    key: object
     if raw.startswith(b"-----BEGIN"):
         if b"CERTIFICATE" in raw:
             from cryptography import x509

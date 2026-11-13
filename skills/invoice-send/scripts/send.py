@@ -6,23 +6,18 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
 from jdg_ksiegowy.invoice.mailer import send_invoice_email
 from jdg_ksiegowy.invoice.pdf import PDFConversionError, docx_to_pdf
-from jdg_ksiegowy.registry.db import get_invoices, init_db
+from jdg_ksiegowy.registry.repository import InvoiceRepository
 
 
 def find_invoice(number: str | None, latest: bool):
-    init_db()
+    repo = InvoiceRepository()
     if number:
-        records = [r for r in get_invoices() if r.number == number]
-        if not records:
-            return None
-        return records[0]
+        return repo.get(number)
     if latest:
-        records = get_invoices()
-        return records[0] if records else None
+        invoices = repo.list(by="issue_date")
+        return invoices[0] if invoices else None
     return None
 
 

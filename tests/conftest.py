@@ -1,15 +1,15 @@
-"""Wspolne fixtures + ustawianie minimalnych SELLER_* przed importem config.
+"""Wspolne fixtures + izolacja od srodowiska uzytkownika.
 
-Uzywamy przypisania `=`, nie `setdefault`, bo conftest MUSI wygrac z `.env`
-uzytkownika — inaczej testy zachowuja sie roznie zaleznie od tego kto odpala
-(np. SELLER_EMPLOYMENT_GROSS_ABOVE_MIN=true w prod .env zrobi fail
-test_zus_dra::test_include_social_adds_social_tier, a MF_ENV=prod zrobi fail
-test_jpk_submit_skill::test_dry_run_works_without_cert).
+JDG_HOME wskazuje na pusty katalog tymczasowy, wiec testy nigdy nie czytaja
+prawdziwego `.env` (z KSEF_ENV=prod) ani produkcyjnej bazy w `data/`. Zmienne
+ustawiamy przez `=`, nie `setdefault` — musza wygrac ze srodowiskiem powloki.
 """
 
 import os
+import tempfile
 
 # Musi byc PRZED importem jdg_ksiegowy.config — pydantic-settings czyta env przy instancjacji.
+os.environ["JDG_HOME"] = tempfile.mkdtemp(prefix="jdg-test-home-")
 os.environ["SELLER_NAME"] = "Test Sp. z o.o."
 os.environ["SELLER_NIP"] = "1234567890"
 os.environ["SELLER_ADDRESS"] = "ul. Testowa 1, 00-001 Warszawa"
@@ -20,10 +20,15 @@ os.environ["SELLER_LAST_NAME"] = "Kowalski"
 os.environ["SELLER_BIRTH_DATE"] = "1990-01-01"
 os.environ["SELLER_TAX_OFFICE_CODE"] = "1471"
 os.environ["SELLER_EMAIL"] = "test@example.com"
+os.environ["KSEF_ENV"] = "test"
+os.environ["KSEF_NIP"] = ""
+os.environ["KSEF_TOKEN"] = ""
 os.environ["MF_ENV"] = "test"
 os.environ["MF_PESEL"] = ""
 os.environ["MF_PRIOR_INCOME"] = "0"
-# ZUS — ustaw deterministycznie, aby testy nie zalezaly od uzytkownika .env
+os.environ["ANTHROPIC_API_KEY"] = ""
+os.environ["GCAL_ENABLED"] = "false"
+# ZUS — deterministycznie, niezaleznie od srodowiska uzytkownika
 os.environ["SELLER_BUSINESS_START_DATE"] = ""
 os.environ["SELLER_ZUS_SOCIAL_MODE"] = "auto"
 os.environ["SELLER_EMPLOYMENT_GROSS_ABOVE_MIN"] = "false"
@@ -34,13 +39,12 @@ import pytest
 
 @pytest.fixture
 def isolated_db(tmp_path, monkeypatch):
-    """Izoluj SQLite per-test — nadpisuje settings.db_url + resetuje engine."""
+    """Osobna baza SQLite per test — nadpisuje settings.db_url i resetuje silnik."""
     import jdg_ksiegowy.registry.db as db_module
     from jdg_ksiegowy.config import settings
 
     db_path = tmp_path / "jdg.db"
     monkeypatch.setattr(settings, "db_url", f"sqlite:///{db_path}")
-    monkeypatch.setattr(db_module, "DB_PATH", db_path)
     monkeypatch.setattr(db_module, "_engine", None)
     monkeypatch.setattr(db_module, "_SessionFactory", None)
     settings.mf.pesel = ""

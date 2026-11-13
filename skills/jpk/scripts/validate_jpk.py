@@ -4,7 +4,8 @@
 Uzycie:
     python3 validate_jpk.py --xml-path data/jpk/JPK_V7M_2026_03_K1.xml
 
-Schemat rozpoznawany z KodFormularza@kodSystemowy ("JPK_V7M (3)" -> JPK_V7M_3).
+Schemat rozpoznawany z KodFormularza@kodSystemowy ("JPK_V7M (3)" -> JPK_V7M_3);
+schematy MF sa wbudowane w pakiet — walidacja dziala offline.
 Zwraca JSON {valid, schema, errors}; exit 1 gdy plik nie przechodzi walidacji.
 """
 
@@ -13,20 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from lxml import etree
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
-from jdg_ksiegowy.config import DATA_DIR
-from jdg_ksiegowy.tax.validation import JPKValidator
-
-XSD_DIR = DATA_DIR / "xsd"
-
-
-def schema_name(xml: bytes) -> str:
-    """'JPK_V7M (3)' -> 'JPK_V7M_3' (klucz w DEFAULT_XSD_URLS)."""
-    kod = etree.fromstring(xml).find(".//{*}KodFormularza")
-    return kod.get("kodSystemowy").replace(" (", "_").rstrip(")")
+from jdg_ksiegowy.tax.validation import schema_name, validate_jpk
 
 
 def main() -> None:
@@ -36,7 +24,7 @@ def main() -> None:
 
     xml = Path(args.xml_path).read_bytes()
     schema = schema_name(xml)
-    result = JPKValidator(XSD_DIR).validate(xml, schema=schema)
+    result = validate_jpk(xml, schema)
     print(
         json.dumps(
             {

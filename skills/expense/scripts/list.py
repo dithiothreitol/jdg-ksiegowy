@@ -3,12 +3,8 @@
 
 import argparse
 import json
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
-from jdg_ksiegowy.registry.db import get_expenses, init_db
+from jdg_ksiegowy.registry.repository import ExpenseRepository
 
 
 def main():
@@ -17,8 +13,7 @@ def main():
     parser.add_argument("--year", type=int, default=None)
     args = parser.parse_args()
 
-    init_db()
-    records = get_expenses(args.month, args.year)
+    records = ExpenseRepository().list(year=args.year, month=args.month)
 
     out = {
         "count": len(records),
@@ -30,7 +25,7 @@ def main():
                 "document_number": r.document_number,
                 "issue_date": r.issue_date.isoformat(),
                 "receive_date": r.receive_date.isoformat(),
-                "category": r.category,
+                "category": r.category.value,
                 "netto": str(r.total_net),
                 "vat": str(r.total_vat),
                 "brutto": str(r.total_gross),

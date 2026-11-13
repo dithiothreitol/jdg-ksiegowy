@@ -17,11 +17,10 @@ def _autouse_isolated_db(isolated_db):
 
 
 def _inv(month: int, year: int, net: Decimal):
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
+    from tests.helpers import InvoiceRow, save_invoice
 
-    init_db()
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id=f"i-{month}-{year}-{net}",
             number=f"A/{month:02d}/{year}",
             issue_date=date(year, month, 15),
@@ -39,9 +38,7 @@ def _inv(month: int, year: int, net: Decimal):
 
 class TestPIT28Report:
     def test_empty_db_returns_zero_sums(self):
-        from jdg_ksiegowy.registry.db import init_db
 
-        init_db()
         report = generate_pit28_report(2025)
         assert report.annual_sales_net == Decimal("0")
         assert report.annual_ryczalt == Decimal("0")

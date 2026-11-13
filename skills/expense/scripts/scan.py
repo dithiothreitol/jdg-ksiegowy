@@ -14,10 +14,9 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
-
+from jdg_ksiegowy.expenses.models import Expense
 from jdg_ksiegowy.expenses.ocr import OCRError, build_default_ocr
-from jdg_ksiegowy.registry.db import ExpenseRecord, init_db, save_expense
+from jdg_ksiegowy.registry.repository import ExpenseRepository
 
 
 def main():
@@ -64,9 +63,7 @@ def main():
         )
         return
 
-    init_db()
-    brutto = extracted.total_net + extracted.total_vat
-    record = ExpenseRecord(
+    record = Expense(
         id=f"{extracted.seller_nip}-{extracted.document_number}",
         seller_name=extracted.seller_name,
         seller_nip=extracted.seller_nip,
@@ -75,15 +72,14 @@ def main():
         issue_date=extracted.issue_date,
         receive_date=extracted.issue_date,
         description=extracted.description,
-        category=extracted.category.value,
+        category=extracted.category,
         total_net=extracted.total_net,
         total_vat=extracted.total_vat,
-        total_gross=brutto,
         vat_rate=extracted.vat_rate,
         vat_deduction_pct=Decimal("100"),
         file_path=str(file_path.resolve()),
     )
-    save_expense(record)
+    ExpenseRepository().save(record)
     print(
         json.dumps(
             {"success": True, "preview": preview, "saved": True, "id": record.id},

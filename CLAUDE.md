@@ -50,14 +50,22 @@ Uzywaj TYLKO API key (pay-as-you-go) lub Ollama.
 
 # Reczny setup:
 cp .env.example .env && nano .env    # Dane sprzedawcy
-pip install -e .                      # Python deps
+uv sync                               # Python deps z uv.lock (venv w .venv/)
 ollama pull qwen3.5:35b               # Model AI (MoE 35B-A3B, ~24 GB; na słabszym hoście: qwen3.5:9b)
 openclaw onboard                      # Gateway + kanaly
 docker compose up -d                  # Uruchom
 
+# Testy i jakosc (bramka kazdego etapu):
+uv run pytest -q                      # + walidacja XSD offline
+uv run pytest -m sandbox              # e2e na srodowisku testowym KSeF (siec)
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+
+# Migracje bazy (Alembic) uruchamiaja sie same przy init_db();
+# nowa migracja: uv run alembic revision --autogenerate -m "opis"
+
 # Test skills:
-python3 skills/tax-calculator/scripts/calculate.py --netto 10500
-python3 skills/invoice/scripts/generate.py --buyer-name "Firma" --buyer-nip 1234567890 --netto 10500
+uv run python skills/tax-calculator/scripts/calculate.py --netto 10500
+uv run python skills/invoice/scripts/generate.py --buyer-name "Firma" --buyer-nip 1234567890 --netto 10500
 ```
 
 ## Darmowy hosting
@@ -69,7 +77,9 @@ Na tej maszynie użyj qwen3.5:9b (6.6 GB) — 35b się nie zmieści w 24 GB RAM.
 
 - Python 3.12+, Decimal (nie float) dla kwot
 - ZUS/podatki: single source of truth w `src/jdg_ksiegowy/tax/zus.py`
-- Skill scripts importuja z `src/` via sys.path
+- Skill scripts importuja zainstalowany pakiet `jdg_ksiegowy` (uv sync) — bez sys.path
+- Logika biznesowa dostaje modele domenowe z `registry.repository`, nie rekordy ORM
+- Kwoty w bazie jako grosze (INTEGER), w Pythonie `Decimal`
 - Dane sprzedawcy TYLKO z .env (zero hardkodu)
 
 ## Zasady pracy (wytyczne developera AI)
@@ -101,7 +111,7 @@ Przy KAZDEJ zmianie kodu w tym projekcie:
    skrypt zwracajacy JSON na stdout) — trzymaj sie jej. Nie wymyslaj
    wlasnej notacji kategorii/stawek/kodow pol gdy MF ma wlasna.
 
-5. **Weryfikacja, nie deklaracja** — po zmianie uruchom testy (`py -m pytest`),
+5. **Weryfikacja, nie deklaracja** — po zmianie uruchom testy (`uv run pytest`),
    end-to-end skrypt na przykladowych danych, sprawdz wynikowy XML lxml-em.
    Nie mow "gotowe" zanim wszystko nie zadziala na czysto.
 

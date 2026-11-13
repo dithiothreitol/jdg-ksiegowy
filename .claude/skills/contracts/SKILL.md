@@ -39,22 +39,26 @@ Obsługiwane formaty CSV:
 ## 4. Dodawanie kontraktu (Python API)
 
 ```python
-from jdg_ksiegowy.registry.db import ContractRecord, save_contract, init_db
-import uuid
+from decimal import Decimal
 
-init_db()
-save_contract(ContractRecord(
-    id=str(uuid.uuid4()),
-    buyer_name="Firma XYZ",
-    buyer_nip="5260250274",
-    buyer_address="ul. Przykładowa 1, 00-001 Warszawa",
-    buyer_email="kontakt@firma.pl",
-    description="Obsługa IT — miesięczna",
-    net_amount=2000,
-    vat_rate=23,
-    cycle="monthly",
-    day_of_month=-1,   # -1 = ostatni dzień roboczy
-))
+from jdg_ksiegowy.invoice.models import Buyer, Contract
+from jdg_ksiegowy.registry.repository import ContractRepository
+
+ContractRepository().save(
+    Contract(
+        buyer=Buyer(
+            name="Firma XYZ",
+            nip="5260250274",
+            address="ul. Przykładowa 1, 00-001 Warszawa",
+            email="kontakt@firma.pl",
+        ),
+        description="Obsługa IT — miesięczna",
+        net_amount=Decimal("2000"),
+        vat_rate=Decimal("23"),
+        cycle="monthly",
+        day_of_month=-1,  # -1 = ostatni dzień roboczy
+    )
+)
 ```
 
 ## Parametry kontraktu

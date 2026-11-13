@@ -16,15 +16,12 @@ import json
 import sys
 from datetime import date, timedelta
 from decimal import Decimal
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "src"))
 
 from jdg_ksiegowy.config import DATA_DIR
-from jdg_ksiegowy.expenses.ksef_mapper import metadata_to_record, needs_manual_review
+from jdg_ksiegowy.expenses.ksef_mapper import metadata_to_expense, needs_manual_review
 from jdg_ksiegowy.expenses.models import ExpenseCategory
 from jdg_ksiegowy.ksef.client import KSeFClient
-from jdg_ksiegowy.registry.db import get_expenses, init_db, save_expense
+from jdg_ksiegowy.registry.repository import ExpenseRepository
 
 XML_DIR = DATA_DIR / "expenses_xml"
 
@@ -98,7 +95,7 @@ def main() -> None:
     deduction = Decimal(args.vat_deduction_pct)
 
     try:
-        metadata = client.query_inbox(
+        metadata = client.query_metadata(
             date_from,
             date_to,
             role=args.role,
@@ -109,10 +106,8 @@ def main() -> None:
         print(json.dumps({"success": False, "error": str(e)}, ensure_ascii=False))
         sys.exit(1)
 
-    init_db()
-    existing = get_expenses()
-    existing_ids = {e.id for e in existing}
-    existing_ksef = {e.ksef_number for e in existing if e.ksef_number}
+    repo = ExpenseRepository()
+    existing_ids, existing_ksef = repo.known_keys()
 
     if args.save:
         XML_DIR.mkdir(parents=True, exist_ok=True)
@@ -120,7 +115,7 @@ def main() -> None:
     invoices = []
     saved_count = 0
     for meta in metadata:
-        record = metadata_to_record(meta, category=category, vat_deduction_pct=deduction)
+        record = metadata_to_expense(meta, category=category, vat_deduction_pct=deduction)
         manual_reason = needs_manual_review(meta)
         already = record.id in existing_ids or meta.ksef_number in existing_ksef
 
@@ -137,7 +132,7 @@ def main() -> None:
                 record.file_path = str(file_path.resolve())
             except Exception as e:  # metadane sa, XML chwilowo niedostepny
                 record.notes = "; ".join(filter(None, [record.notes, f"brak XML: {e}"]))
-            save_expense(record)
+            repo.save(record)
             existing_ids.add(record.id)
             existing_ksef.add(meta.ksef_number)
             saved_count += 1
@@ -159,7 +154,7 @@ def main() -> None:
                 "currency": meta.currency,
                 "vat_rate": str(record.vat_rate),
                 "vat_deduction_pct": str(record.vat_deduction_pct),
-                "category": record.category,
+                "category": record.category.value,
                 "invoice_type": meta.invoice_type,
                 "status": status,
                 "manual_reason": manual_reason,

@@ -9,7 +9,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from jdg_ksiegowy.validators import validate_nip
+from jdg_ksiegowy.validators import check_ksef_number, validate_nip
 
 
 class InvoiceStatus(StrEnum):
@@ -80,6 +80,7 @@ class LineItem(BaseModel):
     unit_price_net: Decimal
     vat_rate: Decimal = Decimal("23")
     vat_code: str | None = None  # override P_12 w FA(3): "NP", "ZW", "0" itp.
+    gtu: str | None = None  # oznaczenie GTU_01..GTU_13 (JPK_V7M)
 
     @computed_field
     @property
@@ -121,9 +122,18 @@ class Invoice(BaseModel):
     buyer: Buyer
     items: list[LineItem]
     status: InvoiceStatus = InvoiceStatus.DRAFT
+    # Numer KSeF nadany fakturze — jedyny identyfikator, ktory trafia do JPK (NrKSeF).
+    ksef_number: str | None = None
+    # Numer referencyjny wysylki w sesji KSeF (techniczny, nie numer KSeF).
     ksef_reference: str | None = None
     ksef_sent_at: datetime | None = None
+    ksef_acquired_at: datetime | None = None
+    paid_at: datetime | None = None
+    docx_path: str | None = None
+    xml_path: str | None = None
     notes: str | None = None
+
+    _check_ksef_number = field_validator("ksef_number")(check_ksef_number)
 
     @computed_field
     @property

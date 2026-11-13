@@ -1,12 +1,13 @@
-"""Test skilla KSeF — order-of-checks, sensowne errory bez tokena/pliku."""
+"""Skrypt wysylki KSeF: kolejnosc sprawdzen, zapis numeru KSeF i UPO, guardy."""
 
-import asyncio
 import importlib.util
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
 from jdg_ksiegowy.ksef.client import KSeFResult
+from jdg_ksiegowy.registry.repository import InvoiceRepository
+from tests.helpers import InvoiceRow, save_invoice
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 KSEF_SUBMIT = REPO_ROOT / "skills" / "ksef" / "scripts" / "submit.py"
@@ -16,31 +17,24 @@ ksef_submit = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ksef_submit)
 
 FA3_NS = "http://crd.gov.pl/wzor/2025/06/25/13775/"
+KSEF_NUMBER = "5260250274-20260601-0A1B2C-3D4E5F-6A"
 
 
 def _xml_with_number(number: str) -> str:
     return f'<Faktura xmlns="{FA3_NS}"><Fa><P_2>{number}</P_2></Fa></Faktura>'
 
 
-def _seed_invoice(number: str, *, ksef_reference: str | None = None):
-    from jdg_ksiegowy.registry.db import InvoiceRecord, init_db, save_invoice
-
-    init_db()
+def _seed_invoice(number: str, *, ksef_number: str | None = None):
     save_invoice(
-        InvoiceRecord(
+        InvoiceRow(
             id=f"id-{number}",
             number=number,
             issue_date=date(2026, 6, 1),
             sale_date=date(2026, 5, 31),
             payment_due=date(2026, 6, 10),
-            buyer_name="Klient",
-            buyer_nip="5260250274",
             total_net=Decimal("100"),
-            total_vat=Decimal("23"),
-            total_gross=Decimal("123"),
-            vat_rate=Decimal("23"),
-            status="sent_ksef" if ksef_reference else "generated",
-            ksef_reference=ksef_reference,
+            status="sent_ksef" if ksef_number else "generated",
+            ksef_number=ksef_number,
         )
     )
 
@@ -52,12 +46,16 @@ def _configure_ksef(monkeypatch):
     monkeypatch.setattr(settings.ksef, "env", "test")
 
 
-def test_submit_returns_error_for_missing_xml(monkeypatch):
-    monkeypatch.delenv("KSEF_TOKEN", raising=False)
-    monkeypatch.delenv("KSEF_NIP", raising=False)
+def _fake_send(result: KSeFResult, calls: list):
+    def send(self, xml_content):
+        calls.append(xml_content)
+        return result
 
-    result = asyncio.run(ksef_submit.submit("nieistniejacy.xml"))
+    return send
 
+
+def test_submit_returns_error_for_missing_xml():
+    result = ksef_submit.submit("nieistniejacy.xml")
     assert result["success"] is False
     assert "nie istnieje" in result["error"].lower()
 
@@ -65,91 +63,104 @@ def test_submit_returns_error_for_missing_xml(monkeypatch):
 def test_submit_returns_error_when_not_configured(tmp_path, monkeypatch):
     from jdg_ksiegowy.config import settings
 
-    monkeypatch.setattr(settings.ksef, "nip", "")
     monkeypatch.setattr(settings.ksef, "token", "")
     monkeypatch.setattr(settings.ksef, "env", "prod")
     xml_file = tmp_path / "fake.xml"
     xml_file.write_text("<Faktura/>", encoding="utf-8")
 
-    result = asyncio.run(ksef_submit.submit(str(xml_file)))
+    result = ksef_submit.submit(str(xml_file))
 
     assert result["success"] is False
     assert "KSEF_TOKEN" in result["error"]
 
 
-def test_submit_persists_reference_on_success(tmp_path, monkeypatch, isolated_db):
-    """Po udanej wysyłce numer referencyjny i status trafiają do rejestru."""
-    from jdg_ksiegowy.registry.db import get_invoice_by_number
-
+def test_submit_persists_ksef_number_and_upo(tmp_path, monkeypatch, isolated_db):
+    """Po udanej wysylce do rejestru trafia numer KSeF (nie numer referencyjny) i UPO."""
     _configure_ksef(monkeypatch)
+    monkeypatch.setattr(ksef_submit, "DATA_DIR", tmp_path / "data")
     _seed_invoice("A9/06/2026")
-
-    async def fake_send(self, xml_content):
-        return KSeFResult(success=True, reference_number="REF-123", details={"env": "test"})
-
-    monkeypatch.setattr(ksef_submit.KSeFClient, "send_invoice", fake_send)
-
+    calls: list = []
+    acquired = datetime(2026, 6, 1, 10, 30)
+    monkeypatch.setattr(
+        ksef_submit.KSeFClient,
+        "send_invoice",
+        _fake_send(
+            KSeFResult(
+                success=True,
+                env="test",
+                reference_number="20260601-EE-REF",
+                ksef_number=KSEF_NUMBER,
+                acquired_at=acquired,
+                upo=b"<UPO/>",
+            ),
+            calls,
+        ),
+    )
     xml_file = tmp_path / "faktura.xml"
     xml_file.write_text(_xml_with_number("A9/06/2026"), encoding="utf-8")
 
-    result = asyncio.run(ksef_submit.submit(str(xml_file)))
+    result = ksef_submit.submit(str(xml_file))
 
-    assert result["success"] is True
-    assert result["registered"] is True
-    assert result["reference_number"] == "REF-123"
+    assert result["success"] is True and result["registered"] is True
+    assert result["ksef_number"] == KSEF_NUMBER
+    assert Path(result["upo_path"]).read_bytes() == b"<UPO/>"
 
-    inv = get_invoice_by_number("A9/06/2026")
+    inv = InvoiceRepository().get("A9/06/2026")
     assert inv.status == "sent_ksef"
-    assert inv.ksef_reference == "REF-123"
-    assert inv.ksef_sent_at is not None
+    assert inv.ksef_number == KSEF_NUMBER
+    assert inv.ksef_reference == "20260601-EE-REF"
+    assert inv.ksef_acquired_at == acquired
 
 
 def test_submit_refuses_already_sent_invoice(tmp_path, monkeypatch, isolated_db):
-    """Guard przed dublem: faktura z numerem KSeF nie jest wysyłana ponownie."""
+    """Guard przed dublem: faktura z numerem KSeF nie jest wysylana ponownie."""
     _configure_ksef(monkeypatch)
-    _seed_invoice("A8/06/2026", ksef_reference="REF-EXISTING")
-
-    called = False
-
-    async def fake_send(self, xml_content):
-        nonlocal called
-        called = True
-        return KSeFResult(success=True, reference_number="REF-NEW")
-
-    monkeypatch.setattr(ksef_submit.KSeFClient, "send_invoice", fake_send)
-
+    _seed_invoice("A8/06/2026", ksef_number=KSEF_NUMBER)
+    calls: list = []
+    monkeypatch.setattr(
+        ksef_submit.KSeFClient, "send_invoice", _fake_send(KSeFResult(True, "test"), calls)
+    )
     xml_file = tmp_path / "faktura.xml"
     xml_file.write_text(_xml_with_number("A8/06/2026"), encoding="utf-8")
 
-    result = asyncio.run(ksef_submit.submit(str(xml_file)))
+    result = ksef_submit.submit(str(xml_file))
 
     assert result["success"] is False
-    assert result["reference_number"] == "REF-EXISTING"
-    assert "już wysłana" in result["error"]
-    assert called is False, "Nie wolno wysyłać faktury z istniejącym numerem KSeF"
+    assert result["ksef_number"] == KSEF_NUMBER
+    assert "juz wyslana" in result["error"]
+    assert calls == [], "Nie wolno wysylac faktury z istniejacym numerem KSeF"
 
 
 def test_submit_refuses_invoice_not_in_registry(tmp_path, monkeypatch, isolated_db):
-    """XML spoza rejestru NIE jest wysyłany — inaczej faktura wypadłaby z JPK/VAT."""
-    from jdg_ksiegowy.registry.db import init_db
-
+    """XML spoza rejestru NIE jest wysylany — inaczej faktura wypadlaby z JPK/VAT."""
     _configure_ksef(monkeypatch)
-    init_db()
-
-    called = False
-
-    async def fake_send(self, xml_content):
-        nonlocal called
-        called = True
-        return KSeFResult(success=True, reference_number="REF-XYZ", details={"env": "test"})
-
-    monkeypatch.setattr(ksef_submit.KSeFClient, "send_invoice", fake_send)
-
+    calls: list = []
+    monkeypatch.setattr(
+        ksef_submit.KSeFClient, "send_invoice", _fake_send(KSeFResult(True, "test"), calls)
+    )
     xml_file = tmp_path / "faktura.xml"
     xml_file.write_text(_xml_with_number("OBCY/01/2026"), encoding="utf-8")
 
-    result = asyncio.run(ksef_submit.submit(str(xml_file)))
+    result = ksef_submit.submit(str(xml_file))
 
     assert result["success"] is False
     assert "rejestrze" in result["error"].lower()
-    assert called is False, "Nie wolno wysyłać faktury spoza rejestru"
+    assert calls == [], "Nie wolno wysylac faktury spoza rejestru"
+
+
+def test_failed_send_does_not_mark_invoice(tmp_path, monkeypatch, isolated_db):
+    _configure_ksef(monkeypatch)
+    _seed_invoice("A7/06/2026")
+    monkeypatch.setattr(
+        ksef_submit.KSeFClient,
+        "send_invoice",
+        _fake_send(KSeFResult(success=False, env="test", error="odrzucona"), []),
+    )
+    xml_file = tmp_path / "faktura.xml"
+    xml_file.write_text(_xml_with_number("A7/06/2026"), encoding="utf-8")
+
+    result = ksef_submit.submit(str(xml_file))
+
+    assert result["success"] is False and result["registered"] is False
+    inv = InvoiceRepository().get("A7/06/2026")
+    assert inv.ksef_number is None and inv.ksef_reference is None

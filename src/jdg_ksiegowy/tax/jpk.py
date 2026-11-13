@@ -364,11 +364,7 @@ def _append_sprzedaz_wiersz(ewidencja, lp: int, inv: Invoice) -> None:
     etree.SubElement(wiersz, _ns("DataWystawienia")).text = inv.issue_date.isoformat()
     etree.SubElement(wiersz, _ns("DataSprzedazy")).text = inv.sale_date.isoformat()
 
-    # Choice: NrKSeF | OFF | BFK | DI (dokladnie jedno)
-    if inv.ksef_reference:
-        etree.SubElement(wiersz, _ns("NrKSeF")).text = inv.ksef_reference
-    else:
-        etree.SubElement(wiersz, _ns("BFK")).text = "1"
+    _append_ksef_marker(wiersz, inv.ksef_number)
 
     # Oblicz sumy wg kodu VAT pozycji
     k11_net = Decimal("0")  # poza terytorium (art. 28b / NP)
@@ -435,8 +431,8 @@ def _append_import_uslug_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     etree.SubElement(wiersz, _ns("DataWystawienia")).text = exp.issue_date.isoformat()
     etree.SubElement(wiersz, _ns("DataSprzedazy")).text = exp.issue_date.isoformat()
 
-    # Choice: NrKSeF | OFF | BFK | DI — faktura zagraniczna jest poza KSeF -> BFK
-    etree.SubElement(wiersz, _ns("BFK")).text = "1"
+    # Faktura zagraniczna jest poza KSeF -> BFK
+    _append_ksef_marker(wiersz, None)
 
     # Pola w kolejnosci XSD: K_10-K_14 (0.00), nastepnie para importu usług.
     for f in PRE_RATE_FIELDS:
@@ -462,8 +458,8 @@ def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     etree.SubElement(wiersz, _ns("DataZakupu")).text = exp.issue_date.isoformat()
     etree.SubElement(wiersz, _ns("DataWplywu")).text = exp.receive_date.isoformat()
 
-    # Choice: NrKSeF | OFF | BFK | DI (faktura papierowa/elektroniczna -> BFK)
-    etree.SubElement(wiersz, _ns("BFK")).text = "1"
+    # Faktura zakupowa pobrana z KSeF ma numer KSeF; papierowa/PDF spoza KSeF -> BFK
+    _append_ksef_marker(wiersz, exp.ksef_number)
 
     # K_42/K_43: nabycia krajowe inne niz ST (netto + VAT podlegajacy odliczeniu).
     # Dla auta osobowego mieszanego (vat_deduction_pct=50) wykazujemy 50% kwot —
@@ -474,6 +470,18 @@ def _append_zakup_wiersz(ewidencja, lp: int, exp: Expense) -> None:
     # K_44-K_47: korekty VAT naliczonego — zawsze wymagane (0.00 gdy brak)
     for f in ("K_44", "K_45", "K_46", "K_47"):
         _add_decimal(wiersz, f, Decimal("0"))
+
+
+def _append_ksef_marker(wiersz, ksef_number: str | None) -> None:
+    """Wybor XSD NrKSeF | OFF | BFK | DI — dokladnie jeden element.
+
+    NrKSeF gdy faktura ma numer KSeF w dniu zlozenia JPK; bez numeru — BFK
+    (faktura wystawiona poza KSeF). OFF/DI nie wystepuja w obslugiwanych scenariuszach.
+    """
+    if ksef_number:
+        etree.SubElement(wiersz, _ns("NrKSeF")).text = ksef_number
+    else:
+        etree.SubElement(wiersz, _ns("BFK")).text = "1"
 
 
 def _add_decimal(parent, tag: str, value: Decimal) -> None:
