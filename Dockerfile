@@ -21,9 +21,10 @@ WORKDIR /opt/jdg
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project --python 3.13
 COPY src/ src/
-RUN uv sync --frozen --no-dev --python 3.13 && \
-    ln -sf /opt/jdg-venv/bin/python /usr/local/bin/python3 && \
-    ln -sf /opt/jdg-venv/bin/python /usr/local/bin/python
+RUN uv sync --frozen --no-dev --python 3.13
+# venv pierwszy w PATH: `python`/`python3` ze skilli OpenClaw widza pakiet jdg_ksiegowy
+# (symlink do /usr/local/bin gubi wykrycie pyvenv.cfg).
+ENV PATH="/opt/jdg-venv/bin:${PATH}"
 
 RUN mkdir -p /home/node/.openclaw/workspace /home/node/.openclaw/logs/stability && \
     chown -R node:node /home/node/.openclaw
