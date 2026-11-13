@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__plugin_jdg-ksiegowy_jdg__(invoice_mail|jpk_submit|ksef_send)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv",
+            "args": ["run", "--quiet", "--no-project", "${CLAUDE_PLUGIN_ROOT}/hooks/confirm_gate.py"],
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*--confirm*)",
+            "command": "uv",
+            "args": ["run", "--quiet", "--no-project", "${CLAUDE_PLUGIN_ROOT}/hooks/confirm_gate.py"],
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

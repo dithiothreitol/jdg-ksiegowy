@@ -35,8 +35,10 @@ stderr = Console(stderr=True, soft_wrap=True)
 @dataclass
 class CommandSpec:
     path: str
+    fn: Callable[..., BaseModel | None]
     output: type[BaseModel] | None
     confirmable: bool
+    read_only: bool
 
 
 @dataclass
@@ -64,9 +66,17 @@ def _jsonable(result: BaseModel | None) -> Any:
     return None if result is None else result.model_dump(mode="json")
 
 
+def ok_envelope(result: BaseModel | None) -> dict[str, Any]:
+    return {"ok": True, "data": _jsonable(result)}
+
+
+def error_envelope(err: AppError) -> dict[str, Any]:
+    return {"ok": False, "error": err.to_dict()}
+
+
 def emit_ok(result: BaseModel | None) -> None:
     if json_mode():
-        print(json.dumps({"ok": True, "data": _jsonable(result)}, ensure_ascii=False, indent=2))
+        print(json.dumps(ok_envelope(result), ensure_ascii=False, indent=2))
         return
     if result is not None:
         render(result)
@@ -74,7 +84,7 @@ def emit_ok(result: BaseModel | None) -> None:
 
 def emit_error(err: AppError) -> None:
     if json_mode():
-        print(json.dumps({"ok": False, "error": err.to_dict()}, ensure_ascii=False, indent=2))
+        print(json.dumps(error_envelope(err), ensure_ascii=False, indent=2))
         return
     if isinstance(err, ConfirmationRequiredError):
         stderr.print(_summary_panel(err))
@@ -154,11 +164,13 @@ def command(
     output: type[BaseModel] | None,
     prefix: str,
     confirmable: bool = False,
+    read_only: bool = False,
 ) -> Callable[[Callable[..., BaseModel | None]], Callable[..., BaseModel | None]]:
     """Zarejestruj komende: obsluga bledow, koperta wyjscia, potwierdzanie, wpis do `schema`.
 
     Funkcja komendy zwraca model wyniku (pydantic). Komenda z `confirmable=True` musi
-    przyjmowac parametr `confirm`.
+    przyjmowac parametr `confirm`. `read_only=True` — komenda niczego nie zapisuje
+    ani nie wysyla (adnotacja narzedzia MCP, pole `read_only` w `schema`).
     """
 
     def deco(fn: Callable[..., BaseModel | None]) -> Callable[..., BaseModel | None]:
@@ -183,7 +195,9 @@ def command(
         wrapper.__annotations__ = {p.name: p.annotation for p in params}
         group.command(name)(wrapper)
         path = f"{prefix} {name}".strip()
-        STATE.registry[path] = CommandSpec(path=path, output=output, confirmable=confirmable)
+        STATE.registry[path] = CommandSpec(
+            path=path, fn=fn, output=output, confirmable=confirmable, read_only=read_only
+        )
         return fn
 
     return deco

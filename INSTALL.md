@@ -125,14 +125,30 @@ openclaw --version
 cd /root  # or your preferred directory
 git clone https://github.com/YOUR_USER/jdg-ksiegowy.git
 cd jdg-ksiegowy
-pip install -e .
+curl -LsSf https://astral.sh/uv/install.sh | sh   # if uv is missing
+uv sync --frozen --no-dev
+uv tool install --editable .    # `jdg` in PATH (CLI for skills + MCP server for agents)
 ```
 
-Verify Python library:
+Verify:
 
 ```bash
-python3 -c "from jdg_ksiegowy.tax.zus import get_zus_tier; print(get_zus_tier(100000))"
-# Expected: ZUSHealthTier(max_annual_revenue=Decimal('300000'), ..., monthly_contribution=Decimal('830.58'), ...)
+jdg --version
+jdg tax calc --net 10500 --json   # VAT, ryczalt, ZUS and deadlines as JSON
+```
+
+Register the tools with OpenClaw (MCP over stdio, same commands as the CLI):
+
+```bash
+openclaw mcp add jdg --command jdg --arg mcp --arg serve
+openclaw mcp probe jdg            # expected: jdg: 34 tools
+```
+
+Claude Code / Codex use the same plugin (skills + MCP server):
+
+```bash
+claude plugin marketplace add ./ && claude plugin install jdg-ksiegowy@jdg-ksiegowy
+codex plugin marketplace add ./ && codex plugin add jdg-ksiegowy@jdg-ksiegowy
 ```
 
 ---
@@ -511,7 +527,8 @@ cp data/jdg_ksiegowy.db ~/backup/jdg_$(date +%Y%m%d).db
 ```bash
 cd /root/jdg-ksiegowy
 git pull
-pip install -e .
+uv sync --frozen --no-dev
+uv tool install --editable . --force   # refresh `jdg` in PATH
 openclaw restart
 ```
 
@@ -530,10 +547,10 @@ openclaw cron list     # Scheduled jobs status
 
 You haven't filled in `.env`. Run `nano .env` and set all required `SELLER_*` fields.
 
-### "ksef2 not installed"
+### "ksef2 not installed" / `jdg: command not found`
 
 ```bash
-pip install ksef2
+uv sync --frozen --no-dev && uv tool install --editable . --force
 ```
 
 ### "Ollama connection refused"

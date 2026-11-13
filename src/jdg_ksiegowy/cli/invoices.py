@@ -124,7 +124,7 @@ def correct(
     )
 
 
-@command(invoice, "list", output=app.InvoiceList, prefix="invoice")
+@command(invoice, "list", output=app.InvoiceList, prefix="invoice", read_only=True)
 def list_(
     year: Annotated[int | None, typer.Option(help="Rok.")] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12, help="Miesiac (z --year).")] = None,
@@ -138,7 +138,7 @@ def list_(
     return app.list_invoices(year=year, month=month, by=period_by, unpaid=unpaid)
 
 
-@command(invoice, "show", output=app.InvoiceView, prefix="invoice")
+@command(invoice, "show", output=app.InvoiceView, prefix="invoice", read_only=True)
 def show(
     number: Annotated[str, typer.Argument(help="Numer faktury, np. A1/11/2026.")],
 ) -> app.InvoiceView:
@@ -176,7 +176,7 @@ def import_csv(
     return contracts_app.import_bank_csv(csv_path, auto_mark=auto_mark)
 
 
-@command(buyer, "lookup", output=app.BuyerLookup, prefix="buyer")
+@command(buyer, "lookup", output=app.BuyerLookup, prefix="buyer", read_only=True)
 def buyer_lookup(nip: Annotated[str, typer.Argument(help="NIP kontrahenta.")]) -> app.BuyerLookup:
     """Status VAT, nazwa, adres i rachunki kontrahenta z Bialej listy MF."""
     return app.lookup_buyer(nip)

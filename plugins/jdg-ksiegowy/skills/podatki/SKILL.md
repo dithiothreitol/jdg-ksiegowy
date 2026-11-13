@@ -5,7 +5,10 @@ description: Podatki i terminy JDG na ryczalcie — co i kiedy zaplacic (ryczalt
 
 # Podatki i terminy
 
-CLI `jdg` (lub `uv run jdg`). Kwoty zawsze z narzedzia — nigdy nie licz podatkow w pamieci.
+Narzedzia: serwer MCP `jdg`, gdy jest dostepny — kazda komenda z tego opisu to narzedzie
+o nazwie z podkreslnikami (`jdg invoice issue` → `invoice_issue`, `--buyer-nip` → `buyer_nip`).
+Bez MCP: CLI `jdg` (gdy nie ma go w PATH: `uv run jdg` w katalogu repozytorium).
+Kwoty zawsze z narzedzia — nigdy nie licz podatkow w pamieci.
 
 ## Co mam zrobic / zaplacic
 

@@ -207,6 +207,7 @@ class Settings(BaseSettings):
     libreoffice_bin: str = Field(default="", alias="LIBREOFFICE_BIN")
     backup_key: str = ""  # klucz Fernet szyfrowania backupow (BACKUP_KEY)
     backup_dir: str = ""  # katalog docelowy backupow (BACKUP_DIR); pusty -> OneDrive/~
+    mcp_token: str = Field(default="", alias="JDG_MCP_TOKEN")  # Bearer dla `jdg mcp serve` HTTP
 
     db_url: str = f"sqlite:///{DATA_DIR / 'jdg_ksiegowy.db'}"
 

@@ -175,10 +175,20 @@ GCAL_ENABLED=false                     # kalendarz zostaje na maszynie usera (pa
 
 ### 2.4 Build + start
 
+Compose uruchamia dwie usługi z jednego obrazu: `jdg-mcp` (serwer MCP — jedyny proces z
+sekretami z `.env` i z dostępem do `./data`, bez portu na hoście) oraz `openclaw` (agent, dostaje
+tylko konfigurację modelu i token do MCP).
+
 ```bash
+echo "JDG_MCP_TOKEN=$(openssl rand -hex 32)" >> .env   # token Bearer OpenClaw -> jdg-mcp
 docker compose build           # obraz: Python 3.13 + LibreOffice + skille (najnowsze liby)
-docker compose up -d
+docker compose up -d           # openclaw startuje, gdy jdg-mcp ma status healthy
 docker compose ps
+
+# Raz: rejestracja narzędzi jdg w OpenClaw (zapisuje się w volume openclaw-state)
+docker compose exec openclaw sh -c 'openclaw mcp add jdg --url http://jdg-mcp:8765/mcp \
+  --transport streamable-http --header "Authorization=Bearer $JDG_MCP_TOKEN"'
+docker compose exec openclaw openclaw mcp probe jdg     # oczekiwane: jdg: 34 tools
 ```
 
 ### 2.5 Konfiguracja modelu agenta OpenClaw (Claude API)
@@ -188,14 +198,14 @@ Bramka startuje na domyślnym modelu i ignoruje `OPENCLAW_MODEL` env (patrz
 volume `openclaw-state`:
 
 ```bash
-docker exec jdg-ksiegowy openclaw config set agents.defaults.model "anthropic/claude-sonnet-4-6"
+docker exec jdg-ksiegowy openclaw config set agents.defaults.model "anthropic/claude-sonnet-5-5"
 docker compose restart
-# Weryfikacja — powinno pokazać anthropic/claude-sonnet-4-6 (nie openai/gpt-5.4):
+# Weryfikacja — powinno pokazać anthropic/claude-sonnet-5-5 (nie openai/gpt-5.4):
 docker logs jdg-ksiegowy 2>&1 | grep -i "agent model"
 ```
 
-> Model: `claude-sonnet-4-6` (bilans koszt/jakość dla pracy narzędziowej skilli).
-> `claude-opus-4-8` jeśli zależy na maksymalnej jakości rozumowania podatkowego.
+> Model: `claude-sonnet-5-5` (bilans koszt/jakość dla pracy narzędziowej; na nim przechodzą
+> ewaluacje wtyczki). `claude-opus-5-5`, jeśli zależy na maksymalnej jakości rozumowania.
 > `ANTHROPIC_API_KEY` z `.env` autoryzuje providera anthropic w OpenClaw.
 
 ---

@@ -66,6 +66,11 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run jdg --help
 uv run jdg tax calc --net 10500
 uv run jdg schema                       # kontrakt komend dla agentow
+uv run jdg mcp serve                    # te same komendy jako narzedzia MCP (stdio; http dla compose)
+
+# Wtyczka (Claude Code / Codex) — wymaga `jdg` w PATH: uv tool install --editable .
+claude plugin validate --strict plugins/jdg-ksiegowy && claude plugin validate --strict .
+claude plugin eval plugins/jdg-ksiegowy --ablation none   # ewaluacje (platne wywolania modelu)
 ```
 
 ## Darmowy hosting
@@ -79,7 +84,11 @@ Na tej maszynie użyj qwen3.5:9b (6.6 GB) — 35b się nie zmieści w 24 GB RAM.
 - ZUS/podatki: single source of truth w `src/jdg_ksiegowy/tax/zus.py`
 - Nowa funkcja = przypadek uzycia w `app/` (model wejscia/wyjscia) + komenda w `cli/`;
   czynnosci nieodwracalne przez `require_confirmation` (dwufazowo, z audytem)
-- Kontrakt CLI pilnuje `tests/golden/schema.json` (UPDATE_GOLDEN=1 po swiadomej zmianie)
+- Kontrakt CLI pilnuje `tests/golden/schema.json` (UPDATE_GOLDEN=1 po swiadomej zmianie;
+  odswieza tez `plugins/jdg-ksiegowy/evals/mocks/jdg/_tools.json`)
+- Kazda komenda z `@command` jest automatycznie narzedziem MCP; komendy tylko do odczytu
+  oznaczaj `read_only=True`, nieodwracalne `confirmable=True` (+ matcher w hooks.json)
+- Skille opisuja komendy `jdg`; test dryfu odrzuca nieistniejace komendy/opcje i komendy bez opisu
 - Logika biznesowa dostaje modele domenowe z `registry.repository`, nie rekordy ORM
 - Kwoty w bazie jako grosze (INTEGER), w Pythonie `Decimal`
 - Dane sprzedawcy TYLKO z .env (zero hardkodu)

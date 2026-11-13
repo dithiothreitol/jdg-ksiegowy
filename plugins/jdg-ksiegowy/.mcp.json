@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "jdg": {
+      "command": "jdg",
+      "args": ["mcp", "serve"]
+    }
+  }
+}

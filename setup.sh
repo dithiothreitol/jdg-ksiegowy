@@ -90,8 +90,12 @@ ok "OpenClaw $(openclaw --version 2>&1 || echo 'installed')"
 echo ""
 echo "Step 5/7: Installing Python dependencies..."
 
-pip install -e . --quiet 2>/dev/null || pip install -e .
-ok "Python library installed"
+command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --frozen --no-dev
+# `jdg` w PATH: CLI dla skilli OpenClaw i serwer MCP dla wtyczek Claude Code / Codex.
+# Instalacja edytowalna wskazuje JDG_HOME na to repozytorium (.env + data/).
+uv tool install --editable . --force
+ok "jdg $(jdg --version) w PATH"
 
 # --- 6. Configure .env ---
 echo ""
@@ -131,7 +135,7 @@ fi
 echo ""
 echo "Step 7/7: Initializing database..."
 
-python3 -c "from jdg_ksiegowy.registry.db import init_db; init_db()"
+jdg doctor --human || warn "Uzupelnij .env wg wskazowek doctor (mozna pozniej)"
 ok "Database: data/jdg_ksiegowy.db"
 
 # --- 8. OpenClaw onboarding ---
@@ -147,6 +151,9 @@ echo "  3. Connect a channel -> choose 'whatsapp' or 'telegram'"
 echo ""
 
 openclaw onboard
+
+# Narzedzia jdg dla agenta OpenClaw: serwer MCP po stdio (te same komendy co CLI).
+openclaw mcp add jdg --command jdg --arg mcp --arg serve &&   ok "MCP: jdg (34 narzedzia)" || warn "Rejestracja MCP nie powiodla sie — openclaw mcp add jdg --command jdg --arg mcp --arg serve"
 
 # --- 9. Register cron jobs ---
 # Harmonogram jest deterministyczny: cron uruchamia `jdg`, a agent tylko powiadamia.
@@ -178,6 +185,10 @@ echo "  Useful commands:"
 echo "    openclaw logs          — View agent logs"
 echo "    openclaw cron list     — List scheduled jobs"
 echo "    openclaw skills list   — List loaded skills"
+echo ""
+echo "  Claude Code / Codex (ta sama wtyczka, wymaga jdg w PATH):"
+echo "    claude plugin marketplace add $(pwd) && claude plugin install jdg-ksiegowy@jdg-ksiegowy"
+echo "    codex plugin marketplace add $(pwd) && codex plugin add jdg-ksiegowy@jdg-ksiegowy"
 echo ""
 echo "  Documentation:"
 echo "    INSTALL.md             — Full installation guide"

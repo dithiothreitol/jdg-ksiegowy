@@ -72,7 +72,7 @@ def scan(
     return app.scan_expense(file, save=save)
 
 
-@command(expense, "list", output=app.ExpenseList, prefix="expense")
+@command(expense, "list", output=app.ExpenseList, prefix="expense", read_only=True)
 def list_(
     year: Annotated[int | None, typer.Option()] = None,
     month: Annotated[int | None, typer.Option(min=1, max=12)] = None,
