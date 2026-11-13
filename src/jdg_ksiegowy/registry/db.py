@@ -274,9 +274,22 @@ def upgrade(engine: Engine, revision: str = "head") -> None:
     cfg = Config()
     cfg.set_main_option("script_location", str(MIGRATIONS_DIR))
     cfg.attributes["data_dir"] = DATA_DIR
-    with engine.begin() as connection:
-        cfg.attributes["connection"] = connection
-        command.upgrade(cfg, revision)
+    sqlite = engine.dialect.name == "sqlite"
+    with engine.connect() as connection:
+        # Tryb wsadowy Alembica przebudowuje tabele (DROP + RENAME); z wlaczonymi kluczami
+        # obcymi DROP rodzica kaskadowo kasuje dzieci (pozycje faktur). PRAGMA dziala tylko
+        # poza transakcja, a polaczenie wraca do puli — wiec przywracamy ON na koniec.
+        if sqlite:
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()  # zamyka autobegin SQLAlchemy przed transakcja migracji
+        try:
+            with connection.begin():
+                cfg.attributes["connection"] = connection
+                command.upgrade(cfg, revision)
+        finally:
+            if sqlite:
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                connection.commit()
 
 
 def get_session() -> Session:

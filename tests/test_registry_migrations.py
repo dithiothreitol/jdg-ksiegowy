@@ -77,22 +77,43 @@ def test_v02_database_migrates_with_data(tmp_path, monkeypatch):
     path = tmp_path / "legacy.db"
     engine = create_engine(f"sqlite:///{path}")
     _create_v02_schema(engine)
-    db.upgrade(engine)
+    xml = tmp_path / "faktura.xml"
+    xml.write_text(
+        '<Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/"><Fa>'
+        "<FaWiersz><P_7>Konsultacje</P_7><P_8A>h</P_8A><P_8B>10</P_8B><P_9A>1050.029</P_9A>"
+        "<P_12>23</P_12></FaWiersz>"
+        "<FaWiersz><P_7>Dojazd</P_7><P_8B>1</P_8B><P_9A>0</P_9A><P_12>23</P_12></FaWiersz>"
+        "</Fa></Faktura>",
+        encoding="utf-8",
+    )
+    with engine.begin() as c:
+        c.execute(text("UPDATE invoices SET xml_path = :p"), {"p": str(xml)})
+    engine.dispose()
 
+    # Sciezka produkcyjna: silnik z PRAGMA foreign_keys=ON (regresja: kaskada przy
+    # przebudowie tabeli `invoices` kasowala pozycje faktur).
+    monkeypatch.setattr(settings, "db_url", f"sqlite:///{path}")
+    monkeypatch.setattr(db_module, "_engine", None)
+    monkeypatch.setattr(db_module, "_SessionFactory", None)
+    db_module.init_db()
+
+    engine = db_module.get_engine()
     tables = set(inspect(engine).get_table_names())
     assert {"invoice_items", "filings", "audit_log", "tax_payments", "contracts"} <= tables
     with engine.connect() as c:
         assert c.execute(text("SELECT total_net FROM invoices")).scalar() == 1050029
         assert c.execute(text("SELECT vat_deduction_pct FROM expenses")).scalar() == 0
-
-    monkeypatch.setattr(settings, "db_url", f"sqlite:///{path}")
-    monkeypatch.setattr(db_module, "_engine", None)
-    monkeypatch.setattr(db_module, "_SessionFactory", None)
+        assert c.execute(text("SELECT count(*) FROM invoice_items")).scalar() == 2
+        assert c.execute(text("PRAGMA foreign_keys")).scalar() == 1  # przywrocone po migracji
 
     inv = InvoiceRepository().get("A1/05/2026")
     assert inv.total_net == Decimal("10500.29")
     assert inv.total_vat == Decimal("2415.07")
-    assert len(inv.items) == 1 and inv.items[0].vat_rate == Decimal("23.00")
+    assert [(i.description, i.quantity, i.unit) for i in inv.items] == [
+        ("Konsultacje", Decimal("10"), "h"),
+        ("Dojazd", Decimal("1"), "usl."),
+    ]
+    assert inv.items[0].vat_rate == Decimal("23.00")
     # stary numer referencyjny zostaje numerem wysylki, NIE numerem KSeF
     assert inv.ksef_reference == "20260531-EE-REF"
     assert inv.ksef_number is None
