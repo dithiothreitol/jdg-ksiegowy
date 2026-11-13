@@ -33,6 +33,11 @@ os.environ["SELLER_BUSINESS_START_DATE"] = ""
 os.environ["SELLER_ZUS_SOCIAL_MODE"] = "auto"
 os.environ["SELLER_EMPLOYMENT_GROSS_ABOVE_MIN"] = "false"
 os.environ["SELLER_ZUS_VOLUNTARY_SICKNESS"] = "false"
+# Wyjscie Rich niezalezne od terminala, z ktorego uruchomiono testy: waski COLUMNS lamal
+# tabele, a FORCE_COLOR / TTY_COMPATIBLE dokladaja kody ANSI do sprawdzanego tekstu.
+os.environ["COLUMNS"] = "200"
+os.environ.pop("FORCE_COLOR", None)
+os.environ.pop("TTY_COMPATIBLE", None)
 
 import pytest
 
