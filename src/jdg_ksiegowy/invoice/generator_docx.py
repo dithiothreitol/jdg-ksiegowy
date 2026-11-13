@@ -16,10 +16,40 @@ from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.invoice.models import Invoice, InvoiceKind
 from jdg_ksiegowy.ksef.qr import qr_png
 
+NBSP = " "
+# A4 z marginesami 1,5 cm: 18 cm szerokosci na tabele.
+PAGE_MARGIN = Cm(1.5)
+PARTY_WIDTHS = [Cm(9), Cm(9)]
+ITEM_COLUMNS = [
+    ("Lp", Cm(0.8)),
+    ("Opis", Cm(5.2)),
+    ("Ilość", Cm(1.3)),
+    ("J.m.", Cm(1.1)),
+    ("Cena netto", Cm(2.1)),
+    ("Wart. netto", Cm(2.2)),
+    ("VAT %", Cm(1.2)),
+    ("Kwota VAT", Cm(1.9)),
+    ("Wart. brutto", Cm(2.2)),
+]
+
+
+def _amount(value: Decimal) -> str:
+    """Zapis polski: twarda spacja tysiecy (kwota sie nie lamie) i przecinek dziesietny."""
+    return f"{value:,.2f}".replace(",", NBSP).replace(".", ",")
+
 
 def _format_pln(amount: Decimal) -> str:
-    """Formatuj kwote jako PLN."""
-    return f"{amount:,.2f} PLN".replace(",", " ")
+    return f"{_amount(amount)}{NBSP}PLN"
+
+
+def _set_widths(table, widths) -> None:
+    """LibreOffice (PDF dla klienta) czyta siatke tabeli (w:gridCol), Word komorki (w:tcW)."""
+    table.autofit = False
+    for column, width in zip(table.columns, widths, strict=True):
+        column.width = width
+    for row in table.rows:
+        for cell, width in zip(row.cells, widths, strict=True):
+            cell.width = width
 
 
 def _format_date(d: date) -> str:
@@ -48,13 +78,19 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | Non
     seller = settings.seller
     doc = Document()
 
+    # --- Strona A4 (szablon python-docx ma domyslnie format Letter) ---
+    section = doc.sections[0]
+    section.page_width, section.page_height = Cm(21), Cm(29.7)
+    section.left_margin = section.right_margin = PAGE_MARGIN
+    section.top_margin = section.bottom_margin = PAGE_MARGIN
+
     # --- Styl dokumentu ---
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(10)
 
     # --- Naglowek: FAKTURA VAT ---
-    title = "FAKTURA KORYGUJACA" if invoice.kind is InvoiceKind.KOR else "FAKTURA VAT"
+    title = "FAKTURA KORYGUJĄCA" if invoice.kind is InvoiceKind.KOR else "FAKTURA VAT"
     heading = doc.add_heading(f"{title} nr {invoice.number}", level=1)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in heading.runs:
@@ -64,8 +100,8 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | Non
     dates_para = doc.add_paragraph()
     dates_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     dates_para.add_run(f"Data wystawienia: {_format_date(invoice.issue_date)}\n").font.size = Pt(9)
-    dates_para.add_run(f"Data sprzedazy: {_format_date(invoice.sale_date)}\n").font.size = Pt(9)
-    dates_para.add_run(f"Termin platnosci: {_format_date(invoice.payment_due)}").font.size = Pt(9)
+    dates_para.add_run(f"Data sprzedaży: {_format_date(invoice.sale_date)}\n").font.size = Pt(9)
+    dates_para.add_run(f"Termin płatności: {_format_date(invoice.payment_due)}").font.size = Pt(9)
 
     if invoice.period_from and invoice.period_to:
         dates_para.add_run(
@@ -106,21 +142,12 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | Non
     p.add_run(f"{invoice.buyer.address}\n")
     id_type, id_value = invoice.buyer.identifier_for_xml()
     p.add_run({"NIP": f"NIP: {id_value}", "NrVatUE": f"VAT UE: {id_value}"}.get(id_type, ""))
+    _set_widths(parties_table, PARTY_WIDTHS)
 
     doc.add_paragraph()  # spacer
 
     # --- Tabela pozycji ---
-    headers = [
-        "Lp",
-        "Opis",
-        "Ilosc",
-        "J.m.",
-        "Cena netto",
-        "Wart. netto",
-        "VAT %",
-        "Kwota VAT",
-        "Wart. brutto",
-    ]
+    headers = [name for name, _ in ITEM_COLUMNS]
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -135,14 +162,14 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | Non
         cells = row.cells
         _set_cell_text(cells[0], str(idx), align="center")
         _set_cell_text(cells[1], item.description)
-        _set_cell_text(cells[2], str(item.quantity), align="center")
+        _set_cell_text(cells[2], f"{item.quantity.normalize():f}".replace(".", ","), align="center")
         _set_cell_text(cells[3], item.unit, align="center")
-        _set_cell_text(cells[4], f"{item.unit_price_net:.2f}", align="right")
-        _set_cell_text(cells[5], f"{item.net_value:.2f}", align="right")
+        _set_cell_text(cells[4], _amount(item.unit_price_net), align="right")
+        _set_cell_text(cells[5], _amount(item.net_value), align="right")
         rate = item.vat_code.lower() if item.vat_code else f"{item.vat_rate.normalize():f}%"
         _set_cell_text(cells[6], rate, align="center")
-        _set_cell_text(cells[7], f"{item.vat_amount:.2f}", align="right")
-        _set_cell_text(cells[8], f"{item.gross_value:.2f}", align="right")
+        _set_cell_text(cells[7], _amount(item.vat_amount), align="right")
+        _set_cell_text(cells[8], _amount(item.gross_value), align="right")
 
     # Wiersz podsumowania
     summary_row = table.add_row()
@@ -151,25 +178,20 @@ def generate_invoice_docx(invoice: Invoice, output_path: Path, qr_url: str | Non
     _set_cell_text(summary_row.cells[2], "")
     _set_cell_text(summary_row.cells[3], "")
     _set_cell_text(summary_row.cells[4], "")
-    _set_cell_text(summary_row.cells[5], f"{invoice.total_net:.2f}", bold=True, align="right")
+    _set_cell_text(summary_row.cells[5], _amount(invoice.total_net), bold=True, align="right")
     _set_cell_text(summary_row.cells[6], "")
-    _set_cell_text(summary_row.cells[7], f"{invoice.total_vat:.2f}", bold=True, align="right")
-    _set_cell_text(summary_row.cells[8], f"{invoice.total_gross:.2f}", bold=True, align="right")
-
-    # Ustawienia szerokosc kolumn
-    widths = [Cm(1), Cm(6), Cm(1.2), Cm(1.2), Cm(2.2), Cm(2.2), Cm(1.2), Cm(2.2), Cm(2.5)]
-    for row in table.rows:
-        for i, w in enumerate(widths):
-            row.cells[i].width = w
+    _set_cell_text(summary_row.cells[7], _amount(invoice.total_vat), bold=True, align="right")
+    _set_cell_text(summary_row.cells[8], _amount(invoice.total_gross), bold=True, align="right")
+    _set_widths(table, [width for _, width in ITEM_COLUMNS])
 
     doc.add_paragraph()  # spacer
 
     # --- Podsumowanie kwot ---
     summary = doc.add_paragraph()
-    summary.add_run(f"Do zaplaty: {_format_pln(invoice.total_gross)}\n").bold = True
-    summary.add_run("Forma platnosci: przelew bankowy\n")
+    summary.add_run(f"Do zapłaty: {_format_pln(invoice.total_gross)}\n").bold = True
+    summary.add_run("Forma płatności: przelew bankowy\n")
     summary.add_run(f"Nr konta: {seller.bank_account}\n")
-    summary.add_run(f"Termin platnosci: {_format_date(invoice.payment_due)}")
+    summary.add_run(f"Termin płatności: {_format_date(invoice.payment_due)}")
 
     if invoice.notes:
         doc.add_paragraph()

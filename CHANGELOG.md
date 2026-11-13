@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), wersje: [SemVer](https://semver.org/lang/pl/).
 
+## [1.0.1] — 2026-11-13
+
+### Naprawione
+
+- Wizualizacja faktury (DOCX i PDF wysylany klientom): szerokosci kolumn zapisane takze w siatce
+  tabeli, dzieki czemu LibreOffice nie lamie kwot w polowie; strona A4 z marginesami 1,5 cm,
+  polskie znaki w etykietach ("Do zapłaty", "Termin płatności") i polski zapis kwot
+  (`1 230,00` z twarda spacja tysiecy).
+
 ## [1.0.0] — 2026-11-13
 
 Wersja 1.0 przebudowuje projekt ze zbioru skryptow skilli w biblioteke z warstwa przypadkow
