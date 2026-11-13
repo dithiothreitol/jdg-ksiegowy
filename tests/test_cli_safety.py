@@ -313,6 +313,12 @@ def test_mail_requires_confirmation(monkeypatch):
     )
     number = _issue()
     code, payload = jdg("invoice", "mail", number, "--to", "klient@example.com")
+    assert code == ExitCode.DOMAIN and "ksef send" in payload["error"]["hint"]  # brak numeru KSeF
+
+    from jdg_ksiegowy.registry.repository import InvoiceRepository
+
+    InvoiceRepository().mark_sent_ksef(number, reference="R", ksef_number=KSEF_NUMBER)
+    code, payload = jdg("invoice", "mail", number, "--to", "klient@example.com")
     assert code == ExitCode.CONFIRMATION
     assert payload["error"]["details"]["summary"]["do"] == "klient@example.com"
     assert sent_mail == []

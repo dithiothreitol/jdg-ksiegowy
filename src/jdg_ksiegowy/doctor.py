@@ -17,13 +17,14 @@ from datetime import date
 from pathlib import Path
 
 from jdg_ksiegowy.config import settings
+from jdg_ksiegowy.tax.zus import PARAMS
 from jdg_ksiegowy.validators import validate_nip, validate_pesel
 
 
 @dataclass
 class Finding:
     level: str  # "ok" | "warn" | "error"
-    area: str  # "seller" | "ksef" | "mf" | "smtp" | "ocr"
+    area: str  # "seller" | "ksef" | "mf" | "smtp" | "ocr" | "calendar" | "tax"
     message: str
 
 
@@ -226,7 +227,23 @@ def run_doctor() -> DoctorReport:
     _check_smtp(report)
     _check_ocr(report)
     _check_calendar(report)
+    _check_tax_params(report)
     return report
+
+
+def _check_tax_params(report: DoctorReport) -> None:
+    """Parametry ZUS na biezacy rok musza byc w kodzie, inaczej kalkulacje sie zatrzymaja."""
+    year = date.today().year
+    if year in PARAMS:
+        report.findings.append(Finding("ok", "tax", f"Parametry ZUS na {year} obecne"))
+    else:
+        report.findings.append(
+            Finding(
+                "warn",
+                "tax",
+                f"Brak parametrow ZUS na {year} — dopisz je w tax/zus.py po publikacji GUS/ZUS",
+            )
+        )
 
 
 def format_report(report: DoctorReport) -> str:

@@ -128,7 +128,7 @@ def test_migration_is_idempotent(tmp_path):
     db.upgrade(engine)
     db.upgrade(engine)  # drugie wywolanie nic nie robi
     with engine.connect() as c:
-        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0002"
+        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0003"
 
 
 @pytest.mark.parametrize(

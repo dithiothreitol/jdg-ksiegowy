@@ -114,3 +114,11 @@ class TestFormatReport:
         text = format_report(report)
         assert "Podsumowanie" in text
         assert "Gotowość" in text
+
+
+def test_missing_zus_params_for_current_year_is_warning(fresh_settings, monkeypatch):
+    from jdg_ksiegowy import doctor
+
+    monkeypatch.setattr(doctor, "PARAMS", {})
+    tax = [f for f in run_doctor().findings if f.area == "tax"]
+    assert [f.level for f in tax] == ["warn"] and "tax/zus.py" in tax[0].message

@@ -30,7 +30,7 @@ def test_snapshot_with_empty_db():
     # Standardowe terminy obecne (ryczalt/ZUS/VAT za marzec)
     labels = [r.label for r in snap.reminders]
     assert any("Ryczalt za 03/2026" in lb for lb in labels)
-    assert any("ZUS zdrowotne za 03/2026" in lb for lb in labels)
+    assert any("ZUS za 03/2026" in lb for lb in labels)
     assert any("VAT + JPK_V7M za 03/2026" in lb for lb in labels)
 
 

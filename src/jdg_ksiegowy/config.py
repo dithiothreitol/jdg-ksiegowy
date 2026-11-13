@@ -108,7 +108,7 @@ class OCRConfig(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "pixtral:12b"
     ollama_timeout: float = 120.0  # CPU inference moze byc wolna
-    claude_model: str = "claude-haiku-4-5-20251001"
+    claude_model: str = "claude-haiku-5-5"
     claude_max_tokens: int = 1024
 
 

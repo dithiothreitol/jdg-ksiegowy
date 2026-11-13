@@ -7,6 +7,7 @@ import os
 import sqlite3
 import tarfile
 import tempfile
+from contextlib import closing
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -47,10 +48,14 @@ class StatusView(BaseModel):
     month_expenses_net: Decimal
     month_expenses_vat: Decimal
     estimated_ryczalt: Decimal
-    estimated_zus_health: Decimal
+    estimated_zus: Decimal | None
+    tax_microaccount: str | None
+    notes: list[str]
 
 
 def status(today: date | None = None) -> StatusView:
+    from jdg_ksiegowy.app.tax import tax_microaccount
+
     snap = Dashboard(today=today).snapshot()
     return StatusView(
         today=snap.today,
@@ -72,7 +77,9 @@ def status(today: date | None = None) -> StatusView:
         month_expenses_net=snap.month_expenses_net,
         month_expenses_vat=snap.month_expenses_vat,
         estimated_ryczalt=snap.estimated_ryczalt,
-        estimated_zus_health=snap.estimated_zus,
+        estimated_zus=snap.estimated_zus,
+        tax_microaccount=tax_microaccount(),
+        notes=snap.notes,
     )
 
 
@@ -185,7 +192,7 @@ def _archive() -> bytes:
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory() as tmp:
         snapshot = Path(tmp) / "jdg_ksiegowy.db"
-        with sqlite3.connect(_db_file()) as conn:
+        with closing(sqlite3.connect(_db_file())) as conn:
             conn.execute("VACUUM INTO ?", (str(snapshot),))
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(snapshot, arcname="jdg_ksiegowy.db")
@@ -200,7 +207,7 @@ def _verify(blob: bytes, fernet: Fernet) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         with tarfile.open(fileobj=io.BytesIO(fernet.decrypt(blob)), mode="r:gz") as tar:
             tar.extract("jdg_ksiegowy.db", path=tmp, filter="data")
-        with sqlite3.connect(Path(tmp) / "jdg_ksiegowy.db") as conn:
+        with closing(sqlite3.connect(Path(tmp) / "jdg_ksiegowy.db")) as conn:
             result = conn.execute("PRAGMA integrity_check").fetchone()[0]
     if result != "ok":
         raise ExternalServiceError(f"Kopia bazy w backupie jest uszkodzona: {result}")

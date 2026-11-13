@@ -1,25 +1,26 @@
-"""Generator snapshotu JDG: nadchodzace/zalegle terminy, stan faktur, podsumowanie miesiaca.
+"""Stan ksiegowosci na dzien: terminy z kwotami, faktury po terminie, podsumowanie miesiaca.
 
-Dashboard czyta wylacznie rejestr (repozytoria) i liczy terminy z `tax.zus`
-i `invoice.calculator` — nie siega do sieci.
+Czyta rejestr (faktury, koszty, zaplaty, deklaracje) i nie siega do sieci. Kwoty
+zobowiazan licza te same funkcje co raporty (`tax.obligations`, `tax.vat_period`).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from enum import StrEnum
-from typing import Literal
 
 from jdg_ksiegowy.config import settings
 from jdg_ksiegowy.expenses.models import Expense
-from jdg_ksiegowy.invoice.calculator import get_tax_deadlines
 from jdg_ksiegowy.invoice.models import Invoice
-from jdg_ksiegowy.registry.repository import ExpenseRepository, InvoiceRepository
-from jdg_ksiegowy.tax.income import income_date
-from jdg_ksiegowy.tax.jpk import settle_vat
-from jdg_ksiegowy.tax.zus import get_zus_tier
+from jdg_ksiegowy.registry.repository import TaxPayment, TaxPaymentRepository
+from jdg_ksiegowy.tax.deadlines import monthly_deadlines
+from jdg_ksiegowy.tax.obligations import monthly_contributions, monthly_ryczalt, social_mode_on
+from jdg_ksiegowy.tax.vat_period import VatLedger, previous
+from jdg_ksiegowy.tax.zus import MissingTaxParamsError
+
+ZERO = Decimal("0")
 
 
 class ReminderLevel(StrEnum):
@@ -27,18 +28,17 @@ class ReminderLevel(StrEnum):
     WARN = "warn"  # termin za 1-7 dni
     URGENT = "urgent"  # dzis lub jutro
     OVERDUE = "overdue"  # po terminie
+    PAID = "paid"  # zaplacone (wg ewidencji zaplat)
 
 
 @dataclass(frozen=True)
 class Reminder:
-    """Pojedynczy termin/przypomnienie."""
-
-    label: str  # "Ryczalt za marzec 2026"
+    label: str
     due_date: date
-    amount: Decimal | None  # None gdy nieznana
+    amount: Decimal | None  # None gdy nie da sie policzyc
     level: ReminderLevel
     days_until: int  # ujemne = po terminie
-    key: str = ""  # stabilny identyfikator do synchronizacji z kalendarzem
+    key: str = ""  # stabilny identyfikator (synchronizacja z kalendarzem)
 
 
 @dataclass
@@ -47,26 +47,25 @@ class DashboardSnapshot:
     reminders: list[Reminder] = field(default_factory=list)
     unpaid_invoices: list[Invoice] = field(default_factory=list)
     overdue_invoices: list[Invoice] = field(default_factory=list)
-    month_sales_net: Decimal = Decimal("0")
-    month_sales_vat: Decimal = Decimal("0")
-    month_expenses_net: Decimal = Decimal("0")
-    month_expenses_vat: Decimal = Decimal("0")
-    estimated_ryczalt: Decimal = Decimal("0")
-    estimated_zus: Decimal = Decimal("0")
+    month_sales_net: Decimal = ZERO
+    month_sales_vat: Decimal = ZERO
+    month_expenses_net: Decimal = ZERO
+    month_expenses_vat: Decimal = ZERO
+    estimated_ryczalt: Decimal = ZERO
+    estimated_zus: Decimal | None = ZERO
+    notes: list[str] = field(default_factory=list)
 
 
 class Dashboard:
-    """Liczy snapshot stanu ksiegowosci na zadany dzien."""
-
     def __init__(self, today: date | None = None):
         self.today = today or date.today()
 
     def snapshot(self) -> DashboardSnapshot:
-        invoices = InvoiceRepository().list()
-        expenses = ExpenseRepository().list()
-
-        prev_month = self.today.month - 1 if self.today.month > 1 else 12
-        prev_year = self.today.year if self.today.month > 1 else self.today.year - 1
+        ledger = VatLedger.load()
+        invoices, expenses = ledger.invoices, ledger.expenses
+        payments = TaxPaymentRepository().list()
+        year, month = self.today.year, self.today.month
+        prev_year, prev_month = previous((year, month))
 
         snap = DashboardSnapshot(today=self.today)
         snap.unpaid_invoices = [
@@ -75,134 +74,87 @@ class Dashboard:
         snap.overdue_invoices = [
             i for i in invoices if not i.paid_at and i.payment_due < self.today
         ]
-        snap.month_sales_net, snap.month_sales_vat = self._sum_invoices(
-            invoices, self.today.year, self.today.month, by="sale_date"
-        )
-        snap.month_expenses_net, snap.month_expenses_vat = self._sum_expenses(
-            expenses, self.today.year, self.today.month
-        )
+        current = [i for i in invoices if (i.sale_date.year, i.sale_date.month) == (year, month)]
+        snap.month_sales_net = sum((i.total_net for i in current), ZERO)
+        snap.month_sales_vat = sum((i.total_vat for i in current), ZERO)
+        snap.month_expenses_net, snap.month_expenses_vat = _deductible(expenses, year, month)
 
-        # Ryczalt za poprzedni miesiac (platne do 20-go obecnego) — przychod ryczaltowca
-        # wg daty uzyskania przychodu (art. 14 ust. 1c, jak PIT-28): min(sale_date, issue_date).
-        prev_sales_net, _ = self._sum_invoices(invoices, prev_year, prev_month, by="income")
-        snap.estimated_ryczalt = (prev_sales_net * settings.seller.ryczalt_rate / 100).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
+        snap.estimated_ryczalt = monthly_ryczalt(
+            invoices, payments, prev_year, prev_month, settings.seller.ryczalt_rate
+        ).tax
+        try:
+            snap.estimated_zus = monthly_contributions(
+                invoices,
+                payments,
+                prev_year,
+                prev_month,
+                social_mode=social_mode_on(date(prev_year, prev_month, 1)),
+                voluntary_sickness=settings.seller.zus_voluntary_sickness,
+            ).total
+        except MissingTaxParamsError as e:
+            snap.estimated_zus = None
+            snap.notes.append(str(e))
+        vat_to_pay = ledger.settlement((prev_year, prev_month)).to_pay
+
+        snap.reminders = self._tax_reminders(
+            prev_year, prev_month, snap.estimated_ryczalt, snap.estimated_zus, vat_to_pay, payments
         )
-
-        # ZUS zdrowotne — biezacy miesiac (platne do 20-go nastepnego miesiaca)
-        annual_estimate = prev_sales_net * 12
-        tier = get_zus_tier(annual_estimate)
-        snap.estimated_zus = tier.monthly_contribution
-
-        # VAT do zaplaty za poprzedni miesiac (szacunkowo) — ta sama logika co JPK_V7M
-        # (P_51), zeby przypomnienie nie rozjechalo sie ze zlozona deklaracja.
-        # Okres VAT wg daty sprzedazy (moment obowiazku podatkowego, art. 19a).
-        _, prev_sales_vat = self._sum_invoices(invoices, prev_year, prev_month, by="sale_date")
-        prev_expenses = [
-            e
-            for e in expenses
-            if e.receive_date.year == prev_year and e.receive_date.month == prev_month
-        ]
-        estimated_vat = settle_vat(prev_sales_vat, prev_expenses).to_pay
-
-        snap.reminders = self._build_reminders(
-            prev_month, prev_year, snap.estimated_ryczalt, snap.estimated_zus, estimated_vat
-        )
-        snap.reminders.extend(self._invoice_reminders(snap.overdue_invoices, snap.unpaid_invoices))
+        snap.reminders += self._invoice_reminders(snap.overdue_invoices, snap.unpaid_invoices)
         snap.reminders.sort(key=lambda r: r.due_date)
         return snap
 
-    def _sum_invoices(
+    def _tax_reminders(
         self,
-        records: list[Invoice],
         year: int,
         month: int,
-        *,
-        by: Literal["sale_date", "income"],
-    ) -> tuple[Decimal, Decimal]:
-        """Zsumuj netto/VAT faktur danego miesiaca wg wybranej daty granicznej.
-
-        `by="sale_date"` — okres VAT/JPK (moment obowiazku podatkowego, art. 19a);
-        `by="income"`    — okres przychodu ryczaltowego (art. 14 ust. 1c, jak PIT-28).
-        Faktura za usluge z miesiaca M wystawiona w M+1: VAT trafia do M (sale_date),
-        a przychod ryczaltowy rowniez do M (data wykonania uslugi wczesniejsza niz wystawienie).
-        """
-        period_date = income_date if by == "income" else (lambda r: r.sale_date)
-        filtered = [r for r in records if (d := period_date(r)).year == year and d.month == month]
-        net = sum((r.total_net for r in filtered), Decimal("0"))
-        vat = sum((r.total_vat for r in filtered), Decimal("0"))
-        return net, vat
-
-    def _sum_expenses(
-        self, records: list[Expense], year: int, month: int
-    ) -> tuple[Decimal, Decimal]:
-        filtered = [
-            r for r in records if r.receive_date.year == year and r.receive_date.month == month
-        ]
-        net = sum((r.deductible_net for r in filtered), Decimal("0"))
-        vat = sum((r.deductible_vat for r in filtered), Decimal("0"))
-        return net, vat
-
-    def _build_reminders(
-        self,
-        prev_month: int,
-        prev_year: int,
         ryczalt: Decimal,
-        zus: Decimal,
-        vat: Decimal | None,
+        zus: Decimal | None,
+        vat: Decimal,
+        payments: list[TaxPayment],
     ) -> list[Reminder]:
-        deadlines = get_tax_deadlines(prev_month, prev_year)
-        period = f"{prev_year}-{prev_month:02d}"
-        month_name = f"{prev_month:02d}/{prev_year}"
+        deadlines = monthly_deadlines(month, year)
+        period = f"{year}-{month:02d}"
+        name = f"{month:02d}/{year}"
+        paid = {p.type for p in payments if (p.year, p.month) == (year, month) and p.paid_at}
         items = [
-            (f"ryczalt-{period}", "Ryczalt za " + month_name, deadlines["ryczalt"], ryczalt),
-            (f"zus-{period}", "ZUS zdrowotne za " + month_name, deadlines["zus_health"], zus),
-            (f"vat_jpk-{period}", "VAT + JPK_V7M za " + month_name, deadlines["vat_jpk"], vat),
+            (f"ryczalt-{period}", f"Ryczalt za {name}", deadlines["ryczalt"], ryczalt, "ryczalt"),
+            (f"zus-{period}", f"ZUS za {name}", deadlines["zus"], zus, "zus_health"),
+            (f"vat_jpk-{period}", f"VAT + JPK_V7M za {name}", deadlines["vat_jpk"], vat, "vat"),
         ]
-        return [self._make_reminder(key, label, due, amount) for key, label, due, amount in items]
+        return [
+            self._reminder(key, label, due, amount, paid=kind in paid)
+            for key, label, due, amount, kind in items
+        ]
 
-    def _invoice_reminders(
-        self,
-        overdue: list[Invoice],
-        unpaid: list[Invoice],
-    ) -> list[Reminder]:
-        reminders: list[Reminder] = []
-        for inv in overdue:
-            days = (inv.payment_due - self.today).days
-            reminders.append(
-                Reminder(
-                    label=f"Faktura {inv.number} ({inv.buyer.name}) — PO TERMINIE",
-                    due_date=inv.payment_due,
-                    amount=inv.total_gross,
-                    level=ReminderLevel.OVERDUE,
-                    days_until=days,
-                    key=f"invoice-{inv.number}",
-                )
+    def _invoice_reminders(self, overdue: list[Invoice], unpaid: list[Invoice]) -> list[Reminder]:
+        out = [
+            self._reminder(
+                f"invoice-{inv.number}",
+                f"Faktura {inv.number} ({inv.buyer.name}) — PO TERMINIE",
+                inv.payment_due,
+                inv.total_gross,
             )
-        for inv in unpaid:
-            days = (inv.payment_due - self.today).days
-            if days <= 7:
-                reminders.append(
-                    Reminder(
-                        label=f"Faktura {inv.number} ({inv.buyer.name})",
-                        due_date=inv.payment_due,
-                        amount=inv.total_gross,
-                        level=self._level_for(days),
-                        days_until=days,
-                        key=f"invoice-{inv.number}",
-                    )
-                )
-        return reminders
+            for inv in overdue
+        ]
+        out += [
+            self._reminder(
+                f"invoice-{inv.number}",
+                f"Faktura {inv.number} ({inv.buyer.name})",
+                inv.payment_due,
+                inv.total_gross,
+            )
+            for inv in unpaid
+            if (inv.payment_due - self.today).days <= 7
+        ]
+        return out
 
-    def _make_reminder(self, key: str, label: str, due: date, amount: Decimal | None) -> Reminder:
+    def _reminder(
+        self, key: str, label: str, due: date, amount: Decimal | None, *, paid: bool = False
+    ) -> Reminder:
         days = (due - self.today).days
+        level = ReminderLevel.PAID if paid else self._level_for(days)
         return Reminder(
-            label=label,
-            due_date=due,
-            amount=amount,
-            level=self._level_for(days),
-            days_until=days,
-            key=key,
+            label=label, due_date=due, amount=amount, level=level, days_until=days, key=key
         )
 
     @staticmethod
@@ -214,3 +166,11 @@ class Dashboard:
         if days_until <= 7:
             return ReminderLevel.WARN
         return ReminderLevel.INFO
+
+
+def _deductible(expenses: list[Expense], year: int, month: int) -> tuple[Decimal, Decimal]:
+    rows = [e for e in expenses if (e.receive_date.year, e.receive_date.month) == (year, month)]
+    return (
+        sum((e.deductible_net for e in rows), ZERO),
+        sum((e.deductible_vat for e in rows), ZERO),
+    )

@@ -22,7 +22,7 @@ from jdg_ksiegowy.app import audit as audit_app
 from jdg_ksiegowy.app import system as app
 from jdg_ksiegowy.app.errors import ExitCode
 from jdg_ksiegowy.cli.expenses import expense
-from jdg_ksiegowy.cli.invoices import invoice, payment
+from jdg_ksiegowy.cli.invoices import buyer, invoice, payment
 from jdg_ksiegowy.cli.jpk import jpk
 from jdg_ksiegowy.cli.ksef import ksef
 from jdg_ksiegowy.cli.output import STATE, command, stderr
@@ -39,6 +39,7 @@ calendar = typer.Typer(help="Terminy podatkowe w Google Calendar.", no_args_is_h
 
 for group, name in (
     (invoice, "invoice"),
+    (buyer, "buyer"),
     (payment, "payment"),
     (ksef, "ksef"),
     (expense, "expense"),

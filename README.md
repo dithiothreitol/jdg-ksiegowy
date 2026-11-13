@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/KSeF_2.0-FA(3)_e2e-green" alt="KSeF 2.0" />
   <img src="https://img.shields.io/badge/JPK__V7M-v3_(TNS_14090)-green" alt="JPK_V7M" />
   <img src="https://img.shields.io/badge/JPK__EWP-v4_shipped-green" alt="JPK_EWP" />
-  <img src="https://img.shields.io/badge/ZUS_DRA-KEDU_v5.05-green" alt="ZUS DRA" />
+  <img src="https://img.shields.io/badge/ZUS-cumulative_health_tier-green" alt="ZUS" />
   <img src="https://img.shields.io/badge/OCR-Pixtral_+_Claude_Haiku-blue" alt="OCR" />
   <img src="https://img.shields.io/badge/MF_Gateway-REST_+_AES%2BRSA-blue" alt="MF Gateway" />
   <img src="https://img.shields.io/badge/tests-180_passing-green" alt="Tests" />
@@ -85,7 +85,8 @@ Honest state per feature &mdash; see [Status](#status) below for the full pictur
 - **JPK_V7M generator** &mdash; schema v3, TNS `crd.gov.pl/wzor/2025/12/19/14090/` (CRWDE 2025-12-19, obowiązuje od 2026-02-01), K-field mapping per VAT rate
 - **JPK_EWP generator** &mdash; roczna ewidencja przychodów ryczałtowca, TNS `jpk.mf.gov.pl/wzor/2024/10/30/10301/`
 - **MF Gateway submission** &mdash; direct REST to e-dokumenty.mf.gov.pl with AES-256-CBC + RSA-OAEP, ZIP compression, status polling, UPO retrieval, autoryzacja danymi (no qualified signature required)
-- **ZUS DRA** &mdash; monthly declaration in KEDU v5.05 format, health contribution by ryczalt income brackets
+- **ZUS contributions** &mdash; `jdg tax zus`: health contribution tier by cumulative YTD revenue (minus paid social), social contributions by mode; amounts for DRA in PUE/eZUS
+- **Tax payments ledger** &mdash; `jdg tax pay` closes reminders and feeds deductions; tax micro-account (mikrorachunek) shown in `jdg status`
 - **PIT-28** &mdash; annual ryczalt report with monthly income aggregation
 
 **Utilities**
@@ -130,7 +131,8 @@ Verified against the actual codebase on 2026-04-17:
 | JPK_V7M v3 (TNS 14090) | **Shipped** | [tax/jpk.py](src/jdg_ksiegowy/tax/jpk.py) |
 | JPK_EWP v4 (TNS 10301) | **Shipped** | [tax/ewp.py](src/jdg_ksiegowy/tax/ewp.py) |
 | MF Gateway submit (AES+RSA, UPO) | **Shipped + E2E** | [mf_gateway/crypto.py](src/jdg_ksiegowy/mf_gateway/crypto.py), [test_mf_crypto.py](tests/test_mf_crypto.py), sandbox |
-| ZUS DRA (KEDU v5.05) | **Shipped** | `jdg tax dra` — [zus/dra.py](src/jdg_ksiegowy/zus/dra.py) |
+| ZUS contributions (cumulative health tier) | **Shipped** | `jdg tax zus` — [tax/obligations.py](src/jdg_ksiegowy/tax/obligations.py) |
+| Tax payments + micro-account | **Shipped** | `jdg tax pay`, `jdg status` — [tax/microaccount.py](src/jdg_ksiegowy/tax/microaccount.py) |
 | PIT-28 annual report | **Shipped** | `jdg tax pit28` — [tax/pit28.py](src/jdg_ksiegowy/tax/pit28.py) |
 | Status dashboard | **Shipped** | `jdg status` — [status/dashboard.py](src/jdg_ksiegowy/status/dashboard.py) |
 | Tax calculator (2026 rates) | **Shipped** | [tax/zus.py](src/jdg_ksiegowy/tax/zus.py) |
@@ -185,7 +187,6 @@ jdg-ksiegowy/
 │   ├── ksef/                   #   KSeF 2.0 client (ksef2 SDK wrapper)
 │   ├── mf_gateway/             #   REST submit, AES-256-CBC + RSA-OAEP
 │   ├── tax/                    #   JPK_V7M v3, JPK_EWP v4, ZUS, PIT-28
-│   ├── zus/                    #   ZUS DRA KEDU builder
 │   ├── status/                 #   Dashboard aggregations
 │   └── registry/               #   SQLite registry, Alembic migrations, repositories
 │
@@ -358,7 +359,8 @@ Built for 2026 regulations:
 - **JPK_V7M v3** (TNS 14090, obowiazuje od 2026-02-01)
 - **JPK_EWP v4** (roczna ewidencja przychodow ryczaltowca)
 - Wysylka JPK do **bramki MF** (REST + AES + RSA, autoryzacja danymi, UPO)
-- **ZUS DRA** (KEDU v5.05) &mdash; skladki zdrowotne wg progow rycztaltu
+- **Skladki ZUS** &mdash; zdrowotna wg przychodu narastajaco, spoleczne wg trybu (kwoty do DRA w PUE/eZUS)
+- **Rejestr wplat** podatkow i skladek + mikrorachunek podatkowy
 - **PIT-28** &mdash; roczny raport rycztaltowca
 
 **Narzedzia**
