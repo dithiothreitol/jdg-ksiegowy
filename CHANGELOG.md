@@ -30,9 +30,10 @@ uzycia, jednym CLI `jdg`, serwerem MCP i wtyczka dla OpenClaw, Claude Code i Cod
   korekty FA(3) KOR z odwolaniem do numeru KSeF oryginalu, Biala lista MF (`jdg buyer lookup`).
 - **JPK**: `NrKSeF` zamiast `BFK`, przeniesienie nadwyzki P_39, pola K_10..K_22, walidacja XSD
   offline, rejestr zlozonych deklaracji ze statusem i odmowa ponownego zlozenia pierwotnej.
-- **Podatki**: terminy przesuwane na dni robocze, skladka zdrowotna wg przychodu narastajaco,
-  rejestr wplat (`jdg tax pay`), mikrorachunek podatkowy, PIT-28 z odliczeniami i doplata,
-  `jdg tax zus`; brak parametrow ZUS na nowy rok zglasza `jdg doctor`.
+- **Podatki**: terminy przesuwane na dni robocze (przypadki brzegowe: #8, dzieki @webglobepl),
+  skladka zdrowotna wg przychodu narastajaco, rejestr wplat (`jdg tax pay`), mikrorachunek
+  podatkowy, PIT-28 z odliczeniami i doplata, `jdg tax zus`; brak parametrow ZUS na nowy rok
+  zglasza `jdg doctor`.
 - **Backup** `jdg backup`: spojna kopia (`VACUUM INTO`), szyfrowanie Fernet, weryfikacja,
   retencja dzienna i miesieczna.
 - Migracje bazy (Alembic) uruchamiane automatycznie; kwoty w groszach.

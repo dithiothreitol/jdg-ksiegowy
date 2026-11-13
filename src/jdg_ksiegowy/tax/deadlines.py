@@ -1,8 +1,10 @@
 """Terminy podatkowe i skladkowe z przesunieciem na dzien roboczy.
 
 Ordynacja podatkowa art. 12 § 5: gdy ostatni dzien terminu przypada w sobote lub dzien
-ustawowo wolny od pracy, termin uplywa nastepnego dnia roboczego. Te sama zasade stosuje
-ZUS. Ryczalt za grudzien jest platny do 20 stycznia (od rozliczenia za 2023 r.),
+ustawowo wolny od pracy, termin uplywa nastepnego dnia roboczego. Do skladek ZUS przepis
+stosuje sie odpowiednio (art. 31 ustawy o systemie ubezpieczen spolecznych). Dni wolne:
+ustawa z 18 stycznia 1951 r. o dniach wolnych od pracy (Wigilia od 2025 r.).
+Ryczalt za grudzien jest platny do 20 stycznia (od rozliczenia za 2023 r.),
 zeznanie PIT-28 do 30 kwietnia, JPK_EWP razem z zeznaniem.
 """
 
